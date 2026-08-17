@@ -1,0 +1,273 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+
+import '../models/display_server.dart';
+import 'app_logger.dart';
+import 'ffmpeg_process_manager.dart';
+import 'linux_desktop.dart';
+import 'xdg_portal_screenshot.dart';
+
+/// Captures a still of the desktop so the region overlay can dim a real image
+/// without depending on GTK window transparency.
+class DesktopSnapshotService {
+  DesktopSnapshotService({
+    ProcessRunner runner = const ProcessRunner(),
+    Future<File?> Function(File destination)? portalCapture,
+    bool Function()? isGnomeDesktop,
+  })  : _runner = runner,
+        _portalCapture = portalCapture ?? XdgPortalScreenshot().captureTo,
+        _isGnomeDesktop = isGnomeDesktop ?? (() => LinuxDesktop.isGnome);
+
+  final ProcessRunner _runner;
+  final Future<File?> Function(File destination) _portalCapture;
+  final bool Function() _isGnomeDesktop;
+
+  Future<File?> capture(DesktopGeometry geometry) async {
+    final file = File(
+      p.join(
+        Directory.systemTemp.path,
+        'screen_recorder_snap_${DateTime.now().millisecondsSinceEpoch}.png',
+      ),
+    );
+
+    if (geometry.displayServer == DisplayServer.wayland) {
+      // x11grab on Wayland captures the XWayland root, which is typically
+      // a black screen. Never use it for the overlay on Wayland.
+      if (!_isGnomeDesktop()) {
+        final grim = await _tryGrim(file);
+        if (grim != null) {
+          return grim;
+        }
+      }
+
+      final portal = await _tryPortal(file);
+      if (portal != null) {
+        return portal;
+      }
+
+      // Never start a GNOME Screencast for a still. The service stops as
+      // soon as a one-shot gdbus caller disconnects, which shows
+      // "Screencast ended unexpectedly" and can poison the later recording.
+
+      final gnomeCli = await _tryGnomeScreenshot(file);
+      if (gnomeCli != null) {
+        return gnomeCli;
+      }
+      final gnomeDbus = await _tryGnomeScreenshotDbus(file);
+      if (gnomeDbus != null) {
+        return gnomeDbus;
+      }
+      final gnomeArea = await _tryGnomeScreenshotArea(file, geometry);
+      if (gnomeArea != null) {
+        return gnomeArea;
+      }
+      final grim = await _tryGrim(file);
+      if (grim != null) {
+        return grim;
+      }
+      AppLogger.warn(
+        'Wayland desktop snapshot failed; overlay will dim a transparent window',
+      );
+      return null;
+    }
+
+    final ffmpeg = await _tryFfmpegX11(file, geometry);
+    if (ffmpeg != null) {
+      return ffmpeg;
+    }
+
+    final magick = await _tryImageMagick(file);
+    if (magick != null) {
+      return magick;
+    }
+
+    final portal = await _tryPortal(file);
+    if (portal != null) {
+      return portal;
+    }
+
+    final gnome = await _tryGnomeScreenshot(file);
+    if (gnome != null) {
+      return gnome;
+    }
+
+    AppLogger.warn('Desktop snapshot failed; overlay will use a dim fill');
+    return null;
+  }
+
+  Future<File?> _tryPortal(File file) async {
+    try {
+      return await _portalCapture(file);
+    } catch (error, stack) {
+      AppLogger.warn('XDG screenshot portal unavailable: $error\n$stack');
+      return null;
+    }
+  }
+
+  Future<File?> _tryGrim(File file) async {
+    try {
+      final result = await _runner.run(
+        'grim',
+        [file.path],
+        timeout: const Duration(seconds: 4),
+      );
+      if (result.exitCode == 0 && await _usable(file)) {
+        AppLogger.info('Snapshot via grim: ${file.path}');
+        return file;
+      }
+      AppLogger.debug('grim snapshot failed: ${result.stderr}');
+    } on ProcessException catch (error) {
+      AppLogger.debug('grim unavailable: $error');
+    } on TimeoutException catch (error) {
+      AppLogger.debug('grim timed out: $error');
+    }
+    return null;
+  }
+
+  Future<File?> _tryFfmpegX11(File file, DesktopGeometry geometry) async {
+    final display = geometry.displayName ?? Platform.environment['DISPLAY'];
+    if (display == null || display.isEmpty || geometry.width <= 0) {
+      return null;
+    }
+    try {
+      final result = await _runner.run(
+        'ffmpeg',
+        [
+          '-y',
+          '-f',
+          'x11grab',
+          '-video_size',
+          '${geometry.width}x${geometry.height}',
+          '-i',
+          '$display+${geometry.minX},${geometry.minY}',
+          '-frames:v',
+          '1',
+          file.path,
+        ],
+        timeout: const Duration(seconds: 8),
+      );
+      if (result.exitCode == 0 && await _usable(file)) {
+        AppLogger.info('Snapshot via ffmpeg x11grab: ${file.path}');
+        return file;
+      }
+      AppLogger.debug('ffmpeg snapshot failed: ${result.stderr}');
+    } on ProcessException catch (error) {
+      AppLogger.debug('ffmpeg snapshot unavailable: $error');
+    } on TimeoutException catch (error) {
+      AppLogger.debug('ffmpeg snapshot timed out: $error');
+    }
+    return null;
+  }
+
+  Future<File?> _tryImageMagick(File file) async {
+    try {
+      final result = await _runner.run(
+        'import',
+        ['-window', 'root', file.path],
+        timeout: const Duration(seconds: 4),
+      );
+      if (result.exitCode == 0 && await _usable(file)) {
+        AppLogger.info('Snapshot via ImageMagick import: ${file.path}');
+        return file;
+      }
+    } on ProcessException catch (error) {
+      AppLogger.debug('import unavailable: $error');
+    } on TimeoutException catch (error) {
+      AppLogger.debug('import timed out: $error');
+    }
+    return null;
+  }
+
+  Future<File?> _tryGnomeScreenshot(File file) async {
+    try {
+      final result = await _runner.run(
+        'gnome-screenshot',
+        ['-f', file.path],
+        timeout: const Duration(seconds: 4),
+      );
+      if (result.exitCode == 0 && await _usable(file)) {
+        AppLogger.info('Snapshot via gnome-screenshot: ${file.path}');
+        return file;
+      }
+      AppLogger.debug(
+        'gnome-screenshot failed: ${result.stdout} ${result.stderr}',
+      );
+    } on ProcessException catch (error) {
+      AppLogger.debug('gnome-screenshot unavailable: $error');
+    } on TimeoutException catch (error) {
+      AppLogger.debug('gnome-screenshot timed out: $error');
+    }
+    return null;
+  }
+
+  Future<File?> _tryGnomeScreenshotDbus(File file) async {
+    try {
+      final result = await _runner.run(
+        'gdbus',
+        buildGnomeScreenshotArgs(file.path),
+        timeout: const Duration(seconds: 4),
+      );
+      final snap = await _fileFromGdbus(result, file);
+      if (snap != null) {
+        AppLogger.info('Snapshot via GNOME Screenshot D-Bus: ${snap.path}');
+        return snap;
+      }
+      AppLogger.debug(
+        'GNOME Screenshot D-Bus failed: ${result.stdout} ${result.stderr}',
+      );
+    } on ProcessException catch (error) {
+      AppLogger.debug('GNOME Screenshot D-Bus unavailable: $error');
+    } on TimeoutException catch (error) {
+      AppLogger.debug('GNOME Screenshot D-Bus timed out: $error');
+    }
+    return null;
+  }
+
+  Future<File?> _tryGnomeScreenshotArea(
+    File file,
+    DesktopGeometry geometry,
+  ) async {
+    try {
+      final result = await _runner.run(
+        'gdbus',
+        buildGnomeScreenshotAreaArgs(
+          x: geometry.minX,
+          y: geometry.minY,
+          width: geometry.width,
+          height: geometry.height,
+          outputPath: file.path,
+        ),
+        timeout: const Duration(seconds: 4),
+      );
+      final snap = await _fileFromGdbus(result, file);
+      if (snap != null) {
+        AppLogger.info('Snapshot via GNOME ScreenshotArea: ${snap.path}');
+        return snap;
+      }
+    } on ProcessException catch (error) {
+      AppLogger.debug('GNOME ScreenshotArea unavailable: $error');
+    } on TimeoutException catch (error) {
+      AppLogger.debug('GNOME ScreenshotArea timed out: $error');
+    }
+    return null;
+  }
+
+  Future<File?> _fileFromGdbus(ProcessResult result, File fallback) async {
+    if (result.exitCode != 0 || !parseGdbusBoolean(result.stdout.toString())) {
+      return null;
+    }
+    final returned = parseGdbusSuccessPath(result.stdout.toString());
+    final snap =
+        returned == null || returned.isEmpty ? fallback : File(returned);
+    if (await _usable(snap)) {
+      return snap;
+    }
+    return null;
+  }
+
+  Future<bool> _usable(File file) async {
+    return await file.exists() && await file.length() > 64;
+  }
+}

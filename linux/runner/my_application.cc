@@ -14,6 +14,24 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+static GtkWidget* find_gl_area(GtkWidget* widget) {
+  if (GTK_IS_GL_AREA(widget)) {
+    return widget;
+  }
+  if (GTK_IS_CONTAINER(widget)) {
+    GList* children = gtk_container_get_children(GTK_CONTAINER(widget));
+    for (GList* iter = children; iter != NULL; iter = g_list_next(iter)) {
+      GtkWidget* gl_area = find_gl_area(GTK_WIDGET(iter->data));
+      if (gl_area != NULL) {
+        g_list_free(children);
+        return gl_area;
+      }
+    }
+    g_list_free(children);
+  }
+  return NULL;
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
@@ -45,14 +63,24 @@ static void my_application_activate(GApplication* application) {
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "screen_recorder_app");
+    gtk_header_bar_set_title(header_bar, "Screen Recorder");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "screen_recorder_app");
+    gtk_window_set_title(window, "Screen Recorder");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  gtk_window_set_default_size(window, 460, 380);
+
+  // Enable RGBA so the region overlay can use a transparent Flutter view.
+  gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
+  {
+    GdkScreen* gdk_screen = gtk_window_get_screen(window);
+    GdkVisual* visual = gdk_screen_get_rgba_visual(gdk_screen);
+    if (visual != nullptr && gdk_screen_is_composited(gdk_screen)) {
+      gtk_widget_set_visual(GTK_WIDGET(window), visual);
+    }
+  }
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
@@ -60,12 +88,15 @@ static void my_application_activate(GApplication* application) {
 
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;
-  // Background defaults to black, override it here if necessary, e.g. #00000000
-  // for transparent.
-  gdk_rgba_parse(&background_color, "#000000");
+  gdk_rgba_parse(&background_color, "#00000000");
   fl_view_set_background_color(view, &background_color);
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
+
+  GtkWidget* gl_area = find_gl_area(GTK_WIDGET(view));
+  if (gl_area != nullptr) {
+    gtk_gl_area_set_has_alpha(GTK_GL_AREA(gl_area), TRUE);
+  }
 
   // Show the window when Flutter renders.
   // Requires the view to be realized so we can start rendering.

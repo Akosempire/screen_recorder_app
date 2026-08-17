@@ -1,30 +1,56 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:screen_recorder_app/app.dart';
+import 'package:screen_recorder_app/controllers/recording_controller.dart';
+import 'package:screen_recorder_app/models/screen_region.dart';
+import 'package:screen_recorder_app/services/file_save_service.dart';
+import 'package:screen_recorder_app/services/screen_recorder.dart';
 
-import 'package:screen_recorder_app/main.dart';
+class _NoopRecorder implements ScreenRecorder {
+  @override
+  String get backendName => 'test';
+
+  @override
+  bool get isRecording => false;
+
+  @override
+  Future<void> start(ScreenRegion region) async {}
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> resume() async {}
+
+  @override
+  Future<String?> stop() async => null;
+}
+
+class _NoopSave implements FileSaveService {
+  @override
+  Future<String?> chooseSaveLocation({
+    String suggestedName = 'recording.mp4',
+    String? initialDirectory,
+  }) async {
+    return null;
+  }
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('home screen shows start recording and status', (tester) async {
+    final controller = RecordingController(
+      recorder: _NoopRecorder(),
+      fileSaveService: _NoopSave(),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      ScreenRecorderApp(
+        controller: controller,
+        manageWindows: false,
+      ),
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Start Recording'), findsOneWidget);
+    expect(find.text('Status: Ready'), findsOneWidget);
+    expect(find.textContaining('Ctrl+Shift+R'), findsOneWidget);
   });
 }
