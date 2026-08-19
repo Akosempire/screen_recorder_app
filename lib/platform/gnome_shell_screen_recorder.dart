@@ -22,7 +22,8 @@ import '../services/screen_recorder.dart';
 /// vanishes, which is what a one-shot `gdbus call` does.
 ///
 /// Pause/resume stops and restarts the GNOME screencast (it has no pause
-/// API). Segments are remuxed/transcoded to MP4 with FFmpeg on stop.
+/// API). Stop returns the captured file as-is (WebM/MP4); paused segments
+/// are concatenated with a stream copy instead of a full re-encode.
 class GnomeShellScreenRecorder implements ScreenRecorder {
   GnomeShellScreenRecorder({
     ProcessRunner runner = const ProcessRunner(),
@@ -130,32 +131,20 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
       return null;
     }
 
-    final mp4 = p.join(dir.path, 'recording.mp4');
     if (segments.length == 1) {
-      await transcodeToMp4(
-        inputPath: segments.first,
-        outputPath: mp4,
-        encoder: encoder,
-        runner: _runner,
-      );
-      return mp4;
+      AppLogger.info('Keeping captured file without transcode: ${segments.first}');
+      return segments.first;
     }
 
-    final merged = p.join(dir.path, 'merged.webm');
-    await mergeMediaSegments(
+    final ext = p.extension(segments.first);
+    final merged = p.join(dir.path, 'merged${ext.isEmpty ? '.webm' : ext}');
+    return mergeMediaSegments(
       segments: segments,
       outputPath: merged,
       encoder: encoder,
       runner: _runner,
       sessionDir: dir.path,
     );
-    await transcodeToMp4(
-      inputPath: merged,
-      outputPath: mp4,
-      encoder: encoder,
-      runner: _runner,
-    );
-    return mp4;
   }
 
   Future<void> _startSegment() async {

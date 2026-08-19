@@ -221,7 +221,7 @@ class RecordingController extends ChangeNotifier {
     }
 
     _setState(RecordingState.saving);
-    final suggested = _suggestedName();
+    final suggested = _suggestedName(produced);
     final lastDirectory = await _lastSavePathStore.lastDirectory();
     String? destination;
     try {
@@ -249,7 +249,7 @@ class RecordingController extends ChangeNotifier {
       return;
     }
 
-    destination = _ensureVideoExtension(destination);
+    destination = _ensureVideoExtension(destination, produced);
     try {
       await _storage.persist(produced, destination);
       await _lastSavePathStore.remember(destination);
@@ -266,19 +266,32 @@ class RecordingController extends ChangeNotifier {
     }
   }
 
-  String _suggestedName() {
+  String _suggestedName(String producedPath) {
     final now = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
     return 'recording_${now.year}${two(now.month)}${two(now.day)}_'
-        '${two(now.hour)}${two(now.minute)}${two(now.second)}.mp4';
+        '${two(now.hour)}${two(now.minute)}${two(now.second)}'
+        '${_videoExtension(producedPath)}';
   }
 
-  String _ensureVideoExtension(String path) {
+  String _videoExtension(String path) {
     final ext = p.extension(path).toLowerCase();
     if (ext == '.mp4' || ext == '.mkv' || ext == '.webm') {
+      return ext;
+    }
+    return '.mp4';
+  }
+
+  String _ensureVideoExtension(String path, String sourcePath) {
+    final wanted = _videoExtension(sourcePath);
+    final destExt = p.extension(path).toLowerCase();
+    if (destExt == wanted) {
       return path;
     }
-    return '$path.mp4';
+    if (destExt == '.mp4' || destExt == '.mkv' || destExt == '.webm') {
+      return p.setExtension(path, wanted);
+    }
+    return '$path$wanted';
   }
 
   void clearError() {

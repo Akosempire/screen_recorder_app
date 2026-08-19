@@ -144,8 +144,7 @@ class SegmentingScreenRecorder implements ScreenRecorder {
       return segments.last;
     }
     final merged = p.join(dir.path, 'merged.mp4');
-    await _mergeSegments(segments, merged, dir.path);
-    return merged;
+    return _mergeSegments(segments, merged, dir.path);
   }
 
   Future<void> _startSegment() async {
@@ -205,7 +204,7 @@ class SegmentingScreenRecorder implements ScreenRecorder {
     await Future<void>.delayed(const Duration(milliseconds: 150));
   }
 
-  Future<void> _mergeSegments(
+  Future<String> _mergeSegments(
     List<String> segments,
     String outputPath,
     String sessionDir,
@@ -255,7 +254,7 @@ class SegmentingScreenRecorder implements ScreenRecorder {
   }
 }
 
-Future<void> mergeMediaSegments({
+Future<String> mergeMediaSegments({
   required List<String> segments,
   required String outputPath,
   required String encoder,
@@ -271,46 +270,26 @@ Future<void> mergeMediaSegments({
   await listFile.writeAsString(buffer.toString());
 
   AppLogger.info('Merging ${segments.length} segments into $outputPath');
-  var result = await runner.run('ffmpeg', [
-    '-y',
-    '-f',
-    'concat',
-    '-safe',
-    '0',
-    '-i',
-    listFile.path,
-    '-c',
-    'copy',
-    '-an',
-    '-movflags',
-    '+faststart',
-    outputPath,
-  ]);
+  var result = await runner.run(
+    'ffmpeg',
+    ffmpegConcatCopyArgs(listPath: listFile.path, outputPath: outputPath),
+  );
 
-  if (result.exitCode != 0) {
-    AppLogger.warn('Lossless concat failed (${result.stderr}); re-encoding');
-    result = await runner.run('ffmpeg', [
-      '-y',
-      '-f',
-      'concat',
-      '-safe',
-      '0',
-      '-i',
-      listFile.path,
-      '-c:v',
-      encoder,
-      '-preset',
-      'veryfast',
-      '-crf',
-      '23',
-      '-pix_fmt',
-      'yuv420p',
-      '-an',
-      '-movflags',
-      '+faststart',
-      outputPath,
-    ]);
+  if (result.exitCode == 0) {
+    return outputPath;
   }
+
+  AppLogger.warn('Lossless concat failed (${result.stderr}); re-encoding');
+  // libx264 cannot be muxed into WebM; fall back to MP4 if we have to encode.
+  final encodePath = _encodeOutputPath(outputPath, encoder);
+  result = await runner.run(
+    'ffmpeg',
+    ffmpegConcatEncodeArgs(
+      listPath: listFile.path,
+      encoder: encoder,
+      outputPath: encodePath,
+    ),
+  );
 
   if (result.exitCode != 0) {
     throw RecorderException(
@@ -318,63 +297,51 @@ Future<void> mergeMediaSegments({
       technicalDetails: result.stderr.toString(),
     );
   }
+  return encodePath;
 }
 
-Future<void> transcodeToMp4({
-  required String inputPath,
+String _encodeOutputPath(String outputPath, String encoder) {
+  final ext = p.extension(outputPath).toLowerCase();
+  if (ext == '.mp4' || encoder == 'mpeg4') {
+    return outputPath;
+  }
+  return p.setExtension(outputPath, '.mp4');
+}
+
+List<String> ffmpegConcatCopyArgs({
+  required String listPath,
   required String outputPath,
-  required String encoder,
-  required ProcessRunner runner,
-}) async {
-  if (p.extension(inputPath).toLowerCase() == '.mp4' && inputPath == outputPath) {
-    return;
-  }
-
-  // GNOME 46+ writes fragmented MP4. Remux when possible so timestamps
-  // and duration survive; re-encode WebM / broken containers.
-  if (p.extension(inputPath).toLowerCase() == '.mp4') {
-    final remux = await runner.run('ffmpeg', [
-      '-y',
-      '-i',
-      inputPath,
-      '-c',
-      'copy',
-      '-an',
-      '-movflags',
-      '+faststart',
-      outputPath,
-    ]);
-    if (remux.exitCode == 0) {
-      return;
-    }
-    AppLogger.warn('MP4 remux failed (${remux.stderr}); re-encoding');
-  }
-
-  final result = await runner.run('ffmpeg', [
+}) {
+  return [
     '-y',
-    '-fflags',
-    '+genpts',
+    '-f',
+    'concat',
+    '-safe',
+    '0',
     '-i',
-    inputPath,
-    '-c:v',
-    encoder,
-    '-preset',
-    'veryfast',
-    '-crf',
-    '23',
-    '-pix_fmt',
-    'yuv420p',
+    listPath,
+    '-c',
+    'copy',
     '-an',
-    '-movflags',
-    '+faststart',
     outputPath,
-  ]);
-  if (result.exitCode != 0) {
-    throw RecorderException(
-      userMessage: 'Could not convert the recording to MP4.',
-      technicalDetails: result.stderr.toString(),
-    );
-  }
+  ];
+}
+
+List<String> ffmpegConcatEncodeArgs({
+  required String listPath,
+  required String encoder,
+  required String outputPath,
+}) {
+  return [
+    '-y',
+    '-f',
+    'concat',
+    '-safe',
+    '0',
+    '-i',
+    listPath,
+    ...ffmpegEncodeArgs(encoder: encoder, outputPath: outputPath),
+  ];
 }
 
 List<String> ffmpegEncodeArgs({
@@ -386,12 +353,10 @@ List<String> ffmpegEncodeArgs({
     '-c:v',
     encoder,
     '-preset',
-    encoder == 'mpeg4' ? 'fast' : 'veryfast',
-    if (encoder != 'mpeg4') ...['-crf', '23'],
+    encoder == 'mpeg4' ? 'fast' : 'ultrafast',
+    if (encoder != 'mpeg4') ...['-crf', '23', '-threads', '0'],
     '-pix_fmt',
     'yuv420p',
-    '-movflags',
-    '+faststart',
     outputPath,
   ];
 }

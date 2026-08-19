@@ -17,6 +17,10 @@ void main() {
     expect(args, containsAllInOrder(['-video_size', '1280x720']));
     expect(args, containsAllInOrder(['-i', ':0.0+120,40']));
     expect(args, contains('-an'));
+    expect(args, containsAllInOrder(['-c:v', 'libx264']));
+    expect(args, containsAllInOrder(['-preset', 'ultrafast']));
+    expect(args, containsAllInOrder(['-threads', '0']));
+    expect(args.contains('+faststart'), isFalse);
     expect(args.contains('pulse'), isFalse);
     expect(args.contains('alsa'), isFalse);
     expect(args.last, '/tmp/out.mp4');
@@ -42,6 +46,27 @@ void main() {
     );
     expect(args, containsAllInOrder(['-g', '-100,50 640x480']));
     expect(args, containsAllInOrder(['-f', '/tmp/way.mp4']));
+  });
+
+  test('live encode args skip the slow faststart remux pass', () {
+    final args = ffmpegEncodeArgs(
+      encoder: 'libx264',
+      outputPath: '/tmp/out.mp4',
+    );
+    expect(args, containsAllInOrder(['-preset', 'ultrafast']));
+    expect(args, isNot(contains('-movflags')));
+    expect(args, isNot(contains('+faststart')));
+  });
+
+  test('concat copy does not rewrite the file with faststart', () {
+    final args = ffmpegConcatCopyArgs(
+      listPath: '/tmp/concat.txt',
+      outputPath: '/tmp/merged.webm',
+    );
+    expect(args, containsAllInOrder(['-f', 'concat']));
+    expect(args, containsAllInOrder(['-c', 'copy']));
+    expect(args, isNot(contains('-movflags')));
+    expect(args, isNot(contains('+faststart')));
   });
 
   test('parseXrandr reads connected monitors including negative offsets', () {

@@ -71,8 +71,9 @@ void main() {
 
   test('keeps the D-Bus session open while a segment is recording', () async {
     final session = _FakeGnomeSession();
+    final runner = _FakeFfmpegRunner();
     final recorder = GnomeShellScreenRecorder(
-      runner: _FakeFfmpegRunner(),
+      runner: runner,
       sessionFactory: () => session,
       wait: (_) async {},
     );
@@ -91,7 +92,31 @@ void main() {
     expect(session.stopCount, 1);
     expect(session.closed, isTrue);
     expect(path, isNotNull);
-    expect(path, endsWith('recording.mp4'));
+    expect(path, endsWith('segment_0.webm'));
+    expect(runner.ffmpegCount, 0);
+  });
+
+  test('concatenates paused GNOME segments with a stream copy', () async {
+    final session = _FakeGnomeSession();
+    final runner = _FakeFfmpegRunner();
+    final recorder = GnomeShellScreenRecorder(
+      runner: runner,
+      sessionFactory: () => session,
+      wait: (_) async {},
+    );
+
+    await recorder.start(
+      const ScreenRegion(x: 10, y: 20, width: 320, height: 240),
+    );
+    await recorder.pause();
+    await recorder.resume();
+    final path = await recorder.stop();
+
+    expect(session.startCount, 2);
+    expect(path, endsWith('merged.webm'));
+    expect(runner.ffmpegCount, 1);
+    expect(runner.lastArgs, containsAllInOrder(['-c', 'copy']));
+    expect(runner.lastArgs, isNot(contains('+faststart')));
   });
 }
 
@@ -121,7 +146,7 @@ class _FakeGnomeSession implements GnomeScreencastSession {
   }) async {
     startCount += 1;
     lastStem = filePathStem;
-    final file = File('$filePathStem.mp4');
+    final file = File('$filePathStem.webm');
     await file.writeAsBytes(List<int>.filled(4096, 7));
     return file.path;
   }
@@ -138,6 +163,9 @@ class _FakeGnomeSession implements GnomeScreencastSession {
 }
 
 class _FakeFfmpegRunner extends ProcessRunner {
+  int ffmpegCount = 0;
+  List<String> lastArgs = const [];
+
   @override
   Future<ProcessResult> run(
     String executable,
@@ -146,6 +174,8 @@ class _FakeFfmpegRunner extends ProcessRunner {
     Duration? timeout,
   }) async {
     if (executable == 'ffmpeg') {
+      ffmpegCount += 1;
+      lastArgs = List<String>.from(arguments);
       await File(arguments.last).writeAsBytes(List<int>.filled(80, 1));
       return ProcessResult(1, 0, '', '');
     }

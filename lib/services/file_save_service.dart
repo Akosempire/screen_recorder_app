@@ -23,6 +23,7 @@ class LinuxFileSaveService implements FileSaveService {
       initialDirectory: initialDirectory,
       acceptedTypeGroups: const [
         XTypeGroup(label: 'MP4 video', extensions: ['mp4']),
+        XTypeGroup(label: 'WebM video', extensions: ['webm']),
         XTypeGroup(label: 'Matroska video', extensions: ['mkv']),
       ],
     );

@@ -252,6 +252,28 @@ void main() {
     expect(await store.lastDirectory(), isNull);
   });
 
+  test('saves GNOME webm recordings without renaming them to mp4', () async {
+    final recorder = FakeScreenRecorder()..stopPath = '/tmp/fake-recording.webm';
+    final save = FakeSaveService()..path = '/home/user/Videos/out.mp4';
+    final storage = FakeStorage(files: {'/tmp/fake-recording.webm'});
+    final controller = buildController(
+      recorder: recorder,
+      save: save,
+      storage: storage,
+    );
+
+    controller.beginSelection();
+    controller.updateReadyRegion(
+      const ScreenRegion(x: 0, y: 0, width: 400, height: 400),
+    );
+    await controller.startRecording();
+    await controller.stopAndSave();
+
+    expect(save.lastSuggestedName, endsWith('.webm'));
+    expect(storage.persistedDestination, '/home/user/Videos/out.webm');
+    expect(controller.outputPath, '/home/user/Videos/out.webm');
+  });
+
   test('cancel selection returns to idle', () {
     final controller = buildController();
     controller.beginSelection();
