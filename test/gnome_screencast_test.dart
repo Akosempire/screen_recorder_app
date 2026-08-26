@@ -67,6 +67,18 @@ void main() {
     expect(args.join(' '), contains('videoconvert'));
     expect(args.join(' '), isNot(contains('glupload')));
     expect(args.join(' '), isNot(contains('openh264')));
+    expect(args.join(' '), isNot(contains('pulsesrc')));
+  });
+
+  test('GNOME mic pipeline muxes pulsesrc into webmmux', () {
+    expect(gnomeSoftwareWebmMicPipeline, contains('pulsesrc'));
+    expect(gnomeSoftwareWebmMicPipeline, contains('opusenc'));
+    expect(gnomeSoftwareWebmMicPipeline, contains('webmmux name=mux'));
+    expect(gnomeScreencastPipeline(recordMicrophone: true), contains('pulsesrc'));
+    expect(
+      gnomeScreencastPipeline(recordMicrophone: false),
+      gnomeSoftwareWebmPipeline,
+    );
   });
 
   test('keeps the D-Bus session open while a segment is recording', () async {
@@ -143,6 +155,7 @@ class _FakeGnomeSession implements GnomeScreencastSession {
     required int height,
     required String filePathStem,
     int fps = 30,
+    bool recordMicrophone = false,
   }) async {
     startCount += 1;
     lastStem = filePathStem;

@@ -11,13 +11,15 @@ class X11ScreenRecorder extends SegmentingScreenRecorder {
   }) : super(
           backendName: 'X11 / FFmpeg x11grab',
           stopStyle: StopStyle.ffmpegQuit,
-          commandBuilder: (region, outputPath) => CaptureCommand(
+          commandBuilder: (region, outputPath, recordMicrophone) =>
+              CaptureCommand(
             'ffmpeg',
             buildX11GrabArgs(
               region: region,
               display: display,
               outputPath: outputPath,
               encoder: encoder,
+              recordMicrophone: recordMicrophone,
             ),
           ),
         );

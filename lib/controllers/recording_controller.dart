@@ -42,6 +42,7 @@ class RecordingController extends ChangeNotifier {
   Timer? _ticker;
   DateTime? _segmentStartedAt;
   Duration _accumulated = Duration.zero;
+  bool _recordMicrophone = false;
 
   RecordingState get state => _state;
   ScreenRegion? get region => _region;
@@ -53,6 +54,7 @@ class RecordingController extends ChangeNotifier {
   DesktopGeometry? get geometry => _geometry;
   String get backendName => _recorder.backendName;
   bool get captureAvailable => _captureAvailable;
+  bool get recordMicrophone => _recordMicrophone;
 
   bool get canBeginSelection =>
       _captureAvailable && _state.canBeginSelection;
@@ -63,6 +65,19 @@ class RecordingController extends ChangeNotifier {
 
   void updateGeometry(DesktopGeometry geometry) {
     _geometry = geometry;
+    notifyListeners();
+  }
+
+  /// Microphone is mixed in from the default PulseAudio/PipeWire source.
+  /// Change this while selecting a region; it is locked in when capture starts.
+  void setRecordMicrophone(bool enabled) {
+    if (_recordMicrophone == enabled) {
+      return;
+    }
+    if (_state.isActiveCapture || _state.isBusy) {
+      return;
+    }
+    _recordMicrophone = enabled;
     notifyListeners();
   }
 
@@ -128,7 +143,7 @@ class RecordingController extends ChangeNotifier {
     _elapsed = Duration.zero;
     _accumulated = Duration.zero;
     try {
-      await _recorder.start(region);
+      await _recorder.start(region, recordMicrophone: _recordMicrophone);
       _segmentStartedAt = DateTime.now();
       _startTicker();
       _setState(RecordingState.recording);

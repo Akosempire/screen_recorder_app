@@ -9,6 +9,7 @@ import 'package:screen_recorder_app/services/screen_recorder.dart';
 
 class FakeScreenRecorder implements ScreenRecorder {
   ScreenRegion? started;
+  bool? startedWithMicrophone;
   int pauseCount = 0;
   int resumeCount = 0;
   int stopCount = 0;
@@ -22,11 +23,15 @@ class FakeScreenRecorder implements ScreenRecorder {
   bool get isRecording => started != null && stopCount == 0;
 
   @override
-  Future<void> start(ScreenRegion region) async {
+  Future<void> start(
+    ScreenRegion region, {
+    bool recordMicrophone = false,
+  }) async {
     if (failStart) {
       throw const RecorderException(userMessage: 'FFmpeg failed to start.');
     }
     started = region;
+    startedWithMicrophone = recordMicrophone;
   }
 
   @override
@@ -130,6 +135,7 @@ void main() {
     await controller.startRecording();
     expect(controller.state, RecordingState.recording);
     expect(recorder.started?.width, 800);
+    expect(recorder.startedWithMicrophone, isFalse);
 
     await controller.pause();
     expect(controller.state, RecordingState.paused);
@@ -280,5 +286,19 @@ void main() {
     controller.cancelSelection();
     expect(controller.state, RecordingState.idle);
     expect(controller.region, isNull);
+  });
+
+  test('passes the microphone switch into the capture backend', () async {
+    final recorder = FakeScreenRecorder();
+    final controller = buildController(recorder: recorder);
+
+    controller.setRecordMicrophone(true);
+    controller.beginSelection();
+    controller.updateReadyRegion(
+      const ScreenRegion(x: 0, y: 0, width: 400, height: 400),
+    );
+    await controller.startRecording();
+
+    expect(recorder.startedWithMicrophone, isTrue);
   });
 }

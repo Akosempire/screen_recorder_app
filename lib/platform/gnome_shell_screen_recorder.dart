@@ -43,6 +43,7 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
   Directory? _sessionDir;
   final List<String> _segments = [];
   ScreenRegion? _region;
+  bool _recordMicrophone = false;
   bool _active = false;
   bool _paused = false;
 
@@ -72,7 +73,10 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
   }
 
   @override
-  Future<void> start(ScreenRegion region) async {
+  Future<void> start(
+    ScreenRegion region, {
+    bool recordMicrophone = false,
+  }) async {
     if (!region.isValid) {
       throw RecorderException(
         userMessage:
@@ -81,6 +85,7 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
       );
     }
     _region = region.evenAligned();
+    _recordMicrophone = recordMicrophone;
     _paused = false;
     _segments.clear();
     _sessionDir = await Directory.systemTemp.createTemp('screen_recorder_');
@@ -123,9 +128,11 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
     _paused = false;
     final dir = _sessionDir;
     final segments = List<String>.from(_segments);
+    final recordMicrophone = _recordMicrophone;
     _segments.clear();
     _sessionDir = null;
     _region = null;
+    _recordMicrophone = false;
 
     if (segments.isEmpty || dir == null) {
       return null;
@@ -144,6 +151,7 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
       encoder: encoder,
       runner: _runner,
       sessionDir: dir.path,
+      recordMicrophone: recordMicrophone,
     );
   }
 
@@ -163,6 +171,7 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
       width: region.width,
       height: region.height,
       filePathStem: stem,
+      recordMicrophone: _recordMicrophone,
     );
     final path = await _waitForCaptureFile(output, stem);
     _segments.add(path);

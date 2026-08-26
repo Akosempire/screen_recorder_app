@@ -26,6 +26,23 @@ void main() {
     expect(args.last, '/tmp/out.mp4');
   });
 
+  test('X11 grab arguments mix in PulseAudio default when microphone is on', () {
+    const region = ScreenRegion(x: 120, y: 40, width: 1280, height: 720);
+    final args = buildX11GrabArgs(
+      region: region,
+      display: ':0.0',
+      outputPath: '/tmp/out.mp4',
+      encoder: 'libx264',
+      recordMicrophone: true,
+    );
+
+    expect(args, containsAllInOrder(['-f', 'x11grab']));
+    expect(args, containsAllInOrder(['-f', 'pulse', '-thread_queue_size', '512', '-i', 'default']));
+    expect(args, containsAllInOrder(['-c:a', 'aac']));
+    expect(args.contains('-an'), isFalse);
+    expect(args.last, '/tmp/out.mp4');
+  });
+
   test('even dimensions are forced for odd regions', () {
     const region = ScreenRegion(x: 1, y: 1, width: 321, height: 199);
     final args = buildX11GrabArgs(
@@ -45,6 +62,18 @@ void main() {
       outputPath: '/tmp/way.mp4',
     );
     expect(args, containsAllInOrder(['-g', '-100,50 640x480']));
+    expect(args, containsAllInOrder(['-f', '/tmp/way.mp4']));
+    expect(args.contains('-a'), isFalse);
+  });
+
+  test('wf-recorder adds -a when microphone is on', () {
+    const region = ScreenRegion(x: 0, y: 0, width: 640, height: 480);
+    final args = buildWfRecorderArgs(
+      region: region,
+      outputPath: '/tmp/way.mp4',
+      recordMicrophone: true,
+    );
+    expect(args, contains('-a'));
     expect(args, containsAllInOrder(['-f', '/tmp/way.mp4']));
   });
 
@@ -67,6 +96,17 @@ void main() {
     expect(args, containsAllInOrder(['-c', 'copy']));
     expect(args, isNot(contains('-movflags')));
     expect(args, isNot(contains('+faststart')));
+    expect(args, contains('-an'));
+  });
+
+  test('concat copy keeps audio when microphone was recorded', () {
+    final args = ffmpegConcatCopyArgs(
+      listPath: '/tmp/concat.txt',
+      outputPath: '/tmp/merged.mp4',
+      recordMicrophone: true,
+    );
+    expect(args, containsAllInOrder(['-c', 'copy']));
+    expect(args.contains('-an'), isFalse);
   });
 
   test('parseXrandr reads connected monitors including negative offsets', () {

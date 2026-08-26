@@ -56,6 +56,14 @@ class RecordingControls extends StatelessWidget {
                     height: 1.1,
                   ),
                 ),
+                if (controller.recordMicrophone) ...[
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.mic,
+                    size: 14,
+                    color: Color(0xFF26A69A),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 2),

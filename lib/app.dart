@@ -401,6 +401,8 @@ class _AppShellState extends State<AppShell> {
         onCancel: _cancelSelection,
         onRecord: _confirmRecord,
         onRegionChanged: _controller.updateReadyRegion,
+        recordMicrophone: _controller.recordMicrophone,
+        onRecordMicrophoneChanged: _controller.setRecordMicrophone,
       );
     }
 

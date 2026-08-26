@@ -22,6 +22,7 @@ abstract class GnomeScreencastSession {
     required int height,
     required String filePathStem,
     int fps = 30,
+    bool recordMicrophone = false,
   });
 
   Future<void> stop();
@@ -83,6 +84,7 @@ class DbusGnomeScreencastSession implements GnomeScreencastSession {
     required int height,
     required String filePathStem,
     int fps = 30,
+    bool recordMicrophone = false,
   }) async {
     await connect();
     final object = _object;
@@ -110,7 +112,9 @@ class DbusGnomeScreencastSession implements GnomeScreencastSession {
             'draw-cursor': const DBusBoolean(true),
             // Skip GNOME's DMABuf/GL encoder probes; they can "start" and
             // still write zero bytes when OpenH264 is not installed.
-            'pipeline': const DBusString(gnomeSoftwareWebmPipeline),
+            'pipeline': DBusString(
+              gnomeScreencastPipeline(recordMicrophone: recordMicrophone),
+            ),
           }),
         ],
         replySignature: DBusSignature('bs'),

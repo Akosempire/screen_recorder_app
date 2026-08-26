@@ -16,6 +16,8 @@ class RegionSelectionScreen extends StatefulWidget {
     this.snapshot,
     this.selection,
     this.onRegionChanged,
+    this.recordMicrophone = false,
+    this.onRecordMicrophoneChanged,
   });
 
   final DesktopGeometry geometry;
@@ -24,6 +26,8 @@ class RegionSelectionScreen extends StatefulWidget {
   final ValueChanged<ScreenRegion> onRecord;
   final VoidCallback onCancel;
   final ValueChanged<ScreenRegion>? onRegionChanged;
+  final bool recordMicrophone;
+  final ValueChanged<bool>? onRecordMicrophoneChanged;
 
   @override
   State<RegionSelectionScreen> createState() => _RegionSelectionScreenState();
@@ -212,9 +216,12 @@ class _RegionSelectionScreenState extends State<RegionSelectionScreen> {
                         canRecord: canRecord,
                         onRecord: _record,
                         onCancel: widget.onCancel,
-                            hint: canRecord
-                                ? 'Resize or move the box, then Record'
-                                : 'Drag on the desktop to select what to record',
+                        recordMicrophone: widget.recordMicrophone,
+                        onRecordMicrophoneChanged:
+                            widget.onRecordMicrophoneChanged,
+                        hint: canRecord
+                            ? 'Resize or move the box, then Record'
+                            : 'Drag on the desktop to select what to record',
                       ),
                     ),
                   ),
@@ -280,12 +287,16 @@ class _ActionBar extends StatelessWidget {
     required this.onRecord,
     required this.onCancel,
     required this.hint,
+    required this.recordMicrophone,
+    this.onRecordMicrophoneChanged,
   });
 
   final bool canRecord;
   final VoidCallback onRecord;
   final VoidCallback onCancel;
   final String hint;
+  final bool recordMicrophone;
+  final ValueChanged<bool>? onRecordMicrophoneChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -296,42 +307,97 @@ class _ActionBar extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               hint,
               style: const TextStyle(color: Color(0xFFB0BEC5), fontSize: 12),
             ),
-            const SizedBox(width: 18),
-            TextButton(
-              onPressed: onCancel,
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFCFD8DC),
-              ),
-              child: const Text('Cancel'),
-            ),
-            const SizedBox(width: 8),
-            FilledButton.icon(
-              onPressed: canRecord ? onRecord : null,
-              icon: const Icon(Icons.fiber_manual_record, size: 16),
-              label: const Text('Record'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFE53935),
-                disabledBackgroundColor: const Color(0xFF8B2E2E),
-                foregroundColor: Colors.white,
-                disabledForegroundColor: const Color(0xFFE0E0E0),
-                elevation: canRecord ? 3 : 0,
-                shadowColor: const Color(0x80E53935),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                textStyle: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _MicrophoneToggle(
+                  enabled: recordMicrophone,
+                  onChanged: onRecordMicrophoneChanged,
                 ),
-              ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: onCancel,
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFCFD8DC),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: canRecord ? onRecord : null,
+                  icon: const Icon(Icons.fiber_manual_record, size: 16),
+                  label: const Text('Record'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFE53935),
+                    disabledBackgroundColor: const Color(0xFF8B2E2E),
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor: const Color(0xFFE0E0E0),
+                    elevation: canRecord ? 3 : 0,
+                    shadowColor: const Color(0x80E53935),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MicrophoneToggle extends StatelessWidget {
+  const _MicrophoneToggle({
+    required this.enabled,
+    this.onChanged,
+  });
+
+  final bool enabled;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: enabled
+          ? 'Microphone on — your voice will be in the video'
+          : 'Microphone off — video only',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            enabled ? Icons.mic : Icons.mic_off,
+            size: 16,
+            color: enabled
+                ? const Color(0xFF26A69A)
+                : const Color(0xFF90A4AE),
+          ),
+          const SizedBox(width: 6),
+          const Text(
+            'Microphone',
+            style: TextStyle(color: Color(0xFFCFD8DC), fontSize: 12),
+          ),
+          const SizedBox(width: 4),
+          Switch(
+            value: enabled,
+            onChanged: onChanged,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
       ),
     );
   }

@@ -1,8 +1,10 @@
 import '../models/screen_region.dart';
 
-/// Capture backend abstraction. Implementations must capture video only.
+/// Capture backend abstraction.
 abstract class ScreenRecorder {
-  Future<void> start(ScreenRegion region);
+  /// Starts capture of [region]. When [recordMicrophone] is true, mixes in
+  /// the default PulseAudio/PipeWire source (typically the microphone).
+  Future<void> start(ScreenRegion region, {bool recordMicrophone = false});
 
   Future<void> pause();
 
@@ -34,7 +36,11 @@ class UnsupportedRecorder implements ScreenRecorder {
   }
 
   @override
-  Future<void> start(ScreenRegion region) async => _fail();
+  Future<void> start(
+    ScreenRegion region, {
+    bool recordMicrophone = false,
+  }) async =>
+      _fail();
 
   @override
   Future<void> pause() async => _fail();

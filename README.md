@@ -8,7 +8,7 @@ use `getDisplayMedia` or `MediaRecorder`.
 ## Features
 
 - Select an arbitrary rectangle (create, drag, resize from 8 handles)
-- Record **video only** (no microphone or system audio)
+- Optional **microphone** audio (switch on the region selector before Record)
 - Pause / resume (paused time is omitted from the final file)
 - Native GTK save dialog (directory, filename, `.mp4` / `.mkv`)
 - Keyboard shortcuts
@@ -98,12 +98,14 @@ Run it:
 2. The app hides, snapshots the desktop, and shows a fullscreen selector.
 3. Click and drag to create a rectangle. Drag inside to move; use the handles
    to resize. Minimum size is **100×100** pixels.
-4. Click **Record** (or press Enter). The overlay is hidden before capture
+4. Turn **Microphone** on if you want your voice in the video (off = video only).
+   This uses the default PulseAudio / PipeWire source, not system audio.
+5. Click **Record** (or press Enter). The overlay is hidden before capture
    starts so it is not in the video.
-5. Use the compact control window:
+6. Use the compact control window:
    - **Pause** / **Resume** (`Ctrl+Shift+Space`)
    - **Stop** (`Ctrl+Shift+S`)
-6. After Stop, the save dialog opens in the **last folder you saved to**
+7. After Stop, the save dialog opens in the **last folder you saved to**
    (remembered across restarts). Cancelling the dialog **does not delete**
    the recording; the temp path is shown in the status line.
 
@@ -132,9 +134,11 @@ Uses FFmpeg:
 
 ```text
 ffmpeg -f x11grab -video_size WxH -framerate 30 -draw_mouse 1 \
-  -i $DISPLAY+X,Y -an -c:v libx264 -preset veryfast -crf 23 \
-  -pix_fmt yuv420p -movflags +faststart output.mp4
+  -i $DISPLAY+X,Y -an -c:v libx264 -preset ultrafast -crf 23 \
+  -pix_fmt yuv420p output.mp4
 ```
+
+With **Microphone** on, FFmpeg also captures PulseAudio `default` (mic) as AAC.
 
 `$DISPLAY` and monitor geometry come from the environment and `xrandr`.
 Coordinates are real X11 pixels, including negative offsets such as
@@ -160,6 +164,9 @@ to turn the result into MP4.
 ```text
 wf-recorder -g "X,Y WxH" -r 30 -f output.mp4
 ```
+
+With **Microphone** on, `-a` is added so `wf-recorder` records the default
+PulseAudio source.
 
 Install `wf-recorder` (and `grim` for the selector snapshot).
 

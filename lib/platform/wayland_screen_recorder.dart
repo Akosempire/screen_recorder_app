@@ -20,9 +20,14 @@ class WaylandScreenRecorder extends SegmentingScreenRecorder {
   }) : super(
           backendName: 'Wayland / wf-recorder',
           stopStyle: StopStyle.sigint,
-          commandBuilder: (region, outputPath) => CaptureCommand(
+          commandBuilder: (region, outputPath, recordMicrophone) =>
+              CaptureCommand(
             'wf-recorder',
-            buildWfRecorderArgs(region: region, outputPath: outputPath),
+            buildWfRecorderArgs(
+              region: region,
+              outputPath: outputPath,
+              recordMicrophone: recordMicrophone,
+            ),
           ),
         );
 

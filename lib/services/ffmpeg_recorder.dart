@@ -19,6 +19,7 @@ class CaptureCommand {
 typedef CaptureCommandBuilder = CaptureCommand Function(
   ScreenRegion region,
   String outputPath,
+  bool recordMicrophone,
 );
 
 /// Segment-based recorder used for both X11 (FFmpeg) and Wayland (wf-recorder).
@@ -57,6 +58,7 @@ class SegmentingScreenRecorder implements ScreenRecorder {
   Directory? _sessionDir;
   final List<String> _segments = [];
   ScreenRegion? _region;
+  bool _recordMicrophone = false;
   bool _paused = false;
   bool _unexpectedExit = false;
   String? _unexpectedDetails;
@@ -65,7 +67,10 @@ class SegmentingScreenRecorder implements ScreenRecorder {
   bool get isRecording => _process.isRunning || (_paused && _segments.isNotEmpty);
 
   @override
-  Future<void> start(ScreenRegion region) async {
+  Future<void> start(
+    ScreenRegion region, {
+    bool recordMicrophone = false,
+  }) async {
     if (!region.isValid) {
       throw RecorderException(
         userMessage:
@@ -74,6 +79,7 @@ class SegmentingScreenRecorder implements ScreenRecorder {
       );
     }
     _region = region.evenAligned();
+    _recordMicrophone = recordMicrophone;
     _paused = false;
     _unexpectedExit = false;
     _unexpectedDetails = null;
@@ -122,9 +128,11 @@ class SegmentingScreenRecorder implements ScreenRecorder {
     _paused = false;
     final dir = _sessionDir;
     final segments = List<String>.from(_segments);
+    final recordMicrophone = _recordMicrophone;
     _segments.clear();
     _sessionDir = null;
     _region = null;
+    _recordMicrophone = false;
 
     if (segments.isEmpty) {
       if (_unexpectedExit) {
@@ -144,7 +152,12 @@ class SegmentingScreenRecorder implements ScreenRecorder {
       return segments.last;
     }
     final merged = p.join(dir.path, 'merged.mp4');
-    return _mergeSegments(segments, merged, dir.path);
+    return _mergeSegments(
+      segments,
+      merged,
+      dir.path,
+      recordMicrophone: recordMicrophone,
+    );
   }
 
   Future<void> _startSegment() async {
@@ -162,7 +175,7 @@ class SegmentingScreenRecorder implements ScreenRecorder {
 
     final index = _segments.length;
     final output = p.join(dir.path, 'segment_$index.mp4');
-    final command = _commandBuilder(region, output);
+    final command = _commandBuilder(region, output, _recordMicrophone);
     await _process.start(
       executable: command.executable,
       arguments: command.arguments,
@@ -207,14 +220,16 @@ class SegmentingScreenRecorder implements ScreenRecorder {
   Future<String> _mergeSegments(
     List<String> segments,
     String outputPath,
-    String sessionDir,
-  ) {
+    String sessionDir, {
+    required bool recordMicrophone,
+  }) {
     return mergeMediaSegments(
       segments: segments,
       outputPath: outputPath,
       encoder: encoder,
       runner: _runner,
       sessionDir: sessionDir,
+      recordMicrophone: recordMicrophone,
     );
   }
 
@@ -240,6 +255,13 @@ class SegmentingScreenRecorder implements ScreenRecorder {
     if (lower.contains('unknown encoder') || lower.contains('encoder not found')) {
       return 'FFmpeg is missing a required video encoder (libx264).';
     }
+    if (_recordMicrophone &&
+        (lower.contains('pulse') ||
+            lower.contains('alsa') ||
+            lower.contains('cannot open audio') ||
+            lower.contains('no such device'))) {
+      return 'Could not record the microphone. Check that a mic is available and PulseAudio or PipeWire is running.';
+    }
     if (lower.contains('invalid') && lower.contains('size')) {
       return 'The selected region is not valid for the capture backend.';
     }
@@ -260,6 +282,7 @@ Future<String> mergeMediaSegments({
   required String encoder,
   required ProcessRunner runner,
   required String sessionDir,
+  bool recordMicrophone = false,
 }) async {
   final listFile = File(p.join(sessionDir, 'concat.txt'));
   final buffer = StringBuffer();
@@ -272,7 +295,11 @@ Future<String> mergeMediaSegments({
   AppLogger.info('Merging ${segments.length} segments into $outputPath');
   var result = await runner.run(
     'ffmpeg',
-    ffmpegConcatCopyArgs(listPath: listFile.path, outputPath: outputPath),
+    ffmpegConcatCopyArgs(
+      listPath: listFile.path,
+      outputPath: outputPath,
+      recordMicrophone: recordMicrophone,
+    ),
   );
 
   if (result.exitCode == 0) {
@@ -288,6 +315,7 @@ Future<String> mergeMediaSegments({
       listPath: listFile.path,
       encoder: encoder,
       outputPath: encodePath,
+      recordMicrophone: recordMicrophone,
     ),
   );
 
@@ -311,6 +339,7 @@ String _encodeOutputPath(String outputPath, String encoder) {
 List<String> ffmpegConcatCopyArgs({
   required String listPath,
   required String outputPath,
+  bool recordMicrophone = false,
 }) {
   return [
     '-y',
@@ -322,7 +351,7 @@ List<String> ffmpegConcatCopyArgs({
     listPath,
     '-c',
     'copy',
-    '-an',
+    if (!recordMicrophone) '-an',
     outputPath,
   ];
 }
@@ -331,6 +360,7 @@ List<String> ffmpegConcatEncodeArgs({
   required String listPath,
   required String encoder,
   required String outputPath,
+  bool recordMicrophone = false,
 }) {
   return [
     '-y',
@@ -340,16 +370,29 @@ List<String> ffmpegConcatEncodeArgs({
     '0',
     '-i',
     listPath,
-    ...ffmpegEncodeArgs(encoder: encoder, outputPath: outputPath),
+    ...ffmpegEncodeArgs(
+      encoder: encoder,
+      outputPath: outputPath,
+      recordMicrophone: recordMicrophone,
+    ),
   ];
 }
 
 List<String> ffmpegEncodeArgs({
   required String encoder,
   required String outputPath,
+  bool recordMicrophone = false,
 }) {
   return [
-    '-an',
+    if (recordMicrophone) ...[
+      '-c:a',
+      'aac',
+      '-b:a',
+      '128k',
+      '-ac',
+      '2',
+    ] else
+      '-an',
     '-c:v',
     encoder,
     '-preset',
@@ -367,6 +410,7 @@ List<String> buildX11GrabArgs({
   required String outputPath,
   required String encoder,
   int fps = 30,
+  bool recordMicrophone = false,
 }) {
   final aligned = region.evenAligned();
   return [
@@ -379,9 +423,22 @@ List<String> buildX11GrabArgs({
     '$fps',
     '-draw_mouse',
     '1',
+    if (recordMicrophone) ...['-thread_queue_size', '512'],
     '-i',
     '$display+${aligned.x},${aligned.y}',
-    ...ffmpegEncodeArgs(encoder: encoder, outputPath: outputPath),
+    if (recordMicrophone) ...[
+      '-f',
+      'pulse',
+      '-thread_queue_size',
+      '512',
+      '-i',
+      'default',
+    ],
+    ...ffmpegEncodeArgs(
+      encoder: encoder,
+      outputPath: outputPath,
+      recordMicrophone: recordMicrophone,
+    ),
   ];
 }
 
@@ -389,6 +446,7 @@ List<String> buildWfRecorderArgs({
   required ScreenRegion region,
   required String outputPath,
   int fps = 30,
+  bool recordMicrophone = false,
 }) {
   final aligned = region.evenAligned();
   return [
@@ -396,6 +454,7 @@ List<String> buildWfRecorderArgs({
     '${aligned.x},${aligned.y} ${aligned.width}x${aligned.height}',
     '-r',
     '$fps',
+    if (recordMicrophone) '-a',
     '-f',
     outputPath,
   ];

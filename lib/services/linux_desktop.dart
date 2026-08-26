@@ -42,6 +42,25 @@ const gnomeSoftwareWebmPipeline =
     'queue ! '
     'webmmux';
 
+/// Same video path as [gnomeSoftwareWebmPipeline], plus default Pulse/PipeWire
+/// source (microphone) muxed as Opus. GNOME prepends the video source before
+/// this string, so the named `mux.` pads are valid parse-launch syntax.
+const gnomeSoftwareWebmMicPipeline =
+    'videoconvert chroma-mode=none dither=none matrix-mode=output-only n-threads=%T ! '
+    'queue ! '
+    'vp8enc cpu-used=16 max-quantizer=17 deadline=1 keyframe-mode=disabled '
+    'threads=%T static-threshold=1000 buffer-size=20000 ! '
+    'queue ! mux. '
+    'pulsesrc provide-clock=false ! queue ! audioconvert ! audioresample ! '
+    'opusenc bitrate=128000 ! queue ! mux. '
+    'webmmux name=mux';
+
+String gnomeScreencastPipeline({required bool recordMicrophone}) {
+  return recordMicrophone
+      ? gnomeSoftwareWebmMicPipeline
+      : gnomeSoftwareWebmPipeline;
+}
+
 /// GNOME 46+ treats the D-Bus path as a stem and appends `.mp4` / `.webm`.
 /// Passing `.mp4` becomes `file.mp4.mp4`; `.webm` is stripped as a compat hack.
 String gnomeScreencastPathStem(String path) {
@@ -61,7 +80,9 @@ List<String> buildGnomeScreencastAreaArgs({
   required int height,
   required String outputPath,
   int fps = 30,
+  bool recordMicrophone = false,
 }) {
+  final pipeline = gnomeScreencastPipeline(recordMicrophone: recordMicrophone);
   return [
     'call',
     '--session',
@@ -76,7 +97,7 @@ List<String> buildGnomeScreencastAreaArgs({
     '$width',
     '$height',
     gnomeScreencastPathStem(outputPath),
-    "{'framerate': <$fps>, 'draw-cursor': <true>, 'pipeline': <'$gnomeSoftwareWebmPipeline'>}",
+    "{'framerate': <$fps>, 'draw-cursor': <true>, 'pipeline': <'$pipeline'>}",
   ];
 }
 

@@ -1,7 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:screen_recorder_app/app.dart';
 import 'package:screen_recorder_app/controllers/recording_controller.dart';
+import 'package:screen_recorder_app/models/display_server.dart';
 import 'package:screen_recorder_app/models/screen_region.dart';
+import 'package:screen_recorder_app/screens/region_selection_screen.dart';
 import 'package:screen_recorder_app/services/file_save_service.dart';
 import 'package:screen_recorder_app/services/screen_recorder.dart';
 
@@ -13,7 +16,10 @@ class _NoopRecorder implements ScreenRecorder {
   bool get isRecording => false;
 
   @override
-  Future<void> start(ScreenRegion region) async {}
+  Future<void> start(
+    ScreenRegion region, {
+    bool recordMicrophone = false,
+  }) async {}
 
   @override
   Future<void> pause() async {}
@@ -52,5 +58,46 @@ void main() {
     expect(find.text('Start Recording'), findsOneWidget);
     expect(find.text('Status: Ready'), findsOneWidget);
     expect(find.textContaining('Ctrl+Shift+R'), findsOneWidget);
+  });
+
+  testWidgets('region selector has a microphone switch', (tester) async {
+    var microphone = false;
+    const geometry = DesktopGeometry(
+      displayServer: DisplayServer.x11,
+      monitors: [
+        MonitorInfo(
+          name: 'eDP-1',
+          x: 0,
+          y: 0,
+          width: 1920,
+          height: 1080,
+          primary: true,
+        ),
+      ],
+      minX: 0,
+      minY: 0,
+      width: 1920,
+      height: 1080,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RegionSelectionScreen(
+          geometry: geometry,
+          onRecord: (_) {},
+          onCancel: () {},
+          recordMicrophone: microphone,
+          onRecordMicrophoneChanged: (value) => microphone = value,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Microphone'), findsOneWidget);
+    expect(find.byType(Switch), findsOneWidget);
+
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    expect(microphone, isTrue);
   });
 }
