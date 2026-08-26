@@ -54,6 +54,14 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 
+# Standalone GTK alpha probe (no Flutter). Manual gate for the live selector.
+enable_language(C)
+add_executable(alpha_probe "${CMAKE_CURRENT_SOURCE_DIR}/probe/alpha_probe.c")
+target_link_libraries(alpha_probe PRIVATE PkgConfig::GTK)
+set_target_properties(alpha_probe PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+)
+
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../controllers/region_selection_controller.dart';
 import '../models/display_server.dart';
 import '../models/screen_region.dart';
+import '../services/native_window.dart';
+import '../services/selector_backdrop.dart';
 import '../widgets/selection_rectangle.dart';
 
 class RegionSelectionScreen extends StatefulWidget {
@@ -18,6 +20,8 @@ class RegionSelectionScreen extends StatefulWidget {
     this.onRegionChanged,
     this.recordMicrophone = false,
     this.onRecordMicrophoneChanged,
+    this.backdrop = SelectorBackdrop.snapshot,
+    this.nativeWindow,
   });
 
   final DesktopGeometry geometry;
@@ -28,6 +32,8 @@ class RegionSelectionScreen extends StatefulWidget {
   final ValueChanged<ScreenRegion>? onRegionChanged;
   final bool recordMicrophone;
   final ValueChanged<bool>? onRecordMicrophoneChanged;
+  final SelectorBackdrop backdrop;
+  final NativeWindowService? nativeWindow;
 
   @override
   State<RegionSelectionScreen> createState() => _RegionSelectionScreenState();
@@ -36,11 +42,37 @@ class RegionSelectionScreen extends StatefulWidget {
 class _RegionSelectionScreenState extends State<RegionSelectionScreen> {
   late final RegionSelectionController _selection;
   Offset _cursor = Offset.zero;
+  final GlobalKey _actionBarKey = GlobalKey();
+  final GlobalKey _infoBadgeKey = GlobalKey();
+  bool _opaqueRegionScheduled = false;
+
+  bool get _live => widget.backdrop == SelectorBackdrop.liveHole;
 
   @override
   void initState() {
     super.initState();
     _selection = widget.selection ?? RegionSelectionController();
+    _selection.keepRegionUntilDrag = _live;
+    _selection.addListener(_onSelectionChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant RegionSelectionScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _selection.keepRegionUntilDrag = _live;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final size = MediaQuery.sizeOf(context);
+    if (size.isEmpty) {
+      return;
+    }
+    // Apply the default hole before the first paint, but do not notify the
+    // parent during this build — that setState()s AppShell mid-frame.
+    _selection.removeListener(_onSelectionChanged);
+    _selection.setOverlaySize(size);
     _selection.addListener(_onSelectionChanged);
   }
 
@@ -58,6 +90,7 @@ class _RegionSelectionScreenState extends State<RegionSelectionScreen> {
     if (region != null) {
       widget.onRegionChanged?.call(region);
     }
+    _scheduleOpaqueRegion();
   }
 
   ScreenRegion? _desktopRegion() {
@@ -109,20 +142,118 @@ class _RegionSelectionScreenState extends State<RegionSelectionScreen> {
     }
   }
 
+  void _scheduleOpaqueRegion() {
+    if (!_live || widget.nativeWindow == null || _opaqueRegionScheduled) {
+      return;
+    }
+    _opaqueRegionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _opaqueRegionScheduled = false;
+      if (!mounted) {
+        return;
+      }
+      _publishOpaqueRegion();
+    });
+  }
+
+  void _publishOpaqueRegion() {
+    final native = widget.nativeWindow;
+    if (!_live || native == null) {
+      return;
+    }
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0;
+    final rects = <Rect>[
+      for (final logical in _chromeRects()) _toDevice(logical, dpr),
+    ];
+    native.setOpaqueRegion(rects);
+  }
+
+  List<Rect> _chromeRects() {
+    final rects = <Rect>[];
+    final action = _rectFor(_actionBarKey);
+    if (action != null) {
+      rects.add(action);
+    }
+    final badge = _rectFor(_infoBadgeKey);
+    if (badge != null) {
+      rects.add(badge);
+    }
+    final region = _selection.region;
+    if (region != null && !region.isEmpty) {
+      const border = 2.0;
+      rects.add(Rect.fromLTWH(region.left, region.top, region.width, border));
+      rects.add(Rect.fromLTWH(
+        region.left,
+        region.bottom - border,
+        region.width,
+        border,
+      ));
+      rects.add(Rect.fromLTWH(region.left, region.top, border, region.height));
+      rects.add(Rect.fromLTWH(
+        region.right - border,
+        region.top,
+        border,
+        region.height,
+      ));
+      for (final handle in ResizeHandle.values) {
+        rects.add(_selection.handleRect(handle));
+      }
+    }
+    return rects;
+  }
+
+  Rect? _rectFor(GlobalKey key) {
+    final ctx = key.currentContext;
+    if (ctx == null) {
+      return null;
+    }
+    final box = ctx.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) {
+      return null;
+    }
+    final overlay = context.findRenderObject() as RenderBox?;
+    if (overlay == null || !overlay.hasSize) {
+      return box.localToGlobal(Offset.zero) & box.size;
+    }
+    final origin = box.localToGlobal(Offset.zero, ancestor: overlay);
+    return origin & box.size;
+  }
+
+  Rect _toDevice(Rect logical, double dpr) {
+    return Rect.fromLTWH(
+      logical.left * dpr,
+      logical.top * dpr,
+      logical.width * dpr,
+      logical.height * dpr,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final liveTransparent = _live
+        ? theme.copyWith(
+            scaffoldBackgroundColor: Colors.transparent,
+            canvasColor: Colors.transparent,
+            colorScheme: theme.colorScheme.copyWith(
+              surface: Colors.transparent,
+            ),
+          )
+        : theme.copyWith(
+            scaffoldBackgroundColor: const Color(0xFF111111),
+          );
     return Theme(
-      data: Theme.of(context).copyWith(
-        scaffoldBackgroundColor: const Color(0xFF111111),
-      ),
+      data: liveTransparent,
       child: Scaffold(
-        backgroundColor: const Color(0xFF111111),
+        backgroundColor:
+            _live ? Colors.transparent : const Color(0xFF111111),
         body: LayoutBuilder(
         builder: (context, constraints) {
           final size = constraints.biggest;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               _selection.setOverlaySize(size);
+              _scheduleOpaqueRegion();
             }
           });
           return AnimatedBuilder(
@@ -132,6 +263,8 @@ class _RegionSelectionScreenState extends State<RegionSelectionScreen> {
               final canRecord = _selection.hasValidRegion &&
                   desktop != null &&
                   desktop.isValid;
+              final showPreviewUnavailable =
+                  !_live && widget.snapshot == null;
               return Stack(
                 fit: StackFit.expand,
                 children: [
@@ -151,7 +284,7 @@ class _RegionSelectionScreenState extends State<RegionSelectionScreen> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          if (widget.snapshot != null)
+                          if (!_live && widget.snapshot != null)
                             Image.file(
                               widget.snapshot!,
                               fit: BoxFit.fill,
@@ -160,23 +293,24 @@ class _RegionSelectionScreenState extends State<RegionSelectionScreen> {
                                 color: Color(0xFF111111),
                               ),
                             )
-                          else
+                          else if (!_live)
                             const ColoredBox(color: Color(0xFF111111)),
                           CustomPaint(
                             painter: SelectionDimPainter(
                               region: _selection.region,
-                              color: widget.snapshot == null
-                                  ? const Color(0xCC000000)
-                                  : const Color(0x66000000),
+                              color: _live || widget.snapshot != null
+                                  ? const Color(0x66000000)
+                                  : const Color(0xCC000000),
                             ),
                           ),
                           SelectionRectangle(controller: _selection),
                           if (desktop != null)
                             _InfoBadge(
+                              key: _infoBadgeKey,
                               region: _selection.region!,
                               desktop: desktop,
                             ),
-                          if (widget.snapshot == null)
+                          if (showPreviewUnavailable)
                             const Align(
                               alignment: Alignment.topCenter,
                               child: Padding(
@@ -213,6 +347,7 @@ class _RegionSelectionScreenState extends State<RegionSelectionScreen> {
                     bottom: 24,
                     child: Center(
                       child: _ActionBar(
+                        key: _actionBarKey,
                         canRecord: canRecord,
                         onRecord: _record,
                         onCancel: widget.onCancel,
@@ -237,7 +372,11 @@ class _RegionSelectionScreenState extends State<RegionSelectionScreen> {
 }
 
 class _InfoBadge extends StatelessWidget {
-  const _InfoBadge({required this.region, required this.desktop});
+  const _InfoBadge({
+    super.key,
+    required this.region,
+    required this.desktop,
+  });
 
   final Rect region;
   final ScreenRegion desktop;
@@ -283,6 +422,7 @@ class _InfoBadge extends StatelessWidget {
 
 class _ActionBar extends StatelessWidget {
   const _ActionBar({
+    super.key,
     required this.canRecord,
     required this.onRecord,
     required this.onCancel,

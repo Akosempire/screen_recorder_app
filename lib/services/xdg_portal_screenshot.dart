@@ -18,7 +18,7 @@ class XdgPortalScreenshot {
 
   final Duration timeout;
 
-  Future<File?> captureTo(File destination) async {
+  Future<File?> captureTo(File destination, {String parentWindow = ''}) async {
     DBusClient? client;
     StreamSubscription<DBusSignal>? subscription;
     DBusObjectPath? predictedPath;
@@ -63,7 +63,7 @@ class XdgPortalScreenshot {
         'org.freedesktop.portal.Screenshot',
         'Screenshot',
         [
-          const DBusString(''),
+          DBusString(parentWindow),
           DBusDict.stringVariant({
             'handle_token': DBusString(token),
             'interactive': const DBusBoolean(false),

@@ -28,7 +28,7 @@ void main() {
     final service = DesktopSnapshotService(
       runner: _FakeRunner({}),
       isGnomeDesktop: () => true,
-      portalCapture: (file) async {
+      portalCapture: (file, {parentWindow = ''}) async {
         await file.writeAsBytes(List<int>.filled(80, 7));
         return file;
       },
@@ -50,7 +50,7 @@ void main() {
         },
       }),
       isGnomeDesktop: () => false,
-      portalCapture: (file) async {
+      portalCapture: (file, {parentWindow = ''}) async {
         portalCalled = true;
         return file;
       },
@@ -77,7 +77,7 @@ void main() {
         'grim': (_) async => ProcessResult(1, 1, '', 'fail'),
       }),
       isGnomeDesktop: () => true,
-      portalCapture: (_) async => null,
+      portalCapture: (_, {parentWindow = ''}) async => null,
     );
 
     final snap = await service.capture(_waylandGeometry);

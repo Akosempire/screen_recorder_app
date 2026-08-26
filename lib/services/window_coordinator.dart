@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
@@ -9,20 +10,33 @@ import '../models/display_server.dart';
 import '../models/screen_region.dart';
 import 'app_logger.dart';
 import 'desktop_snapshot_service.dart';
+import 'native_window.dart';
+import 'selector_backdrop.dart';
 
 class WindowCoordinator {
   static const Size homeSize = Size(460, 420);
   static const Size recordingSize = Size(128, 72);
+  static const Color opaqueBackground = Color(0xFF121418);
+  static const Color liveBackground = Color(0x00000000);
 
-  WindowCoordinator({DesktopSnapshotService? snapshots})
-      : _snapshots = snapshots ?? DesktopSnapshotService();
+  WindowCoordinator({
+    DesktopSnapshotService? snapshots,
+    NativeWindowService? nativeWindow,
+  })  : _snapshots = snapshots ?? DesktopSnapshotService(),
+        _nativeWindow = nativeWindow ?? NativeWindowService();
 
   final DesktopSnapshotService _snapshots;
+  final NativeWindowService _nativeWindow;
   File? _snapshot;
+  final List<String> _windowOps = [];
 
   File? get snapshot => _snapshot;
 
+  @visibleForTesting
+  List<String> get windowOps => List<String>.unmodifiable(_windowOps);
+
   Future<void> showHome() async {
+    await _setOpaqueChrome();
     await _call('setFullScreen(false)', () => windowManager.setFullScreen(false));
     await _call('unmaximize', () => windowManager.unmaximize());
     await _call(
@@ -51,38 +65,54 @@ class WindowCoordinator {
     await _call('focus', () => windowManager.focus());
   }
 
+  /// Maps the selector overlay. [backdrop] is chosen before this is called.
+  Future<File?> enterSelection(
+    DesktopGeometry geometry, {
+    SelectorBackdrop backdrop = SelectorBackdrop.snapshot,
+  }) {
+    if (backdrop == SelectorBackdrop.liveHole) {
+      return enterLiveSelection(geometry);
+    }
+    return enterSnapshotSelection(geometry);
+  }
+
   /// Takes a desktop still, then covers the screen with that image for region
   /// selection.
   ///
-  /// The window stays mapped. GNOME's screenshot portal cancels immediately
-  /// when the requester is hidden, which produced a black selector.
-  Future<File?> enterSelection(DesktopGeometry geometry) async {
+  /// The window stays mapped **and focused**. GNOME only shows the screenshot
+  /// portal dialog for the focused app; fading to opacity 0 first made Mutter
+  /// deny the dialog and left a black selector.
+  Future<File?> enterSnapshotSelection(DesktopGeometry geometry) async {
     await _call('setAlwaysOnTop(false)', () => windowManager.setAlwaysOnTop(false));
     await _call('setSkipTaskbar(false)', () => windowManager.setSkipTaskbar(false));
     await _call('setOpacity(1)', () => windowManager.setOpacity(1));
     await _call('show', () => windowManager.show());
+    await _call('focus', () => windowManager.focus());
 
-    // Start the portal request while mapped, then fade the window so the
-    // still is the real desktop once the user clicks Allow.
-    final inFlight = _snapshots.capture(geometry);
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-    await _call('setOpacity(0)', () => windowManager.setOpacity(0));
-    _snapshot = await inFlight;
+    var parent = await _nativeWindow.parentWindowHandle();
+    AppLogger.info(
+      'Snapshot capture parent_window=${parent.isEmpty ? '(none)' : parent}',
+    );
+
+    _snapshot = await _snapshots.capture(geometry, parentWindow: parent);
 
     if (_snapshot == null) {
       AppLogger.info(
-        'Transparent snapshot failed; retrying with a visible window so GNOME can prompt',
+        'Snapshot failed while mapped; retrying focused so GNOME can prompt',
       );
       await _call('setOpacity(1)', () => windowManager.setOpacity(1));
       await _call('show', () => windowManager.show());
       await _call('focus', () => windowManager.focus());
-      _snapshot = await _snapshots.capture(geometry);
+      _snapshot = await _snapshots.capture(geometry, parentWindow: parent);
     } else {
-      await Future<void>.delayed(const Duration(milliseconds: 350));
-      final clean = await _snapshots.capture(geometry);
+      // Permission is cached. Fade so the second still is the real desktop.
+      await _call('setOpacity(0)', () => windowManager.setOpacity(0));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      final clean = await _snapshots.capture(geometry, parentWindow: parent);
       if (clean != null) {
         _snapshot = clean;
       }
+      await _call('setOpacity(1)', () => windowManager.setOpacity(1));
     }
 
     AppLogger.info(
@@ -91,6 +121,37 @@ class WindowCoordinator {
           : 'Desktop snapshot ready: ${_snapshot!.path}',
     );
 
+    await _applySelectorChrome();
+    await _setBackground(opaqueBackground, 'opaque');
+    await _call('setOpacity(1)', () => windowManager.setOpacity(1));
+    await _call('show', () => windowManager.show());
+    await _call('focus', () => windowManager.focus());
+    return _snapshot;
+  }
+
+  /// Live compositor hole. No still, no whole-window fade. Per-pixel alpha in
+  /// the hole is a different knob from [windowManager.setOpacity].
+  Future<File?> enterLiveSelection(DesktopGeometry geometry) async {
+    _snapshot = null;
+    await _call('setAlwaysOnTop(false)', () => windowManager.setAlwaysOnTop(false));
+    await _call('setSkipTaskbar(false)', () => windowManager.setSkipTaskbar(false));
+    await _call('setOpacity(1)', () => windowManager.setOpacity(1));
+    await _call('show', () => windowManager.show());
+
+    AppLogger.info(
+      'Live selector on ${geometry.displayServer.name} '
+      '${geometry.width}x${geometry.height}',
+    );
+
+    await _applySelectorChrome();
+    await _setBackground(liveBackground, 'transparent');
+    await _call('setOpacity(1)', () => windowManager.setOpacity(1));
+    await _call('show', () => windowManager.show());
+    await _call('focus', () => windowManager.focus());
+    return null;
+  }
+
+  Future<void> _applySelectorChrome() async {
     await _call('setAsFrameless', () => windowManager.setAsFrameless());
     await _call(
       'setTitleBarStyle(hidden)',
@@ -116,16 +177,12 @@ class WindowCoordinator {
     if (bounds != null && bounds.width > 0 && bounds.height > 0) {
       await _call('setBounds(desktop)', () => windowManager.setBounds(bounds));
     }
-
-    await _call('setOpacity(1)', () => windowManager.setOpacity(1));
-    await _call('show', () => windowManager.show());
-    await _call('focus', () => windowManager.focus());
-    return _snapshot;
   }
 
   /// Hide the overlay, leave fullscreen, and shrink to the floating chip
   /// so the real desktop is visible while recording.
   Future<void> prepareRecordingChrome({Offset? position}) async {
+    await _setOpaqueChrome();
     await _call('hide', () => windowManager.hide());
     await _call('setFullScreen(false)', () => windowManager.setFullScreen(false));
     await Future<void>.delayed(const Duration(milliseconds: 400));
@@ -144,6 +201,7 @@ class WindowCoordinator {
     await _shrinkToRecordingChip(position ?? const Offset(24, 24));
     await _call('setTitle', () => windowManager.setTitle('Recording'));
     await _call('setOpacity(1)', () => windowManager.setOpacity(1));
+    await _setBackground(opaqueBackground, 'opaque');
     await Future<void>.delayed(const Duration(milliseconds: 300));
   }
 
@@ -155,6 +213,19 @@ class WindowCoordinator {
     await _shrinkToRecordingChip(position);
     await _call('show', () => windowManager.show());
     await _call('focus', () => windowManager.focus());
+  }
+
+  Future<void> _setOpaqueChrome() async {
+    await _setBackground(opaqueBackground, 'opaque');
+    await _nativeWindow.clearOpaqueRegion();
+    _windowOps.add('clearOpaqueRegion');
+  }
+
+  Future<void> _setBackground(Color color, String label) async {
+    await _call(
+      'setBackgroundColor($label)',
+      () => windowManager.setBackgroundColor(color),
+    );
   }
 
   Future<void> _shrinkToRecordingChip(Offset position) async {
@@ -192,6 +263,7 @@ class WindowCoordinator {
   }
 
   Future<void> _call(String label, Future<void> Function() action) async {
+    _windowOps.add(label);
     try {
       await action();
     } on MissingPluginException catch (error) {

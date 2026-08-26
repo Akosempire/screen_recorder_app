@@ -18,7 +18,7 @@ class RecordingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0x00000000),
+      backgroundColor: const Color(0xFF121418),
       body: Align(
         alignment: Alignment.topLeft,
         child: RecordingControls(

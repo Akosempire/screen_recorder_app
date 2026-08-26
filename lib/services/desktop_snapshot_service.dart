@@ -14,17 +14,23 @@ import 'xdg_portal_screenshot.dart';
 class DesktopSnapshotService {
   DesktopSnapshotService({
     ProcessRunner runner = const ProcessRunner(),
-    Future<File?> Function(File destination)? portalCapture,
+    Future<File?> Function(File destination, {String parentWindow})? portalCapture,
     bool Function()? isGnomeDesktop,
   })  : _runner = runner,
-        _portalCapture = portalCapture ?? XdgPortalScreenshot().captureTo,
+        _portalCapture = portalCapture ??
+            ((file, {parentWindow = ''}) =>
+                XdgPortalScreenshot().captureTo(file, parentWindow: parentWindow)),
         _isGnomeDesktop = isGnomeDesktop ?? (() => LinuxDesktop.isGnome);
 
   final ProcessRunner _runner;
-  final Future<File?> Function(File destination) _portalCapture;
+  final Future<File?> Function(File destination, {String parentWindow})
+      _portalCapture;
   final bool Function() _isGnomeDesktop;
 
-  Future<File?> capture(DesktopGeometry geometry) async {
+  Future<File?> capture(
+    DesktopGeometry geometry, {
+    String parentWindow = '',
+  }) async {
     final file = File(
       p.join(
         Directory.systemTemp.path,
@@ -42,7 +48,7 @@ class DesktopSnapshotService {
         }
       }
 
-      final portal = await _tryPortal(file);
+      final portal = await _tryPortal(file, parentWindow: parentWindow);
       if (portal != null) {
         return portal;
       }
@@ -83,7 +89,7 @@ class DesktopSnapshotService {
       return magick;
     }
 
-    final portal = await _tryPortal(file);
+    final portal = await _tryPortal(file, parentWindow: parentWindow);
     if (portal != null) {
       return portal;
     }
@@ -97,9 +103,9 @@ class DesktopSnapshotService {
     return null;
   }
 
-  Future<File?> _tryPortal(File file) async {
+  Future<File?> _tryPortal(File file, {String parentWindow = ''}) async {
     try {
-      return await _portalCapture(file);
+      return await _portalCapture(file, parentWindow: parentWindow);
     } catch (error, stack) {
       AppLogger.warn('XDG screenshot portal unavailable: $error\n$stack');
       return null;

@@ -47,6 +47,29 @@ class SelectionRectangle extends StatelessWidget {
   }
 }
 
+/// Four dim rects around [region]. Empty/null region dims the full overlay.
+/// Never a hole via [BlendMode.clear] — that paints magenta on Flutter Linux.
+List<Rect> selectionDimRects({required Size size, required Rect? region}) {
+  if (region == null || region.isEmpty) {
+    return [Offset.zero & size];
+  }
+  final rects = <Rect>[];
+  final r = region;
+  if (r.top > 0) {
+    rects.add(Rect.fromLTRB(0, 0, size.width, r.top));
+  }
+  if (r.bottom < size.height) {
+    rects.add(Rect.fromLTRB(0, r.bottom, size.width, size.height));
+  }
+  if (r.left > 0) {
+    rects.add(Rect.fromLTRB(0, r.top, r.left, r.bottom));
+  }
+  if (r.right < size.width) {
+    rects.add(Rect.fromLTRB(r.right, r.top, size.width, r.bottom));
+  }
+  return rects;
+}
+
 class SelectionDimPainter extends CustomPainter {
   SelectionDimPainter({required this.region, required this.color});
 
@@ -56,31 +79,8 @@ class SelectionDimPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = color;
-    final full = Offset.zero & size;
-    if (region == null || region!.isEmpty) {
-      canvas.drawRect(full, paint);
-      return;
-    }
-    // Draw four rects around the selection. Do not use BlendMode.clear —
-    // on Flutter Linux that often fills the hole with magenta.
-    final r = region!;
-    if (r.top > 0) {
-      canvas.drawRect(Rect.fromLTRB(0, 0, size.width, r.top), paint);
-    }
-    if (r.bottom < size.height) {
-      canvas.drawRect(
-        Rect.fromLTRB(0, r.bottom, size.width, size.height),
-        paint,
-      );
-    }
-    if (r.left > 0) {
-      canvas.drawRect(Rect.fromLTRB(0, r.top, r.left, r.bottom), paint);
-    }
-    if (r.right < size.width) {
-      canvas.drawRect(
-        Rect.fromLTRB(r.right, r.top, size.width, r.bottom),
-        paint,
-      );
+    for (final rect in selectionDimRects(size: size, region: region)) {
+      canvas.drawRect(rect, paint);
     }
   }
 

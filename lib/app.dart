@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'controllers/recording_controller.dart';
 import 'controllers/region_selection_controller.dart';
@@ -15,8 +16,10 @@ import 'services/app_logger.dart';
 import 'services/file_save_service.dart';
 import 'services/last_save_path_store.dart';
 import 'services/linux_screen_service.dart';
+import 'services/native_window.dart';
 import 'services/screen_recorder.dart';
 import 'services/screen_recorder_factory.dart';
+import 'services/selector_backdrop.dart';
 import 'services/shortcut_intents.dart';
 import 'services/window_coordinator.dart';
 
@@ -39,11 +42,13 @@ class ScreenRecorderApp extends StatelessWidget {
     super.key,
     this.controller,
     this.windowCoordinator,
+    this.nativeWindow,
     this.manageWindows = true,
   });
 
   final RecordingController? controller;
   final WindowCoordinator? windowCoordinator;
+  final NativeWindowService? nativeWindow;
   final bool manageWindows;
 
   @override
@@ -63,10 +68,15 @@ class ScreenRecorderApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: theme,
       home: controller == null
-          ? AppBootstrap(manageWindows: manageWindows)
+          ? AppBootstrap(
+              manageWindows: manageWindows,
+              nativeWindow: nativeWindow,
+            )
           : AppShell(
               controller: controller!,
-              windowCoordinator: windowCoordinator ?? WindowCoordinator(),
+              windowCoordinator: windowCoordinator ??
+                  WindowCoordinator(nativeWindow: nativeWindow),
+              nativeWindow: nativeWindow,
               manageWindows: manageWindows,
             ),
     );
@@ -74,9 +84,14 @@ class ScreenRecorderApp extends StatelessWidget {
 }
 
 class AppBootstrap extends StatefulWidget {
-  const AppBootstrap({super.key, this.manageWindows = true});
+  const AppBootstrap({
+    super.key,
+    this.manageWindows = true,
+    this.nativeWindow,
+  });
 
   final bool manageWindows;
+  final NativeWindowService? nativeWindow;
 
   @override
   State<AppBootstrap> createState() => _AppBootstrapState();
@@ -146,7 +161,8 @@ class _AppBootstrapState extends State<AppBootstrap> {
     }
     return AppShell(
       controller: _controller!,
-      windowCoordinator: WindowCoordinator(),
+      nativeWindow: widget.nativeWindow,
+      windowCoordinator: WindowCoordinator(nativeWindow: widget.nativeWindow),
       manageWindows: widget.manageWindows,
     );
   }
@@ -157,11 +173,13 @@ class AppShell extends StatefulWidget {
     super.key,
     required this.controller,
     required this.windowCoordinator,
+    this.nativeWindow,
     this.manageWindows = true,
   });
 
   final RecordingController controller;
   final WindowCoordinator windowCoordinator;
+  final NativeWindowService? nativeWindow;
   final bool manageWindows;
 
   @override
@@ -173,12 +191,17 @@ class _AppShellState extends State<AppShell> {
   bool _busyWindow = false;
   bool _startingCapture = false;
   final RegionSelectionController _selection = RegionSelectionController();
+  late final NativeWindowService _nativeWindow;
+  late final Future<AlphaProbe> _probeFuture;
+  SelectorBackdrop _backdrop = SelectorBackdrop.snapshot;
 
   RecordingController get _controller => widget.controller;
 
   @override
   void initState() {
     super.initState();
+    _nativeWindow = widget.nativeWindow ?? NativeWindowService();
+    _probeFuture = _nativeWindow.probe();
     _controller.addListener(_rebuild);
   }
 
@@ -190,9 +213,20 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _rebuild() {
-    if (mounted) {
-      setState(() {});
+    if (!mounted) {
+      return;
     }
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
+      setState(() {});
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   Future<void> _startSelection() async {
@@ -205,7 +239,18 @@ class _AppShellState extends State<AppShell> {
         final geometry =
             _controller.geometry ?? await LinuxScreenService().queryGeometry();
         _controller.updateGeometry(geometry);
-        _snapshot = await widget.windowCoordinator.enterSelection(geometry);
+        final probe = await _probeFuture;
+        _backdrop = chooseSelectorBackdrop(
+          geometry: geometry,
+          probe: probe,
+        );
+        _selection.keepRegionUntilDrag =
+            _backdrop == SelectorBackdrop.liveHole;
+        AppLogger.info('Selector backdrop: ${_backdrop.name}');
+        _snapshot = await widget.windowCoordinator.enterSelection(
+          geometry,
+          backdrop: _backdrop,
+        );
       }
       _selection.clear();
       _controller.beginSelection();
@@ -398,6 +443,8 @@ class _AppShellState extends State<AppShell> {
         geometry: geometry,
         snapshot: _snapshot,
         selection: _selection,
+        backdrop: _backdrop,
+        nativeWindow: _nativeWindow,
         onCancel: _cancelSelection,
         onRecord: _confirmRecord,
         onRegionChanged: _controller.updateReadyRegion,

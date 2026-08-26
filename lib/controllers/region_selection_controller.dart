@@ -28,6 +28,7 @@ class RegionSelectionController extends ChangeNotifier {
   static const double minSize = 100;
   static const double handleVisualSize = 8;
   static const double handleHitSize = 14;
+  static const double createCommitPixels = 4;
 
   Rect? _region;
   Size _overlaySize = Size.zero;
@@ -35,6 +36,11 @@ class RegionSelectionController extends ChangeNotifier {
   ResizeHandle? _activeHandle;
   Offset? _pointerOrigin;
   Rect? _regionAtGestureStart;
+  bool _createCommitted = false;
+
+  /// Live hole: keep the current region until a new drag exceeds a few pixels
+  /// so the selector does not flash full-dim (empty rect) on pointer down.
+  bool keepRegionUntilDrag = false;
 
   Rect? get region => _region;
   Size get overlaySize => _overlaySize;
@@ -68,6 +74,7 @@ class RegionSelectionController extends ChangeNotifier {
     _activeHandle = null;
     _pointerOrigin = null;
     _regionAtGestureStart = null;
+    _createCommitted = false;
     _region = null;
     if (!_overlaySize.isEmpty) {
       _applyDefaultRegion();
@@ -113,8 +120,11 @@ class RegionSelectionController extends ChangeNotifier {
     _gesture = SelectionGesture.creating;
     _activeHandle = null;
     _pointerOrigin = position;
-    _regionAtGestureStart = null;
-    _region = Rect.fromLTWH(position.dx, position.dy, 0, 0);
+    _regionAtGestureStart = _region;
+    _createCommitted = false;
+    if (!keepRegionUntilDrag) {
+      _region = Rect.fromLTWH(position.dx, position.dy, 0, 0);
+    }
     notifyListeners();
   }
 
@@ -127,7 +137,15 @@ class RegionSelectionController extends ChangeNotifier {
         if (origin == null) {
           return;
         }
-        _region = _clamp(_normalize(origin, position));
+        final next = _normalize(origin, position);
+        if (keepRegionUntilDrag &&
+            !_createCommitted &&
+            next.width < createCommitPixels &&
+            next.height < createCommitPixels) {
+          return;
+        }
+        _createCommitted = true;
+        _region = _clamp(next);
         notifyListeners();
       case SelectionGesture.moving:
         final origin = _pointerOrigin;
@@ -151,13 +169,20 @@ class RegionSelectionController extends ChangeNotifier {
 
   void pointerUp(Offset position) {
     pointerMove(position);
+    if (keepRegionUntilDrag &&
+        !_createCommitted &&
+        _gesture == SelectionGesture.creating) {
+      _region = _regionAtGestureStart;
+    } else if (_region != null &&
+        (_region!.width < createCommitPixels ||
+            _region!.height < createCommitPixels)) {
+      _region = keepRegionUntilDrag ? _regionAtGestureStart : null;
+    }
     _gesture = SelectionGesture.none;
     _activeHandle = null;
     _pointerOrigin = null;
     _regionAtGestureStart = null;
-    if (_region != null && (_region!.width < 4 || _region!.height < 4)) {
-      _region = null;
-    }
+    _createCommitted = false;
     notifyListeners();
   }
 
