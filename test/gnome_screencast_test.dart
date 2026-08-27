@@ -117,13 +117,17 @@ void main() {
     expect(session.stopCount, 1);
     expect(session.closed, isTrue);
     expect(path, isNotNull);
-    expect(path, endsWith('segment_0.webm'));
-    expect(runner.ffmpegCount, 0);
+    expect(path, endsWith('segment_0.mp4'));
+    expect(runner.ffmpegCount, 1);
+    expect(runner.lastArgs, containsAllInOrder(['-i']));
+    expect(runner.lastArgs, isNot(contains('concat')));
   });
 
-  test('renames GNOME 46 .undefined captures to .webm on stop', () async {
+  test('renames GNOME 46 .undefined captures and converts them to mp4 on stop', () async {
     final session = _FakeGnomeSession(extension: '.undefined');
+    final runner = _FakeFfmpegRunner();
     final recorder = GnomeShellScreenRecorder(
+      runner: runner,
       sessionFactory: () => session,
       wait: (_) async {},
     );
@@ -132,7 +136,7 @@ void main() {
       const ScreenRegion(x: 10, y: 20, width: 320, height: 240),
     );
     final path = await recorder.stop();
-    expect(path, endsWith('segment_0.webm'));
+    expect(path, endsWith('segment_0.mp4'));
     expect(File(path!).existsSync(), isTrue);
     expect(path, isNot(contains('.undefined')));
   });
@@ -154,9 +158,10 @@ void main() {
     final path = await recorder.stop();
 
     expect(session.startCount, 2);
-    expect(path, endsWith('merged.webm'));
-    expect(runner.ffmpegCount, 1);
-    expect(runner.lastArgs, containsAllInOrder(['-c', 'copy']));
+    expect(path, endsWith('merged.mp4'));
+    expect(runner.ffmpegCount, 2);
+    expect(runner.invocations.first, containsAllInOrder(['-c', 'copy']));
+    expect(runner.lastArgs, containsAllInOrder(['-c:v', 'libx264']));
     expect(runner.lastArgs, isNot(contains('+faststart')));
   });
 }
@@ -210,6 +215,7 @@ class _FakeGnomeSession implements GnomeScreencastSession {
 class _FakeFfmpegRunner extends ProcessRunner {
   int ffmpegCount = 0;
   List<String> lastArgs = const [];
+  final List<List<String>> invocations = [];
 
   @override
   Future<ProcessResult> run(
@@ -221,6 +227,7 @@ class _FakeFfmpegRunner extends ProcessRunner {
     if (executable == 'ffmpeg') {
       ffmpegCount += 1;
       lastArgs = List<String>.from(arguments);
+      invocations.add(lastArgs);
       await File(arguments.last).writeAsBytes(List<int>.filled(80, 1));
       return ProcessResult(1, 0, '', '');
     }

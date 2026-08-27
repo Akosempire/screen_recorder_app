@@ -22,8 +22,8 @@ import '../services/screen_recorder.dart';
 /// vanishes, which is what a one-shot `gdbus call` does.
 ///
 /// Pause/resume stops and restarts the GNOME screencast (it has no pause
-/// API). Stop returns the captured file as-is (WebM/MP4); paused segments
-/// are concatenated with a stream copy instead of a full re-encode.
+/// API). Stop converts the capture to MP4. Paused segments are concatenated
+/// with a stream copy first, then transcoded.
 class GnomeShellScreenRecorder implements ScreenRecorder {
   GnomeShellScreenRecorder({
     ProcessRunner runner = const ProcessRunner(),
@@ -138,26 +138,55 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
       return null;
     }
 
+    late final String captured;
     if (segments.length == 1) {
-      final path = await _finalizeCapturePath(segments.first);
+      captured = await _finalizeCapturePath(segments.first);
+    } else {
+      final finalized = <String>[];
+      for (final segment in segments) {
+        finalized.add(await _finalizeCapturePath(segment));
+      }
+      final ext = p.extension(finalized.first);
+      final merged = p.join(dir.path, 'merged${ext.isEmpty ? '.webm' : ext}');
+      captured = await mergeMediaSegments(
+        segments: finalized,
+        outputPath: merged,
+        encoder: encoder,
+        runner: _runner,
+        sessionDir: dir.path,
+        recordMicrophone: recordMicrophone,
+      );
+    }
+    return _ensureMp4(captured, recordMicrophone: recordMicrophone);
+  }
+
+  Future<String> _ensureMp4(
+    String path, {
+    required bool recordMicrophone,
+  }) async {
+    if (p.extension(path).toLowerCase() == '.mp4') {
       AppLogger.info('Keeping captured file without transcode: $path');
       return path;
     }
-
-    final finalized = <String>[];
-    for (final segment in segments) {
-      finalized.add(await _finalizeCapturePath(segment));
+    final mp4 = p.setExtension(path, '.mp4');
+    AppLogger.info('Transcoding captured file to MP4: $path → $mp4');
+    final result = await _runner.run('ffmpeg', [
+      '-y',
+      '-i',
+      path,
+      ...ffmpegEncodeArgs(
+        encoder: encoder,
+        outputPath: mp4,
+        recordMicrophone: recordMicrophone,
+      ),
+    ]);
+    if (result.exitCode != 0) {
+      throw RecorderException(
+        userMessage: 'Could not convert the recording to MP4.',
+        technicalDetails: result.stderr.toString(),
+      );
     }
-    final ext = p.extension(finalized.first);
-    final merged = p.join(dir.path, 'merged${ext.isEmpty ? '.webm' : ext}');
-    return mergeMediaSegments(
-      segments: finalized,
-      outputPath: merged,
-      encoder: encoder,
-      runner: _runner,
-      sessionDir: dir.path,
-      recordMicrophone: recordMicrophone,
-    );
+    return mp4;
   }
 
   Future<void> _startSegment() async {
