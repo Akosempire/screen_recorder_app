@@ -1,271 +1,238 @@
 # Screen Recorder
 
-Native **Linux desktop** screen-region recorder. The Flutter UI is the control
-surface; capture is performed by **FFmpeg** (`x11grab` on X11) or
-**wf-recorder** (Wayland / wlroots). This is not a browser app and does not
-use `getDisplayMedia` or `MediaRecorder`.
+A Linux desktop app that records any rectangle of the screen (another window, a browser, a terminal — not this window). Built with Flutter.
 
-## Features
+**Supported sessions**
 
-- Select an arbitrary rectangle (create, drag, resize from 8 handles)
-- Optional **microphone** audio (switch on the region selector before Record)
-- Pause / resume (paused time is omitted from the final file)
-- Native GTK save dialog (directory, filename, `.mp4` / `.mkv`)
-- Keyboard shortcuts
-- Multi-monitor coordinates, including negative monitor offsets
-
-## Requirements
-
-| Dependency | When | Why |
+| Desktop | Session | What it uses |
 | --- | --- | --- |
-| Flutter SDK (stable, Linux desktop enabled) | Build | Compiles the GTK application |
-| GTK 3 development libraries | Build | Flutter Linux embedding |
-| CMake, Ninja, Clang | Build | Linux toolchain |
-| **FFmpeg** with `libx264` | Runtime | X11 capture, encoding, and segment merge |
-| **wf-recorder** | Runtime on Wayland | Region capture on wlroots compositors |
-| **grim** (optional) | Runtime on Wayland | Selector snapshot on wlroots compositors |
-| **xdg-desktop-portal** | Runtime on GNOME/KDE Wayland | Selector snapshot (screenshot permission) |
-| A compositing window manager | Runtime | Overlay and window positioning |
+| GNOME | Wayland | GNOME Shell screencast |
+| GNOME | X11 | FFmpeg `x11grab` |
+| Sway, Hyprland, and other wlroots compositors | Wayland | `wf-recorder` |
+| KDE Plasma | X11 | FFmpeg `x11grab` |
 
-### Debian / Ubuntu
+KDE Plasma on **Wayland** is not supported. Log into a Plasma **X11** session instead.
+
+---
+
+## 1. Install Flutter
+
+You need Flutter **3.11** or newer with Linux desktop enabled.
+
+```bash
+flutter --version
+flutter config --enable-linux-desktop
+flutter doctor
+```
+
+`flutter doctor` should report **Linux toolchain** as ready. If it does not, install the compiler stack:
+
+**Ubuntu / Debian**
 
 ```bash
 sudo apt update
-sudo apt install ffmpeg x11-utils
-# Wayland / wlroots (Sway, Hyprland, river, …)
-sudo apt install wf-recorder grim
-# Flutter Linux build toolchain (if not already installed)
-sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+sudo apt install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
 ```
 
-### Fedora
+**Fedora**
 
 ```bash
-sudo dnf install ffmpeg xrandr wf-recorder grim clang cmake ninja-build gtk3-devel
+sudo dnf install -y clang cmake ninja-build pkgconf-pkg-config gtk3-devel xz-devel
 ```
 
-### Arch
+**Arch**
 
 ```bash
-sudo pacman -S ffmpeg wf-recorder grim
+sudo pacman -S --needed clang cmake ninja pkgconf gtk3 xz
 ```
 
-Confirm FFmpeg:
+---
+
+## 2. Install capture tools
+
+The app always needs **FFmpeg** on `PATH`. Extra packages depend on the desktop.
+
+### Everyone (required)
+
+**Ubuntu / Debian**
+
+```bash
+sudo apt install -y ffmpeg
+```
+
+**Fedora**
+
+```bash
+sudo dnf install -y ffmpeg
+```
+
+**Arch**
+
+```bash
+sudo pacman -S --needed ffmpeg
+```
+
+Check:
 
 ```bash
 ffmpeg -version
 ```
 
-Enable Flutter's Linux desktop target once:
+### GNOME (Wayland)
+
+Needed so the compositor can capture and encode:
 
 ```bash
-flutter config --enable-linux-desktop
+# Ubuntu / Debian
+sudo apt install -y libglib2.0-bin gstreamer1.0-plugins-good gstreamer1.0-plugins-base \
+  xdg-desktop-portal xdg-desktop-portal-gnome
+
+# Fedora
+sudo dnf install -y glib2 gstreamer1-plugins-good gstreamer1-plugins-base \
+  xdg-desktop-portal xdg-desktop-portal-gnome
+
+# Arch
+sudo pacman -S --needed glib2 gst-plugins-good gst-plugins-base \
+  xdg-desktop-portal xdg-desktop-portal-gnome
 ```
 
-## Run
+`gdbus` (from GLib) talks to GNOME’s screencast service. The portal packages show the screenshot / screen-share prompt when you pick a region.
 
-From the project root:
+### Sway / Hyprland
 
 ```bash
+# Ubuntu / Debian
+sudo apt install -y wf-recorder xdg-desktop-portal xdg-desktop-portal-wlr
+
+# Fedora
+sudo dnf install -y wf-recorder xdg-desktop-portal xdg-desktop-portal-wlr
+
+# Arch
+sudo pacman -S --needed wf-recorder xdg-desktop-portal xdg-desktop-portal-wlr
+```
+
+### Microphone (optional)
+
+PulseAudio or PipeWire must be running. On most modern distros PipeWire is already there. Grant microphone access when the OS asks.
+
+---
+
+## 3. Get the project and run it
+
+```bash
+cd screen_recorder_app
 flutter pub get
 flutter run -d linux
 ```
 
-## Build a release
+The window should open as **Screen Recorder**. Use **Start Recording** or `Ctrl+Shift+R`.
+
+---
+
+## 4. Allow screen capture on the OS
+
+The first time you select a region or start a recording, Linux will ask for permission. Approve it, or the capture stays black / fails.
+
+### GNOME
+
+1. Click **Start Recording**.
+2. If a **Share your screen** / **Screenshot** dialog appears, choose the display (or whole screen) and allow it.
+3. If nothing appears, open **Settings → Privacy & Security → Screen Cast** (wording varies by GNOME version) and allow this app.
+4. For the microphone toggle, allow **Microphone** in the same Privacy settings if asked.
+
+You can reset a stuck “deny” later:
 
 ```bash
-flutter pub get
-flutter analyze
-flutter test
-flutter build linux
+# Forget previous screenshot-portal answers (GNOME)
+flatpak permission-reset com.example.screen_recorder_app 2>/dev/null || true
 ```
 
-The release bundle is:
+If that does nothing, log out and back in after installing the portal packages.
+
+### Sway / Hyprland
+
+1. Make sure `xdg-desktop-portal-wlr` is running in the session.
+2. Allow the share dialog when you start a recording.
+3. Confirm `wf-recorder` works on its own:
+
+```bash
+wf-recorder -g "0,0 640x480" -f /tmp/test.mp4
+# Ctrl+C to stop, then play /tmp/test.mp4
+```
+
+### X11 (GNOME or KDE)
+
+No portal dialog. FFmpeg grabs the X display directly. A compositor (GNOME, KWin, Picom, …) should be running so the overlay can dim the desktop.
+
+---
+
+## 5. Record
+
+1. Click **Start Recording** (`Ctrl+Shift+R`).
+2. Drag a rectangle of at least **100×100** pixels. Optionally turn on the microphone switch.
+3. Confirm to start capture.
+4. **Pause / resume:** `Ctrl+Shift+Space`. **Stop:** `Ctrl+Shift+S`.
+5. Pick a save location in the file dialog.
+
+---
+
+## 6. Optional: build a standalone copy
+
+For a folder you can copy to another Linux machine of the **same architecture**:
+
+```bash
+flutter build linux --release
+```
+
+The app lives in:
 
 ```text
-build/linux/x64/release/bundle/screen_recorder_app
+build/linux/x64/release/bundle/
 ```
 
-Run it:
+Run it with:
 
 ```bash
 ./build/linux/x64/release/bundle/screen_recorder_app
 ```
 
-## Usage
+That other machine still needs **FFmpeg** (and **wf-recorder** on Sway/Hyprland). GNOME Wayland still needs the GNOME screencast + portal packages from step 2.
 
-1. Click **Start Recording** (or press `Ctrl+Shift+R`).
-2. The app hides, snapshots the desktop, and shows a fullscreen selector.
-3. Click and drag to create a rectangle. Drag inside to move; use the handles
-   to resize. Minimum size is **100×100** pixels.
-4. Turn **Microphone** on if you want your voice in the video (off = video only).
-   This uses the default PulseAudio / PipeWire source, not system audio.
-5. Click **Record** (or press Enter). The overlay is hidden before capture
-   starts so it is not in the video.
-6. Use the compact control window:
-   - **Pause** / **Resume** (`Ctrl+Shift+Space`)
-   - **Stop** (`Ctrl+Shift+S`)
-7. After Stop, the save dialog opens in the **last folder you saved to**
-   (remembered across restarts). Cancelling the dialog **does not delete**
-   the recording; the temp path is shown in the status line.
+To add it to the app menu, copy the bundle somewhere permanent (for example `~/Apps/screen_recorder`) and create `~/.local/share/applications/screen-recorder.desktop`:
 
-### Keyboard shortcuts
-
-These work while the application window is focused. Bindings live in
-`lib/services/shortcut_intents.dart` (`AppShortcutMap.defaults`) so they can
-be changed without rewriting the UI.
-
-| Shortcut | Action |
-| --- | --- |
-| `Ctrl+Shift+R` | Start / open region selector |
-| `Ctrl+Shift+Space` | Pause or resume |
-| `Ctrl+Shift+S` | Stop and save |
-| `Esc` | Cancel region selection |
-| `Enter` | Confirm selection and record |
-
-Global (out-of-focus) shortcuts are not registered. Wayland does not allow
-ordinary apps to grab global hotkeys without the XDG Global Shortcuts portal.
-
-## Capture backends
-
-### X11
-
-Uses FFmpeg:
-
-```text
-ffmpeg -f x11grab -video_size WxH -framerate 30 -draw_mouse 1 \
-  -i $DISPLAY+X,Y -an -c:v libx264 -preset ultrafast -crf 23 \
-  -pix_fmt yuv420p output.mp4
+```ini
+[Desktop Entry]
+Name=Screen Recorder
+Exec=/home/YOUR_USER/Apps/screen_recorder/screen_recorder_app
+Icon=video-display
+Type=Application
+Categories=AudioVideo;Recorder;
+Terminal=false
 ```
 
-With **Microphone** on, FFmpeg also captures PulseAudio `default` (mic) as AAC.
-
-`$DISPLAY` and monitor geometry come from the environment and `xrandr`.
-Coordinates are real X11 pixels, including negative offsets such as
-`x = -1920`.
-
-### Wayland
-
-`x11grab` is **not** used to capture native Wayland windows. On GNOME it often
-produces a **black** image (that was the black overlay).
-
-**GNOME Shell (Wayland)** uses the built-in D-Bus API over a **persistent**
-session-bus connection (GNOME stops capture if the caller disconnects):
-
-```text
-org.gnome.Shell.Screencast.ScreencastArea
-```
-
-Allow screen recording if GNOME prompts for permission. FFmpeg is still used
-to turn the result into MP4.
-
-**wlroots compositors** (Sway, Hyprland, river, …) use:
-
-```text
-wf-recorder -g "X,Y WxH" -r 30 -f output.mp4
-```
-
-With **Microphone** on, `-a` is added so `wf-recorder` records the default
-PulseAudio source.
-
-Install `wf-recorder` (and `grim` for the selector snapshot).
-
-**KDE Plasma on Wayland** does not implement wlr-screencopy, and this app
-does not use a KWin-specific recorder yet. Use a Plasma **X11** session or a
-wlroots compositor.
-
-The selector snapshot on Wayland uses the **XDG Screenshot portal**, then
-`grim` (wlroots), then a one-frame GNOME Screencast. It never uses FFmpeg
-`x11grab` (that captures a black XWayland root). GNOME's private
-`org.gnome.Shell.Screenshot` API is blocked for regular apps.
-
-### Mixed DPI / multi-monitor
-
-The selector maps overlay-local coordinates **proportionally** onto the
-virtual desktop bounding box from `screen_retriever` on Wayland, or `xrandr`
-on X11.
-
-Limitation: monitors with **different scale factors** in one session may
-still be slightly off. If capture is shifted, check that the overlay covers
-every monitor (some Wayland compositors refuse global window positioning).
-
-## Pause / resume
-
-FFmpeg `x11grab` and `wf-recorder` do not have a safe MP4 pause that drops
-the paused interval. This app **stops the current capture process** on Pause
-and **starts a new segment** on Resume. Stop concatenates segments with
-FFmpeg (`-c copy`, re-encode if needed). The paused wall-clock time is not
-in the output.
-
-## Project layout
-
-```text
-lib/
-├── main.dart
-├── app.dart
-├── models/
-├── controllers/
-├── services/
-├── platform/          # X11ScreenRecorder, WaylandScreenRecorder
-├── screens/
-└── widgets/
-```
-
-The UI talks only to `RecordingController`. Capture backends implement
-`ScreenRecorder` (`start` / `pause` / `resume` / `stop`).
-
-## Tests
+Replace `YOUR_USER` with the real home path. Then:
 
 ```bash
-flutter test
+update-desktop-database ~/.local/share/applications
 ```
 
-Unit tests cover `ScreenRegion` (including negative coordinates), recording
-state transitions, invalid transitions, save-dialog cancel, FFmpeg argument
-construction, and `xrandr` parsing. Capture tests use a **fake**
-`ScreenRecorder` so they do not need FFmpeg.
+---
 
 ## Troubleshooting
 
-**“FFmpeg is not installed”**  
-Install FFmpeg and ensure `ffmpeg` is on `PATH`.
+| Symptom | What to do |
+| --- | --- |
+| “FFmpeg is not installed” | Install `ffmpeg` and restart the app. Confirm `which ffmpeg`. |
+| “GNOME screencast service … was not available” | Use a GNOME session, install the GNOME packages in step 2, or switch to an X11 GNOME session. |
+| “No Wayland region recorder” on Sway/Hyprland | Install `wf-recorder`. |
+| KDE Wayland error | Log out and choose a **Plasma (X11)** session. |
+| Screenshot / region picker is black or cancelled | Allow the portal dialog; install `xdg-desktop-portal` plus the matching backend (`-gnome` or `-wlr`). |
+| Microphone silent | Enable the in-app mic switch before capture; check the default input in Sound settings. |
+| `flutter doctor` Linux toolchain failed | Install clang, cmake, ninja, pkg-config, and `libgtk-3-dev` (step 1). |
 
-**“Wayland region recording requires wf-recorder”**  
-Install `wf-recorder`, or switch to an X11 session.
+Confirm the session type if you are unsure:
 
-**Black overlay / “Desktop preview unavailable”**  
-The red box is still the recorded area. On GNOME Wayland the selector needs a
-still from the screenshot portal — click **Allow** if GNOME asks. The app
-keeps its window mapped during that prompt; hiding it first made GNOME cancel
-the request and left the overlay black. On Sway/Hyprland install `grim`.
-
-**Record does nothing / “GNOME started a screencast but wrote no video”**  
-GNOME 46’s default screencast probes OpenH264 then a GL pipeline. If
-`openh264enc` is missing (typical on Ubuntu), capture can report success and
-still write an empty file. This app forces GNOME’s software VP8 path
-(`videoconvert` + `vp8enc`). Allow screen recording if a prompt appears, then
-try Record again.
-
-**Black or empty video**  
-The selected region may be off-screen, or (on Wayland) `wf-recorder` may not
-support the compositor. Check logs from `flutter run -d linux`.
-
-**“Screencast ended unexpectedly” / video is a still at 00:00**  
-On GNOME Wayland the compositor stops capture if the D-Bus caller disconnects.
-This app keeps that session-bus connection open for the whole recording. A
-still-image file was the old one-shot `gdbus` path dying after the first frame.
-Allow screen recording if GNOME prompts. The region selector no longer starts
-a dummy screencast (that notification was from the snapshot, not the save).
-
-**Permission / cannot open display**  
-On X11, allow the user to connect to the X server. On Wayland, the compositor
-must implement wlr-screencopy for `wf-recorder`.
-
-**Controls appear in the recording**  
-The compact control window is placed outside the selected rectangle when a
-gap exists. If you record the entire desktop, hide the controls or use the
-keyboard shortcuts.
-
-**Not enough disk space**  
-FFmpeg errors containing `No space left on device` are shown as a readable
-message. Temp segments live under `/tmp/screen_recorder_*`.
+```bash
+echo "$XDG_SESSION_TYPE"   # wayland or x11
+echo "$XDG_CURRENT_DESKTOP"
+```

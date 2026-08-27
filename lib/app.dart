@@ -190,6 +190,7 @@ class _AppShellState extends State<AppShell> {
   File? _snapshot;
   bool _busyWindow = false;
   bool _startingCapture = false;
+  bool _restoringHome = false;
   final RegionSelectionController _selection = RegionSelectionController();
   late final NativeWindowService _nativeWindow;
   late final Future<AlphaProbe> _probeFuture;
@@ -374,11 +375,17 @@ class _AppShellState extends State<AppShell> {
     if (!_controller.canStop) {
       return;
     }
+    if (mounted) {
+      setState(() => _restoringHome = true);
+    }
     try {
       await _controller.stopAndSave();
     } finally {
       if (widget.manageWindows) {
         await widget.windowCoordinator.showHome();
+      }
+      if (mounted) {
+        setState(() => _restoringHome = false);
       }
     }
   }
@@ -442,7 +449,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _body(RecordingState state) {
-    if (_startingCapture || state.isActiveCapture || state.isBusy) {
+    if (_startingCapture ||
+        _restoringHome ||
+        state.isActiveCapture ||
+        state.isBusy) {
       return RecordingScreen(
         controller: _controller,
         onPauseResume: _togglePause,

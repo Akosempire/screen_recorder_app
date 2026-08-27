@@ -9,6 +9,7 @@ import 'package:screen_recorder_app/models/display_server.dart';
 import 'package:screen_recorder_app/models/screen_region.dart';
 import 'package:screen_recorder_app/screens/region_selection_screen.dart';
 import 'package:screen_recorder_app/screens/recording_screen.dart';
+import 'package:screen_recorder_app/screens/home_screen.dart';
 import 'package:screen_recorder_app/models/recording_state.dart';
 import 'package:screen_recorder_app/services/file_save_service.dart';
 import 'package:screen_recorder_app/services/native_window.dart';
@@ -336,6 +337,30 @@ void main() {
     );
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home screen does not overflow at the recording chip size',
+      (tester) async {
+    final controller = RecordingController(
+      recorder: _NoopRecorder(),
+      fileSaveService: _NoopSave(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: WindowCoordinator.recordingSize.width,
+          height: WindowCoordinator.recordingSize.height,
+          child: HomeScreen(
+            controller: controller,
+            onStartRecording: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Start Recording'), findsOneWidget);
   });
 }
 
