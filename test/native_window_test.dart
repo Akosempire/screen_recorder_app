@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:screen_recorder_app/models/display_server.dart';
@@ -48,5 +50,13 @@ void main() {
     final probe = await service.probe();
     expect(probe.passed, isFalse);
     expect(probe.opaqueRegionSupported, isFalse);
+  });
+
+  test('setFixedBounds is a no-op without the native plugin', () async {
+    final service = NativeWindowService(
+      channel: const MethodChannel('screen_recorder_app/missing'),
+    );
+    await service.setFixedBounds(const Rect.fromLTWH(8, 8, 128, 72));
+    await service.clearFixedBounds();
   });
 }

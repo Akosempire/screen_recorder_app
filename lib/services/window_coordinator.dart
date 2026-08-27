@@ -10,24 +10,37 @@ import '../models/display_server.dart';
 import '../models/screen_region.dart';
 import 'app_logger.dart';
 import 'desktop_snapshot_service.dart';
+import 'linux_desktop.dart';
 import 'native_window.dart';
 import 'selector_backdrop.dart';
 
+/// Process-local screenshot-portal trust. Hide-first runs when
+/// `trust != untrusted`: a real GNOME session returned a file at opacity 0
+/// after Allow, so `unknown` is treated like `trusted`.
+enum PortalTrust { unknown, trusted, untrusted }
+
 class WindowCoordinator {
   static const Size homeSize = Size(460, 420);
-  static const Size recordingSize = Size(128, 72);
+  static const Size recordingSize = Size(156, 40);
   static const Color opaqueBackground = Color(0xFF121418);
   static const Color liveBackground = Color(0x00000000);
+  static const Duration _hideFade = Duration(milliseconds: 200);
+  static const Duration _hideFirstTimeout = Duration(seconds: 2);
+  static const Duration _focusedTimeout = Duration(seconds: 45);
 
   WindowCoordinator({
     DesktopSnapshotService? snapshots,
     NativeWindowService? nativeWindow,
+    bool Function()? isGnomeDesktop,
   })  : _snapshots = snapshots ?? DesktopSnapshotService(),
-        _nativeWindow = nativeWindow ?? NativeWindowService();
+        _nativeWindow = nativeWindow ?? NativeWindowService(),
+        _isGnomeDesktop = isGnomeDesktop ?? (() => LinuxDesktop.isGnome);
 
   final DesktopSnapshotService _snapshots;
   final NativeWindowService _nativeWindow;
+  final bool Function() _isGnomeDesktop;
   File? _snapshot;
+  PortalTrust _trust = PortalTrust.unknown;
   final List<String> _windowOps = [];
 
   File? get snapshot => _snapshot;
@@ -35,7 +48,14 @@ class WindowCoordinator {
   @visibleForTesting
   List<String> get windowOps => List<String>.unmodifiable(_windowOps);
 
+  @visibleForTesting
+  PortalTrust get portalTrust => _trust;
+
+  @visibleForTesting
+  set portalTrust(PortalTrust value) => _trust = value;
+
   Future<void> showHome() async {
+    await _nativeWindow.clearFixedBounds();
     await _setOpaqueChrome();
     await _call('setFullScreen(false)', () => windowManager.setFullScreen(false));
     await _call('unmaximize', () => windowManager.unmaximize());
@@ -79,9 +99,8 @@ class WindowCoordinator {
   /// Takes a desktop still, then covers the screen with that image for region
   /// selection.
   ///
-  /// The window stays mapped **and focused**. GNOME only shows the screenshot
-  /// portal dialog for the focused app; fading to opacity 0 first made Mutter
-  /// deny the dialog and left a black selector.
+  /// Stays at opacity 0 until [revealSelector] — AppShell fades in after
+  /// the selector widget is built. Never [windowManager.hide].
   Future<File?> enterSnapshotSelection(DesktopGeometry geometry) async {
     await _call('setAlwaysOnTop(false)', () => windowManager.setAlwaysOnTop(false));
     await _call('setSkipTaskbar(false)', () => windowManager.setSkipTaskbar(false));
@@ -89,44 +108,127 @@ class WindowCoordinator {
     await _call('show', () => windowManager.show());
     await _call('focus', () => windowManager.focus());
 
-    var parent = await _nativeWindow.parentWindowHandle();
+    final parent = await _nativeWindow.parentWindowHandle();
     AppLogger.info(
       'Snapshot capture parent_window=${parent.isEmpty ? '(none)' : parent}',
     );
 
-    _snapshot = await _snapshots.capture(geometry, parentWindow: parent);
+    final gnomePortal =
+        geometry.displayServer == DisplayServer.wayland && _isGnomeDesktop();
+    var usedFocused = false;
+    var finishedHidden = false;
 
-    if (_snapshot == null) {
-      AppLogger.info(
-        'Snapshot failed while mapped; retrying focused so GNOME can prompt',
-      );
-      await _call('setOpacity(1)', () => windowManager.setOpacity(1));
-      await _call('show', () => windowManager.show());
-      await _call('focus', () => windowManager.focus());
-      _snapshot = await _snapshots.capture(geometry, parentWindow: parent);
-    } else {
-      // Permission is cached. Fade so the second still is the real desktop.
-      await _call('setOpacity(0)', () => windowManager.setOpacity(0));
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-      final clean = await _snapshots.capture(geometry, parentWindow: parent);
-      if (clean != null) {
-        _snapshot = clean;
+    try {
+      if (gnomePortal &&
+          parent.isNotEmpty &&
+          _trust != PortalTrust.untrusted) {
+        AppLogger.info(
+          'GNOME portal hide-first (trust=$_trust, timeout=2s)',
+        );
+        await _call('setOpacity(0)', () => windowManager.setOpacity(0));
+        await Future<void>.delayed(_hideFade);
+        final hidden = await _snapshots.capturePortal(
+          geometry,
+          parentWindow: parent,
+          timeout: _hideFirstTimeout,
+        );
+        if (hidden.success) {
+          _snapshot = hidden.file;
+          _trust = PortalTrust.trusted;
+          await _finishSelectorHidden();
+          finishedHidden = true;
+          return _snapshot;
+        }
+        if (hidden.status == PortalCaptureStatus.cancelled ||
+            hidden.status == PortalCaptureStatus.failed) {
+          _trust = PortalTrust.untrusted;
+        }
+        await _restoreVisible();
+      } else if (gnomePortal && parent.isEmpty) {
+        AppLogger.info(
+          'GNOME portal parent_window empty; skipping hide-first',
+        );
       }
-      await _call('setOpacity(1)', () => windowManager.setOpacity(1));
+
+      if (gnomePortal) {
+        usedFocused = true;
+        AppLogger.info('GNOME portal focused (timeout=45s)');
+        var focused = await _snapshots.capturePortal(
+          geometry,
+          parentWindow: parent,
+          timeout: _focusedTimeout,
+        );
+        if (focused.status == PortalCaptureStatus.cancelled) {
+          _snapshot = null;
+        } else if (!focused.success) {
+          await _restoreVisible();
+          focused = await _snapshots.capturePortal(
+            geometry,
+            parentWindow: parent,
+            timeout: _focusedTimeout,
+          );
+          _snapshot = focused.file;
+        } else {
+          _snapshot = focused.file;
+        }
+
+        if (usedFocused && _snapshot != null) {
+          AppLogger.info('GNOME portal B recapture after focused still');
+          await _call('setOpacity(0)', () => windowManager.setOpacity(0));
+          await Future<void>.delayed(_hideFade);
+          final clean = await _snapshots.capturePortal(
+            geometry,
+            parentWindow: parent,
+            timeout: _hideFirstTimeout,
+          );
+          if (clean.success) {
+            _snapshot = clean.file;
+            _trust = PortalTrust.trusted;
+          }
+        }
+      } else {
+        await _call('setOpacity(0)', () => windowManager.setOpacity(0));
+        await Future<void>.delayed(_hideFade);
+        _snapshot = await _snapshots.capture(geometry, parentWindow: parent);
+        if (_snapshot == null) {
+          await _restoreVisible();
+          _snapshot = await _snapshots.capture(geometry, parentWindow: parent);
+        }
+      }
+
+      AppLogger.info(
+        _snapshot == null
+            ? 'No desktop snapshot; overlay will not show a live preview'
+            : 'Desktop snapshot ready: ${_snapshot!.path}',
+      );
+
+      await _finishSelectorHidden();
+      finishedHidden = true;
+      return _snapshot;
+    } finally {
+      if (!finishedHidden) {
+        await _restoreVisible();
+      }
     }
+  }
 
-    AppLogger.info(
-      _snapshot == null
-          ? 'No desktop snapshot; overlay will not show a live preview'
-          : 'Desktop snapshot ready: ${_snapshot!.path}',
-    );
-
-    await _applySelectorChrome();
-    await _setBackground(opaqueBackground, 'opaque');
+  /// Fade the selector in after Flutter has swapped to the overlay.
+  Future<void> revealSelector() async {
     await _call('setOpacity(1)', () => windowManager.setOpacity(1));
     await _call('show', () => windowManager.show());
     await _call('focus', () => windowManager.focus());
-    return _snapshot;
+  }
+
+  Future<void> _restoreVisible() async {
+    await _call('setOpacity(1)', () => windowManager.setOpacity(1));
+    await _call('show', () => windowManager.show());
+    await _call('focus', () => windowManager.focus());
+  }
+
+  Future<void> _finishSelectorHidden() async {
+    await _call('setOpacity(0)', () => windowManager.setOpacity(0));
+    await _applySelectorChrome();
+    await _setBackground(opaqueBackground, 'opaque');
   }
 
   /// Live compositor hole. No still, no whole-window fade. Per-pixel alpha in
@@ -152,6 +254,7 @@ class WindowCoordinator {
   }
 
   Future<void> _applySelectorChrome() async {
+    await _nativeWindow.clearFixedBounds();
     await _call('setAsFrameless', () => windowManager.setAsFrameless());
     await _call(
       'setTitleBarStyle(hidden)',
@@ -179,14 +282,17 @@ class WindowCoordinator {
     }
   }
 
-  /// Hide the overlay, leave fullscreen, and shrink to the floating chip
-  /// so the real desktop is visible while recording.
+  /// Leave fullscreen while still mapped, then shrink to the chip at opacity 0.
+  ///
+  /// Do not [windowManager.hide]: on Linux, hiding the only GTK window
+  /// quits the Flutter process (`Lost connection to device`). Opacity 0
+  /// and not always-on-top keep the GNOME screencast prompt usable.
+  /// [showRecordingControls] reveals the chip after capture has started.
   Future<void> prepareRecordingChrome({Offset? position}) async {
     await _setOpaqueChrome();
-    await _call('hide', () => windowManager.hide());
-    await _call('setFullScreen(false)', () => windowManager.setFullScreen(false));
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-    await _call('unmaximize', () => windowManager.unmaximize());
+    await _call('setAlwaysOnTop(false)', () => windowManager.setAlwaysOnTop(false));
+    await _call('setOpacity(0)', () => windowManager.setOpacity(0));
+    await _leaveFullscreen();
     await _call('setAsFrameless', () => windowManager.setAsFrameless());
     await _call(
       'setTitleBarStyle(hidden)',
@@ -195,14 +301,12 @@ class WindowCoordinator {
         windowButtonVisibility: false,
       ),
     );
-    await _call('setAlwaysOnTop(true)', () => windowManager.setAlwaysOnTop(true));
-    await _call('setSkipTaskbar(false)', () => windowManager.setSkipTaskbar(false));
+    await _call('setSkipTaskbar(true)', () => windowManager.setSkipTaskbar(true));
+    await _call('setResizable(true)', () => windowManager.setResizable(true));
+    await _ensureChipSize(position ?? const Offset(24, 24));
     await _call('setResizable(false)', () => windowManager.setResizable(false));
-    await _shrinkToRecordingChip(position ?? const Offset(24, 24));
     await _call('setTitle', () => windowManager.setTitle('Recording'));
-    await _call('setOpacity(1)', () => windowManager.setOpacity(1));
     await _setBackground(opaqueBackground, 'opaque');
-    await Future<void>.delayed(const Duration(milliseconds: 300));
   }
 
   Future<void> showRecordingControls({
@@ -210,9 +314,15 @@ class WindowCoordinator {
     required DesktopGeometry geometry,
   }) async {
     final position = await controlPosition(captureRegion) ?? const Offset(24, 24);
+    await _call('setResizable(true)', () => windowManager.setResizable(true));
     await _shrinkToRecordingChip(position);
+    await _call('setAlwaysOnTop(true)', () => windowManager.setAlwaysOnTop(true));
+    await _call('setSkipTaskbar(false)', () => windowManager.setSkipTaskbar(false));
     await _call('show', () => windowManager.show());
     await _call('focus', () => windowManager.focus());
+    await _ensureChipSize(position);
+    await _call('setResizable(false)', () => windowManager.setResizable(false));
+    await _call('setOpacity(1)', () => windowManager.setOpacity(1));
   }
 
   Future<void> _setOpaqueChrome() async {
@@ -228,7 +338,52 @@ class WindowCoordinator {
     );
   }
 
+  Future<void> _leaveFullscreen() async {
+    await _call('setFullScreen(false)', () => windowManager.setFullScreen(false));
+    await _call('unmaximize', () => windowManager.unmaximize());
+    for (var i = 0; i < 8; i++) {
+      if (!await _isFullScreenOrMaximized()) {
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await _call('setFullScreen(false)', () => windowManager.setFullScreen(false));
+      await _call('unmaximize', () => windowManager.unmaximize());
+    }
+  }
+
+  Future<bool> _isFullScreenOrMaximized() async {
+    try {
+      return await windowManager.isFullScreen() ||
+          await windowManager.isMaximized();
+    } on MissingPluginException {
+      return false;
+    } catch (error) {
+      AppLogger.debug('Could not read fullscreen state: $error');
+      return false;
+    }
+  }
+
+  Rect _chipBounds(Offset position) {
+    return Rect.fromLTWH(
+      position.dx,
+      position.dy,
+      recordingSize.width,
+      recordingSize.height,
+    );
+  }
+
   Future<void> _shrinkToRecordingChip(Offset position) async {
+    await _call(
+      'clearMaximumSize',
+      () => windowManager.setMaximumSize(const Size(10000, 10000)),
+    );
+    await _call(
+      'setMinimumSize(1x1)',
+      () => windowManager.setMinimumSize(const Size(1, 1)),
+    );
+    final bounds = _chipBounds(position);
+    await _nativeWindow.setFixedBounds(bounds);
+    _windowOps.add('setFixedBounds(recording)');
     await _call(
       'setMinimumSize(recording)',
       () => windowManager.setMinimumSize(recordingSize),
@@ -237,28 +392,42 @@ class WindowCoordinator {
       'setMaximumSize(recording)',
       () => windowManager.setMaximumSize(recordingSize),
     );
-    final bounds = Rect.fromLTWH(
-      position.dx,
-      position.dy,
-      recordingSize.width,
-      recordingSize.height,
-    );
     await _call('setBounds(recording)', () => windowManager.setBounds(bounds));
     await _call('setSize(recording)', () => windowManager.setSize(recordingSize));
-    try {
-      final size = await windowManager.getSize();
-      AppLogger.info('Recording chrome size: ${size.width}x${size.height}');
-      if (size.width > recordingSize.width + 40 ||
-          size.height > recordingSize.height + 40) {
-        AppLogger.warn(
-          'Recording window stayed large (${size.width}x${size.height}); retrying bounds',
-        );
-        await _call('setFullScreen(false)', () => windowManager.setFullScreen(false));
-        await _call('unmaximize', () => windowManager.unmaximize());
-        await _call('setBounds(recording retry)', () => windowManager.setBounds(bounds));
+    await _nativeWindow.setFixedBounds(bounds);
+  }
+
+  Future<void> _ensureChipSize(Offset position) async {
+    for (var attempt = 0; attempt < 5; attempt++) {
+      if (attempt > 0) {
+        await _leaveFullscreen();
+        await _call('setResizable(true)', () => windowManager.setResizable(true));
       }
+      await _shrinkToRecordingChip(position);
+      final size = await _recordingWindowSize();
+      if (size == null) {
+        return;
+      }
+      AppLogger.info('Recording chrome size: ${size.width}x${size.height}');
+      if (size.width <= recordingSize.width + 40 &&
+          size.height <= recordingSize.height + 40) {
+        return;
+      }
+      AppLogger.warn(
+        'Recording window stayed large (${size.width}x${size.height}); retrying bounds',
+      );
+      await Future<void>.delayed(Duration(milliseconds: 50 * (attempt + 1)));
+    }
+  }
+
+  Future<Size?> _recordingWindowSize() async {
+    try {
+      return await windowManager.getSize();
+    } on MissingPluginException {
+      return null;
     } catch (error) {
       AppLogger.debug('Could not verify recording chrome size: $error');
+      return null;
     }
   }
 

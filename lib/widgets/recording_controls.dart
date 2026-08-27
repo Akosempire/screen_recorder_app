@@ -36,55 +36,41 @@ class RecordingControls extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
-        child: IntrinsicWidth(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _RecordingDot(active: recording),
-                const SizedBox(width: 5),
-                Text(
-                  formatElapsed(controller.elapsed),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    height: 1.1,
-                  ),
-                ),
-                if (controller.recordMicrophone) ...[
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.mic,
-                    size: 14,
-                    color: Color(0xFF26A69A),
-                  ),
-                ],
-              ],
+            _RecordingDot(active: recording),
+            const SizedBox(width: 5),
+            Text(
+              formatElapsed(controller.elapsed),
+              style: const TextStyle(
+                color: Colors.white,
+                fontFeatures: [FontFeature.tabularFigures()],
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                height: 1.1,
+              ),
             ),
-            const SizedBox(height: 2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _TinyIconButton(
-                  tooltip: paused ? 'Resume' : 'Pause',
-                  icon: paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                  onPressed: busy ? null : onPauseResume,
-                ),
-                _TinyIconButton(
-                  tooltip: 'Stop',
-                  icon: Icons.stop_rounded,
-                  color: const Color(0xFFE53935),
-                  onPressed: busy ? null : onStop,
-                ),
-              ],
+            if (controller.recordMicrophone) ...[
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.mic,
+                size: 14,
+                color: Color(0xFF26A69A),
+              ),
+            ],
+            _TinyIconButton(
+              tooltip: paused ? 'Resume' : 'Pause',
+              icon: paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+              onPressed: busy ? null : onPauseResume,
+            ),
+            _TinyIconButton(
+              tooltip: 'Stop',
+              icon: Icons.stop_rounded,
+              color: const Color(0xFFE53935),
+              onPressed: busy ? null : onStop,
             ),
           ],
-          ),
         ),
       ),
     );

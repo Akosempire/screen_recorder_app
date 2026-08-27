@@ -230,10 +230,19 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _startSelection() async {
-    if (!_controller.canBeginSelection || _busyWindow) {
+    if (_busyWindow) {
+      return;
+    }
+    final state = _controller.state;
+    if (state == RecordingState.selectingRegion ||
+        state == RecordingState.ready) {
+      return;
+    }
+    if (!_controller.canBeginSelection) {
       return;
     }
     _busyWindow = true;
+    var entered = false;
     try {
       if (widget.manageWindows) {
         final geometry =
@@ -251,9 +260,18 @@ class _AppShellState extends State<AppShell> {
           geometry,
           backdrop: _backdrop,
         );
+        entered = true;
       }
       _selection.clear();
       _controller.beginSelection();
+      if (widget.manageWindows && entered) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          widget.windowCoordinator.revealSelector();
+        });
+      }
     } catch (error, stack) {
       AppLogger.error('Could not open region selector', error, stack);
       if (!mounted) {
@@ -290,23 +308,24 @@ class _AppShellState extends State<AppShell> {
     try {
       final geometry = _controller.geometry;
       final captureRegion = _controller.region ?? region;
+      if (mounted) {
+        setState(() => _startingCapture = true);
+      }
       if (widget.manageWindows) {
+        await WidgetsBinding.instance.endOfFrame;
         await widget.windowCoordinator.prepareRecordingChrome(
           position: await widget.windowCoordinator.controlPosition(region),
         );
-        if (mounted) {
-          setState(() => _startingCapture = true);
-        }
+        await _controller.startRecording();
         if (geometry != null) {
           await widget.windowCoordinator.showRecordingControls(
             captureRegion: captureRegion,
             geometry: geometry,
           );
         }
-      } else if (mounted) {
-        setState(() => _startingCapture = true);
+      } else {
+        await _controller.startRecording();
       }
-      await _controller.startRecording();
     } catch (error, stack) {
       AppLogger.error('Failed to start capture', error, stack);
       _controller.recoverAfterFailure();

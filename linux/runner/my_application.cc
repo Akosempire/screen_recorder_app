@@ -238,6 +238,51 @@ static gboolean clear_opaque_region(MyApplication* self) {
   return TRUE;
 }
 
+static gboolean set_fixed_bounds(MyApplication* self, FlValue* args) {
+  if (self->window == nullptr || args == nullptr ||
+      fl_value_get_type(args) != FL_VALUE_TYPE_MAP) {
+    return FALSE;
+  }
+  const gint x = fl_value_as_int(fl_value_lookup_string(args, "x"));
+  const gint y = fl_value_as_int(fl_value_lookup_string(args, "y"));
+  gint width = fl_value_as_int(fl_value_lookup_string(args, "width"));
+  gint height = fl_value_as_int(fl_value_lookup_string(args, "height"));
+  if (width < 1) {
+    width = 1;
+  }
+  if (height < 1) {
+    height = 1;
+  }
+
+  gtk_window_unfullscreen(self->window);
+  gtk_window_unmaximize(self->window);
+  gtk_window_set_resizable(self->window, TRUE);
+
+  GdkGeometry geometry;
+  memset(&geometry, 0, sizeof(geometry));
+  geometry.min_width = width;
+  geometry.min_height = height;
+  geometry.max_width = width;
+  geometry.max_height = height;
+  gtk_window_set_geometry_hints(
+      self->window, nullptr, &geometry,
+      static_cast<GdkWindowHints>(GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE));
+  gtk_window_set_default_size(self->window, width, height);
+  gtk_window_resize(self->window, width, height);
+  gtk_window_move(self->window, x, y);
+  return TRUE;
+}
+
+static gboolean clear_fixed_bounds(MyApplication* self) {
+  if (self->window == nullptr) {
+    return FALSE;
+  }
+  gtk_window_set_geometry_hints(self->window, nullptr, nullptr,
+                                static_cast<GdkWindowHints>(0));
+  gtk_window_set_resizable(self->window, TRUE);
+  return TRUE;
+}
+
 static void method_call_cb(FlMethodChannel* channel,
                            FlMethodCall* method_call,
                            gpointer user_data) {
@@ -256,6 +301,15 @@ static void method_call_cb(FlMethodChannel* channel,
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "clearOpaqueRegion") == 0) {
     const gboolean cleared = clear_opaque_region(self);
+    g_autoptr(FlValue) result = fl_value_new_bool(cleared);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "setFixedBounds") == 0) {
+    const gboolean applied =
+        set_fixed_bounds(self, fl_method_call_get_args(method_call));
+    g_autoptr(FlValue) result = fl_value_new_bool(applied);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "clearFixedBounds") == 0) {
+    const gboolean cleared = clear_fixed_bounds(self);
     g_autoptr(FlValue) result = fl_value_new_bool(cleared);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "getParentWindow") == 0) {

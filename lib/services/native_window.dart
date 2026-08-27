@@ -80,6 +80,34 @@ class NativeWindowService {
     }
   }
 
+  /// Pin the GTK window to [bounds]. window_manager setSize is ignored on
+  /// GNOME Wayland after fullscreen; geometry hints are not.
+  Future<void> setFixedBounds(Rect bounds) async {
+    try {
+      await _channel.invokeMethod<bool>('setFixedBounds', {
+        'x': bounds.left.round(),
+        'y': bounds.top.round(),
+        'width': bounds.width.round().clamp(1, 10000),
+        'height': bounds.height.round().clamp(1, 10000),
+      });
+    } on MissingPluginException {
+      return;
+    } catch (error, stack) {
+      AppLogger.debug('setFixedBounds failed: $error\n$stack');
+    }
+  }
+
+  /// Drop min=max size hints so the home and selector windows can resize.
+  Future<void> clearFixedBounds() async {
+    try {
+      await _channel.invokeMethod<bool>('clearFixedBounds');
+    } on MissingPluginException {
+      return;
+    } catch (error, stack) {
+      AppLogger.debug('clearFixedBounds failed: $error\n$stack');
+    }
+  }
+
   /// Portal `parent_window` token (`wayland:…` or `x11:0x…`). Empty if unknown.
   Future<String> parentWindowHandle() async {
     try {

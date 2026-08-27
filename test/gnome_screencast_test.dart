@@ -34,12 +34,25 @@ void main() {
     expect(gnomeScreencastPathStem('/tmp/out.webm'), '/tmp/out');
     expect(gnomeScreencastPathStem('/tmp/out.mp4'), '/tmp/out');
     expect(gnomeScreencastPathStem('/tmp/out'), '/tmp/out');
+    expect(gnomeScreencastPathStem('/tmp/out.undefined'), '/tmp/out');
+  });
+
+  test('GNOME 46 custom pipeline is written as stem.undefined', () {
+    expect(
+      gnomeScreencastCandidatePaths(
+        returned: '/tmp/out.undefined',
+        stem: '/tmp/out',
+      ),
+      ['/tmp/out.undefined', '/tmp/out', '/tmp/out.webm', '/tmp/out.mp4'],
+    );
+    expect(gnomeScreencastDisplayPath('/tmp/out.undefined'), '/tmp/out.webm');
+    expect(gnomeScreencastDisplayPath('/tmp/out.webm'), '/tmp/out.webm');
   });
 
   test('software screencast pipeline avoids DMABuf/GL/OpenH264', () {
     expect(gnomeSoftwareWebmPipeline, contains('videoconvert'));
     expect(gnomeSoftwareWebmPipeline, contains('vp8enc'));
-    expect(gnomeSoftwareWebmPipeline, contains('webmmux'));
+    expect(gnomeSoftwareWebmPipeline, contains('webmmux streamable=true'));
     expect(gnomeSoftwareWebmPipeline, isNot(contains('glupload')));
     expect(gnomeSoftwareWebmPipeline, isNot(contains('openh264')));
     expect(gnomeSoftwareWebmPipeline, isNot(contains('pipewiresrc')));
@@ -73,7 +86,7 @@ void main() {
   test('GNOME mic pipeline muxes pulsesrc into webmmux', () {
     expect(gnomeSoftwareWebmMicPipeline, contains('pulsesrc'));
     expect(gnomeSoftwareWebmMicPipeline, contains('opusenc'));
-    expect(gnomeSoftwareWebmMicPipeline, contains('webmmux name=mux'));
+    expect(gnomeSoftwareWebmMicPipeline, contains('webmmux name=mux streamable=true'));
     expect(gnomeScreencastPipeline(recordMicrophone: true), contains('pulsesrc'));
     expect(
       gnomeScreencastPipeline(recordMicrophone: false),
@@ -108,6 +121,22 @@ void main() {
     expect(runner.ffmpegCount, 0);
   });
 
+  test('renames GNOME 46 .undefined captures to .webm on stop', () async {
+    final session = _FakeGnomeSession(extension: '.undefined');
+    final recorder = GnomeShellScreenRecorder(
+      sessionFactory: () => session,
+      wait: (_) async {},
+    );
+
+    await recorder.start(
+      const ScreenRegion(x: 10, y: 20, width: 320, height: 240),
+    );
+    final path = await recorder.stop();
+    expect(path, endsWith('segment_0.webm'));
+    expect(File(path!).existsSync(), isTrue);
+    expect(path, isNot(contains('.undefined')));
+  });
+
   test('concatenates paused GNOME segments with a stream copy', () async {
     final session = _FakeGnomeSession();
     final runner = _FakeFfmpegRunner();
@@ -133,6 +162,9 @@ void main() {
 }
 
 class _FakeGnomeSession implements GnomeScreencastSession {
+  _FakeGnomeSession({this.extension = '.webm'});
+
+  final String extension;
   var connected = false;
   var closed = false;
   var startCount = 0;
@@ -159,7 +191,7 @@ class _FakeGnomeSession implements GnomeScreencastSession {
   }) async {
     startCount += 1;
     lastStem = filePathStem;
-    final file = File('$filePathStem.webm');
+    final file = File('$filePathStem$extension');
     await file.writeAsBytes(List<int>.filled(4096, 7));
     return file.path;
   }

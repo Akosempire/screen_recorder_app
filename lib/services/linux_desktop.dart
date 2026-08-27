@@ -34,13 +34,16 @@ class LinuxDesktop {
 /// which can report PLAYING without ever writing a file. Forcing memfd +
 /// `videoconvert` + `vp8enc` matches GNOME's own last-resort pipeline.
 /// `%T` is replaced by gnome-shell with a thread count.
+///
+/// `streamable=true` makes webmmux flush a header while recording. Without
+/// it the file stays 0 bytes until EOS, and start-up thinks capture failed.
 const gnomeSoftwareWebmPipeline =
     'videoconvert chroma-mode=none dither=none matrix-mode=output-only n-threads=%T ! '
     'queue ! '
     'vp8enc cpu-used=16 max-quantizer=17 deadline=1 keyframe-mode=disabled '
     'threads=%T static-threshold=1000 buffer-size=20000 ! '
     'queue ! '
-    'webmmux';
+    'webmmux streamable=true';
 
 /// Same video path as [gnomeSoftwareWebmPipeline], plus default Pulse/PipeWire
 /// source (microphone) muxed as Opus. GNOME prepends the video source before
@@ -53,7 +56,7 @@ const gnomeSoftwareWebmMicPipeline =
     'queue ! mux. '
     'pulsesrc provide-clock=false ! queue ! audioconvert ! audioresample ! '
     'opusenc bitrate=128000 ! queue ! mux. '
-    'webmmux name=mux';
+    'webmmux name=mux streamable=true';
 
 String gnomeScreencastPipeline({required bool recordMicrophone}) {
   return recordMicrophone
@@ -65,10 +68,41 @@ String gnomeScreencastPipeline({required bool recordMicrophone}) {
 /// Passing `.mp4` becomes `file.mp4.mp4`; `.webm` is stripped as a compat hack.
 String gnomeScreencastPathStem(String path) {
   final lower = path.toLowerCase();
-  for (final ext in const ['.webm', '.mp4', '.mkv']) {
+  for (final ext in const ['.webm', '.mp4', '.mkv', '.undefined']) {
     if (lower.endsWith(ext)) {
       return path.substring(0, path.length - ext.length);
     }
+  }
+  return path;
+}
+
+/// Paths GNOME may write for a given D-Bus result and requested stem.
+///
+/// A custom `pipeline` option on GNOME 46 has no `fileExtension`, so the
+/// service appends `.undefined` even when the muxer is `webmmux`.
+List<String> gnomeScreencastCandidatePaths({
+  required String returned,
+  required String stem,
+}) {
+  final paths = <String>[
+    if (returned.isNotEmpty) returned,
+    stem,
+    '$stem.webm',
+    '$stem.mp4',
+    '$stem.undefined',
+  ];
+  final seen = <String>{};
+  return [
+    for (final path in paths)
+      if (path.isNotEmpty && seen.add(path)) path,
+  ];
+}
+
+/// GNOME 46 custom pipelines are saved as `stem.undefined`. After Stop,
+/// rename that to `.webm` so the save dialog and players see a real container.
+String gnomeScreencastDisplayPath(String path) {
+  if (path.toLowerCase().endsWith('.undefined')) {
+    return '${path.substring(0, path.length - '.undefined'.length)}.webm';
   }
   return path;
 }

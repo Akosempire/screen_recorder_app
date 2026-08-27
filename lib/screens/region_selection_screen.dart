@@ -263,8 +263,6 @@ class _RegionSelectionScreenState extends State<RegionSelectionScreen> {
               final canRecord = _selection.hasValidRegion &&
                   desktop != null &&
                   desktop.isValid;
-              final showPreviewUnavailable =
-                  !_live && widget.snapshot == null;
               return Stack(
                 fit: StackFit.expand,
                 children: [
@@ -309,33 +307,6 @@ class _RegionSelectionScreenState extends State<RegionSelectionScreen> {
                               key: _infoBadgeKey,
                               region: _selection.region!,
                               desktop: desktop,
-                            ),
-                          if (showPreviewUnavailable)
-                            const Align(
-                              alignment: Alignment.topCenter,
-                              child: Padding(
-                                padding: EdgeInsets.only(top: 24),
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: Color(0xE0121418),
-                                    borderRadius:
-                                        BorderRadius.all(Radius.circular(8)),
-                                  ),
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    child: Text(
-                                      'Desktop preview unavailable — the red box is still the area that will be recorded.',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ),
                         ],
                       ),
@@ -447,17 +418,19 @@ class _ActionBar extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              hint,
-              style: const TextStyle(color: Color(0xFFB0BEC5), fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                hint,
+                style: const TextStyle(color: Color(0xFFB0BEC5), fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 _MicrophoneToggle(
                   enabled: recordMicrophone,
                   onChanged: onRecordMicrophoneChanged,
@@ -495,6 +468,7 @@ class _ActionBar extends StatelessWidget {
               ],
             ),
           ],
+          ),
         ),
       ),
     );

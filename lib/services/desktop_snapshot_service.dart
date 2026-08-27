@@ -9,34 +9,73 @@ import 'ffmpeg_process_manager.dart';
 import 'linux_desktop.dart';
 import 'xdg_portal_screenshot.dart';
 
+export 'xdg_portal_screenshot.dart' show PortalCaptureResult, PortalCaptureStatus;
+
 /// Captures a still of the desktop so the region overlay can dim a real image
 /// without depending on GTK window transparency.
 class DesktopSnapshotService {
   DesktopSnapshotService({
     ProcessRunner runner = const ProcessRunner(),
-    Future<File?> Function(File destination, {String parentWindow})? portalCapture,
+    Future<PortalCaptureResult> Function(
+      File destination, {
+      String parentWindow,
+      Duration timeout,
+    })? portalCapture,
     bool Function()? isGnomeDesktop,
   })  : _runner = runner,
         _portalCapture = portalCapture ??
-            ((file, {parentWindow = ''}) =>
-                XdgPortalScreenshot().captureTo(file, parentWindow: parentWindow)),
+            ((file, {parentWindow = '', timeout = const Duration(seconds: 45)}) =>
+                XdgPortalScreenshot().captureTo(
+                  file,
+                  parentWindow: parentWindow,
+                  timeout: timeout,
+                )),
         _isGnomeDesktop = isGnomeDesktop ?? (() => LinuxDesktop.isGnome);
 
   final ProcessRunner _runner;
-  final Future<File?> Function(File destination, {String parentWindow})
-      _portalCapture;
+  final Future<PortalCaptureResult> Function(
+    File destination, {
+    String parentWindow,
+    Duration timeout,
+  }) _portalCapture;
   final bool Function() _isGnomeDesktop;
+  int _snapSeq = 0;
+
+  File _newSnapshotFile() {
+    _snapSeq += 1;
+    return File(
+      p.join(
+        Directory.systemTemp.path,
+        'screen_recorder_snap_${DateTime.now().microsecondsSinceEpoch}_$_snapSeq.png',
+      ),
+    );
+  }
+
+  /// Portal-only still. GNOME Wayland must use this, never [capture], so a
+  /// cancelled portal cannot fall through to gnome-screenshot / grim / D-Bus.
+  Future<PortalCaptureResult> capturePortal(
+    DesktopGeometry geometry, {
+    required String parentWindow,
+    Duration timeout = const Duration(seconds: 45),
+  }) async {
+    final file = _newSnapshotFile();
+    try {
+      return await _portalCapture(
+        file,
+        parentWindow: parentWindow,
+        timeout: timeout,
+      );
+    } catch (error, stack) {
+      AppLogger.warn('XDG screenshot portal unavailable: $error\n$stack');
+      return const PortalCaptureResult(PortalCaptureStatus.failed);
+    }
+  }
 
   Future<File?> capture(
     DesktopGeometry geometry, {
     String parentWindow = '',
   }) async {
-    final file = File(
-      p.join(
-        Directory.systemTemp.path,
-        'screen_recorder_snap_${DateTime.now().millisecondsSinceEpoch}.png',
-      ),
-    );
+    final file = _newSnapshotFile();
 
     if (geometry.displayServer == DisplayServer.wayland) {
       // x11grab on Wayland captures the XWayland root, which is typically
@@ -105,7 +144,12 @@ class DesktopSnapshotService {
 
   Future<File?> _tryPortal(File file, {String parentWindow = ''}) async {
     try {
-      return await _portalCapture(file, parentWindow: parentWindow);
+      final result = await _portalCapture(
+        file,
+        parentWindow: parentWindow,
+        timeout: const Duration(seconds: 45),
+      );
+      return result.file;
     } catch (error, stack) {
       AppLogger.warn('XDG screenshot portal unavailable: $error\n$stack');
       return null;

@@ -139,14 +139,19 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
     }
 
     if (segments.length == 1) {
-      AppLogger.info('Keeping captured file without transcode: ${segments.first}');
-      return segments.first;
+      final path = await _finalizeCapturePath(segments.first);
+      AppLogger.info('Keeping captured file without transcode: $path');
+      return path;
     }
 
-    final ext = p.extension(segments.first);
+    final finalized = <String>[];
+    for (final segment in segments) {
+      finalized.add(await _finalizeCapturePath(segment));
+    }
+    final ext = p.extension(finalized.first);
     final merged = p.join(dir.path, 'merged${ext.isEmpty ? '.webm' : ext}');
     return mergeMediaSegments(
-      segments: segments,
+      segments: finalized,
       outputPath: merged,
       encoder: encoder,
       runner: _runner,
@@ -190,16 +195,14 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
   }
 
   Future<String> _waitForCaptureFile(String returned, String stem) async {
-    final candidates = <String>[
-      if (returned.isNotEmpty) returned,
-      stem,
-      '$stem.mp4',
-      '$stem.webm',
-    ];
+    final candidates = gnomeScreencastCandidatePaths(
+      returned: returned,
+      stem: stem,
+    );
     var lastSize = 0;
     String? lastPath;
-    // GNOME only returns success after the pipeline is PLAYING, but the
-    // muxer may not flush the first cluster for a second or two.
+    // GNOME only returns success after the pipeline is PLAYING. Default
+    // webmmux buffers until EOS; streamable=true flushes a header quickly.
     for (var i = 0; i < 40; i++) {
       final error = _session?.fatalError;
       if (error != null) {
@@ -222,6 +225,11 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
           }
         }
       }
+      // Header-only WebM is a few hundred bytes; once that exists the
+      // pipeline is writing and Record can show the chip.
+      if (i >= 4 && lastPath != null && lastSize > 64) {
+        return lastPath;
+      }
       await _wait(const Duration(milliseconds: 200));
     }
     if (lastPath != null && lastSize > 64) {
@@ -234,6 +242,19 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
       userMessage:
           'GNOME started a screencast but wrote no video. If a permission prompt appeared, allow screen recording and try again.',
     );
+  }
+
+  Future<String> _finalizeCapturePath(String path) async {
+    final display = gnomeScreencastDisplayPath(path);
+    if (display == path) {
+      return path;
+    }
+    final src = File(path);
+    if (await src.exists()) {
+      await src.rename(display);
+      AppLogger.info('Renamed GNOME capture $path → $display');
+    }
+    return display;
   }
 
   Future<void> _stopScreencast() async {
