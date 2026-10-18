@@ -151,5 +151,7 @@ jobs:
             **Screen Recorder** shortcut appears on your desktop.
 
             Build ${{ github.run_number }} from ${{ github.sha }}.
-          files: dist/ScreenRecorder-Setup.exe
+          files: |
+            dist/ScreenRecorder-Setup.exe
+            screenshots/*.png
           make_latest: true
