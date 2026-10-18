@@ -59,7 +59,7 @@ export async function sendDownloadEmail(args) {
 /**
  * Supabase Auth magic link whose redirect is the signed download link. The
  * download URL must be allowed in Supabase → Authentication → URL Configuration
- * (Redirect URLs), e.g. https://your-site.vercel.app/**
+ * (Redirect URLs), e.g. https://www.screenrecorderapp.cv/**
  */
 export async function sendViaSupabase({ name, email, link }) {
   const base = process.env.SUPABASE_URL.replace(/\/+$/, '');

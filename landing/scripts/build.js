@@ -41,5 +41,8 @@ fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out);
 fs.copyFileSync(path.join(root, 'index.html'), path.join(out, 'index.html'));
 fs.cpSync(path.join(root, 'assets'), path.join(out, 'assets'), { recursive: true });
-console.log('✓ copied index.html and assets/ to public/');
+for (const name of ['robots.txt', 'sitemap.xml']) {
+  if (fs.existsSync(path.join(root, name))) fs.copyFileSync(path.join(root, name), path.join(out, name));
+}
+console.log('✓ copied index.html, assets/, robots.txt and sitemap.xml to public/');
 console.log('build ok');
