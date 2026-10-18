@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
@@ -7,9 +8,11 @@ import '../controllers/recording_controller.dart';
 import '../models/recording_state.dart';
 import '../services/camera_bubble.dart';
 import '../services/demo_mode.dart';
+import '../services/recording_background.dart';
 import '../services/recording_library.dart';
 import '../services/recording_options.dart';
 import '../services/support_link.dart';
+import '../ui/background_widgets.dart';
 import '../ui/studio_painters.dart';
 import '../ui/studio_theme.dart';
 import '../ui/studio_widgets.dart';
@@ -17,7 +20,7 @@ import 'studio_tour.dart';
 
 enum _ViewMode { before, compare, after }
 
-enum _Section { cursor, zoom, camera, audio }
+enum _Section { cursor, zoom, camera, background, audio }
 
 /// Editor-style home screen: top bar, tool rail, preview stage with a
 /// transport bar and timeline, settings inspector, and a status bar.
@@ -48,10 +51,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     if (DemoMode.state == 'compare') _mode = _ViewMode.compare;
-    if (DemoMode.state == 'camera') {
-      _section = _Section.camera;
+    final demoSection = switch (DemoMode.state) {
+      'camera' => _Section.camera,
+      'background' => _Section.background,
+      _ => null,
+    };
+    if (demoSection != null) {
+      _section = demoSection;
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _focusSection(_Section.camera),
+        (_) => _focusSection(demoSection),
       );
     }
   }
@@ -352,6 +360,12 @@ class _Rail extends StatelessWidget {
               onTap: () => onSection(_Section.camera),
             ),
             _RailItem(
+              icon: Icons.wallpaper,
+              label: 'Backdrop',
+              selected: section == _Section.background,
+              onTap: () => onSection(_Section.background),
+            ),
+            _RailItem(
               icon: Icons.mic_none,
               label: 'Audio',
               selected: section == _Section.audio,
@@ -610,12 +624,17 @@ class _PreviewState extends State<_Preview> {
                     height: box.maxHeight,
                     gaplessPlayback: true,
                   );
+              // The exported look: the recording framed on the chosen background.
+              Widget finished(File f) => RecordingOnBackground(
+                    spec: RecordingOptions.instance.background,
+                    child: image(f),
+                  );
               switch (widget.mode) {
                 case _ViewMode.after:
                   return Stack(
                     fit: StackFit.expand,
                     children: [
-                      image(after),
+                      finished(after),
                       if (rec.hasComparison)
                         const Positioned(top: 10, right: 10, child: StudioBadge('After')),
                     ],
@@ -645,7 +664,7 @@ class _PreviewState extends State<_Preview> {
                           image(before ?? after),
                           ClipRect(
                             clipper: _RightOf(x),
-                            child: image(after),
+                            child: finished(after),
                           ),
                           Positioned(
                             left: x - 1,
@@ -991,6 +1010,13 @@ class _Inspector extends StatelessWidget {
                 _CameraSection(
                   sectionKey: sectionKeys[_Section.camera]!,
                   enabled: effects,
+                ),
+                const _InspectorDivider(),
+
+                // Background
+                _BackgroundSection(
+                  sectionKey: sectionKeys[_Section.background]!,
+                  enabled: editable,
                 ),
                 const _InspectorDivider(),
 
@@ -1391,6 +1417,169 @@ class _CornerPicker extends StatelessWidget {
           dot(CameraCorner.bottomRight, Alignment.bottomRight),
         ],
       ),
+    );
+  }
+}
+
+/// Background picker: built-in gradients and patterns, or an uploaded image,
+/// plus padding, corner roundness and shadow. Applied when exporting.
+class _BackgroundSection extends StatelessWidget {
+  const _BackgroundSection({required this.sectionKey, required this.enabled});
+
+  final GlobalKey sectionKey;
+  final bool enabled;
+
+  Future<void> _upload(BuildContext context) async {
+    final options = RecordingOptions.instance;
+    final file = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp']),
+      ],
+    );
+    if (file == null) return;
+    var path = file.path;
+    try {
+      final folder = RecordingOptions.settingsFolder;
+      if (folder != null) {
+        path = await importBackgroundImage(
+          path,
+          Directory(p.join(folder.path, 'backgrounds')),
+        );
+      }
+      await loadImageFile(path); // check it is a picture Flutter can read
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('That file could not be opened as a picture. Try a PNG or JPG.')),
+        );
+      }
+      return;
+    }
+    options.setBackgroundImage(path);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final options = RecordingOptions.instance;
+    final spec = options.background;
+    final on = spec.kind != BackgroundKind.none;
+    final hasImage = spec.imagePath != null && File(spec.imagePath!).existsSync();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          key: sectionKey,
+          children: [
+            const Expanded(child: Text('Background', style: StudioText.section)),
+            Switch(
+              value: on,
+              onChanged: enabled
+                  ? (v) => options.setBackgroundKind(
+                        v ? BackgroundKind.preset : BackgroundKind.none,
+                      )
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 1.08,
+          children: [
+            for (final preset in BackgroundPreset.values)
+              StudioTile(
+                label: preset.label,
+                selected: spec.kind == BackgroundKind.preset && spec.preset == preset,
+                preview: CustomPaint(painter: BackgroundPresetPainter(preset)),
+                onTap: enabled ? () => options.setBackgroundPreset(preset) : null,
+              ),
+            StudioTile(
+              label: hasImage ? 'Your image' : 'Upload',
+              selected: spec.kind == BackgroundKind.image && hasImage,
+              preview: hasImage
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.file(File(spec.imagePath!), fit: BoxFit.cover),
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: Tooltip(
+                            message: 'Choose another picture',
+                            child: InkWell(
+                              onTap: enabled ? () => _upload(context) : null,
+                              child: Container(
+                                margin: const EdgeInsets.all(4),
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xE6FFFFFF),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Icon(Icons.edit_outlined, size: 13, color: Studio.ink),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : const ColoredBox(
+                      color: Studio.track,
+                      child: Center(
+                        child: Icon(Icons.add_photo_alternate_outlined, size: 22, color: Studio.muted),
+                      ),
+                    ),
+              onTap: enabled
+                  ? () {
+                      if (hasImage && spec.kind != BackgroundKind.image) {
+                        options.setBackgroundImage(spec.imagePath!);
+                      } else {
+                        _upload(context);
+                      }
+                    }
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        StudioSliderRow(
+          label: 'Padding',
+          value: spec.padding,
+          min: BackgroundSpec.minPadding,
+          max: BackgroundSpec.maxPadding,
+          divisions: 13,
+          display: '${(spec.padding * 100).round()}%',
+          onChanged: enabled && on ? (v) => options.backgroundPadding = v : null,
+        ),
+        StudioSliderRow(
+          label: 'Corners',
+          value: spec.radius,
+          min: 0,
+          max: BackgroundSpec.maxRadius,
+          divisions: 20,
+          display: spec.radius.round().toString(),
+          onChanged: enabled && on ? (v) => options.backgroundRadius = v : null,
+        ),
+        Row(
+          children: [
+            const Expanded(child: Text('Shadow', style: StudioText.body)),
+            Switch(
+              value: spec.shadow,
+              onChanged: enabled && on ? (v) => options.backgroundShadow = v : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          on
+              ? 'Your recording sits on this background when you export. The preview shows how it will look.'
+              : 'Put your recording on a gradient, a pattern or your own picture, with rounded corners.',
+          style: StudioText.caption.copyWith(height: 1.45),
+        ),
+      ],
     );
   }
 }

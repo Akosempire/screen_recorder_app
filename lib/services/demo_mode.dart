@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../screens/export_dialog.dart';
+import 'recording_background.dart';
 import 'recording_library.dart';
 import 'recording_options.dart';
 import 'studio_save_service.dart';
@@ -12,7 +13,7 @@ import 'studio_save_service.dart';
 ///
 ///   screen_recorder_app.exe --demo=compare --demo-assets=C:\path\to\demo
 ///
-/// States: home, tour, compare, export, camera.
+/// States: home, tour, compare, export, camera, background.
 /// The assets folder holds before.png, after.png and strip.png.
 class DemoMode {
   DemoMode._();
@@ -30,13 +31,16 @@ class DemoMode {
   }
 
   static bool get wantsRecording =>
-      state == 'compare' || state == 'export' || state == 'camera';
+      state == 'compare' || state == 'export' || state == 'camera' || state == 'background';
 
   /// Prepares options and the sample recording. Call before the UI builds.
   static void prepare() {
     if (!active) return;
     final options = RecordingOptions.instance;
     options.tourDone = state != 'tour';
+    if (state == 'background') {
+      options.setBackgroundPreset(BackgroundPreset.ocean);
+    }
     final dir = assets;
     if (!wantsRecording || dir == null) return;
     File file(String name) => File('$dir${Platform.pathSeparator}$name');

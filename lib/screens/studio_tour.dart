@@ -56,7 +56,7 @@ final tourSteps = <TourStep>[
     chip: 'Camera',
   ),
   const TourStep(
-    railIndex: 6,
+    railIndex: 7,
     title: 'Export and find it later',
     body: 'Choose resolution, quality and sound, then save. Compare the '
         'original and zoomed versions with Before / After.',

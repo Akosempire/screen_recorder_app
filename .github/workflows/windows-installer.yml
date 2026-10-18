@@ -168,6 +168,7 @@ jobs:
           Shot "app-compare" "compare"
           Shot "app-export" "export"
           Shot "app-camera" "camera"
+          Shot "app-background" "background"
           Get-ChildItem screenshots
 
       - uses: actions/upload-artifact@v4

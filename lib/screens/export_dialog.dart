@@ -1,6 +1,7 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../services/recording_background.dart';
 import '../services/recording_library.dart';
 import '../services/studio_save_service.dart';
 import '../ui/studio_theme.dart';
@@ -35,6 +36,9 @@ class _ExportDialogState extends State<ExportDialog> {
       TextEditingController(text: widget.settings.fileName);
 
   ExportSettings get s => widget.settings;
+
+  /// The background picked in the studio, so the switch can turn it back on.
+  late final BackgroundSpec _chosenBackground = widget.settings.background;
 
   @override
   void dispose() {
@@ -286,6 +290,19 @@ class _ExportDialogState extends State<ExportDialog> {
               ? 'Microphone audio recorded with the video'
               : 'This recording has no sound',
         ),
+        if (_chosenBackground.isActive)
+          _row(
+            'Background',
+            Switch(
+              value: s.background.isActive,
+              onChanged: _busy
+                  ? null
+                  : (v) => setState(() => s.background =
+                      v ? _chosenBackground : const BackgroundSpec()),
+            ),
+            hint: '${_chosenBackground.label}, with rounded corners. '
+                'Change it in the Background panel.',
+          ),
       ],
     );
   }

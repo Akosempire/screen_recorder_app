@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import 'recording_background.dart';
+
 /// How the live cursor overlay draws.
 enum CursorStyle {
   haloAndRipples('Halo + ripples', 'A yellow halo follows the cursor and every click ripples.'),
@@ -62,6 +64,7 @@ class RecordingOptions extends ChangeNotifier {
   bool _cameraCircle = true;
   String? _cameraDevice;
   CameraCorner _cameraCorner = CameraCorner.bottomLeft;
+  BackgroundSpec _background = const BackgroundSpec();
   bool _loaded = false;
 
   /// True once preferences have been read from disk (the app has booted).
@@ -132,6 +135,55 @@ class RecordingOptions extends ChangeNotifier {
     _changed();
   }
 
+  /// Background behind the recording, applied when exporting (all platforms).
+  BackgroundSpec get background => _background;
+
+  /// Turns the background off, or picks a preset / uploaded image.
+  void setBackgroundKind(BackgroundKind kind) => _setBackground(kind: kind);
+
+  void setBackgroundPreset(BackgroundPreset preset) =>
+      _setBackground(kind: BackgroundKind.preset, preset: preset);
+
+  void setBackgroundImage(String path) =>
+      _setBackground(kind: BackgroundKind.image, imagePath: path);
+
+  set backgroundPadding(double value) => _setBackground(
+      padding: value.clamp(BackgroundSpec.minPadding, BackgroundSpec.maxPadding).toDouble());
+
+  set backgroundRadius(double value) =>
+      _setBackground(radius: value.clamp(0.0, BackgroundSpec.maxRadius).toDouble());
+
+  set backgroundShadow(bool value) => _setBackground(shadow: value);
+
+  void _setBackground({
+    BackgroundKind? kind,
+    BackgroundPreset? preset,
+    String? imagePath,
+    double? padding,
+    double? radius,
+    bool? shadow,
+  }) {
+    final b = _background;
+    final next = BackgroundSpec(
+      kind: kind ?? b.kind,
+      preset: preset ?? b.preset,
+      imagePath: imagePath ?? b.imagePath,
+      padding: padding ?? b.padding,
+      radius: radius ?? b.radius,
+      shadow: shadow ?? b.shadow,
+    );
+    if (next.kind == b.kind &&
+        next.preset == b.preset &&
+        next.imagePath == b.imagePath &&
+        next.padding == b.padding &&
+        next.radius == b.radius &&
+        next.shadow == b.shadow) {
+      return;
+    }
+    _background = next;
+    _changed();
+  }
+
   /// Effects are implemented for the Windows backend.
   static bool get effectsSupported => Platform.isWindows;
 
@@ -183,7 +235,8 @@ class RecordingOptions extends ChangeNotifier {
     _save();
   }
 
-  static File? get _file {
+  /// %APPDATA%\screen_recorder_app on Windows, ~/.config/screen_recorder_app on Linux.
+  static Directory? get settingsFolder {
     final base = Platform.isWindows
         ? Platform.environment['APPDATA']
         : (Platform.environment['XDG_CONFIG_HOME'] ??
@@ -191,7 +244,12 @@ class RecordingOptions extends ChangeNotifier {
                 ? null
                 : p.join(Platform.environment['HOME']!, '.config')));
     if (base == null || base.isEmpty) return null;
-    return File(p.join(base, 'screen_recorder_app', 'options.json'));
+    return Directory(p.join(base, 'screen_recorder_app'));
+  }
+
+  static File? get _file {
+    final folder = settingsFolder;
+    return folder == null ? null : File(p.join(folder.path, 'options.json'));
   }
 
   Future<void> load() async {
@@ -234,6 +292,26 @@ class RecordingOptions extends ChangeNotifier {
               orElse: () => _cameraCorner,
             );
           }
+          final bg = data['background'];
+          if (bg is Map) {
+            T pick<T extends Enum>(List<T> values, Object? name, T fallback) =>
+                values.firstWhere((v) => v.name == name, orElse: () => fallback);
+            const d = BackgroundSpec();
+            final padding = bg['padding'];
+            final radius = bg['radius'];
+            _background = BackgroundSpec(
+              kind: pick(BackgroundKind.values, bg['kind'], d.kind),
+              preset: pick(BackgroundPreset.values, bg['preset'], d.preset),
+              imagePath: bg['imagePath'] as String?,
+              padding: padding is num
+                  ? padding.toDouble().clamp(BackgroundSpec.minPadding, BackgroundSpec.maxPadding).toDouble()
+                  : d.padding,
+              radius: radius is num
+                  ? radius.toDouble().clamp(0.0, BackgroundSpec.maxRadius).toDouble()
+                  : d.radius,
+              shadow: bg['shadow'] as bool? ?? d.shadow,
+            );
+          }
         }
       }
     } catch (_) {
@@ -259,6 +337,14 @@ class RecordingOptions extends ChangeNotifier {
         'cameraCircle': _cameraCircle,
         'cameraCorner': _cameraCorner.name,
         if (_cameraDevice != null) 'cameraDevice': _cameraDevice,
+        'background': {
+          'kind': _background.kind.name,
+          'preset': _background.preset.name,
+          if (_background.imagePath != null) 'imagePath': _background.imagePath,
+          'padding': _background.padding,
+          'radius': _background.radius,
+          'shadow': _background.shadow,
+        },
       }));
     } catch (_) {}
   }

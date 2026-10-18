@@ -10,7 +10,9 @@ import 'app_logger.dart';
 import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
 import 'file_save_service.dart';
+import 'recording_background.dart';
 import 'recording_library.dart';
+import 'recording_options.dart';
 
 enum ExportResolution {
   original('Original'),
@@ -53,6 +55,7 @@ class ExportSettings {
     this.frameRate = ExportFrameRate.original,
     this.quality = ExportQuality.balanced,
     this.keepSound = true,
+    this.background = const BackgroundSpec(),
   });
 
   String fileName;
@@ -61,6 +64,9 @@ class ExportSettings {
   ExportFrameRate frameRate;
   ExportQuality quality;
   bool keepSound;
+
+  /// Background behind the recording (none by default).
+  BackgroundSpec background;
 }
 
 /// Size of the output for [resolution] given a [width]×[height] source.
@@ -76,18 +82,58 @@ class ExportSettings {
 
 /// FFmpeg arguments that apply [settings] to [source], or null when the file
 /// can be kept exactly as it is.
+///
+/// With [background] and [backgroundFrame] (a PNG of the background with a
+/// transparent rounded window, see `renderBackgroundFrame`), the recording is
+/// scaled into the window and the frame is laid over it.
 List<String>? buildExportArgs({
   required String source,
   required String output,
   required ExportSettings settings,
   required int height,
   required bool hasAudio,
+  BackgroundLayout? background,
+  String? backgroundFrame,
 }) {
-  final scale = settings.resolution.height != null &&
-      height > settings.resolution.height!;
   final fps = settings.frameRate == ExportFrameRate.fps15;
   final crf = settings.quality.crf;
   final dropSound = hasAudio && !settings.keepSound;
+
+  if (background != null && backgroundFrame != null) {
+    final b = background;
+    final graph = [
+      '[0:v]scale=${b.innerWidth}:${b.innerHeight}:flags=lanczos,setsar=1,'
+          'pad=${b.width}:${b.height}:${b.x}:${b.y}:color=black[rec]',
+      '[rec][1:v]overlay=0:0:shortest=1${fps ? ',fps=15' : ''},format=yuv420p[out]',
+    ].join(';');
+    return [
+      '-y',
+      '-hide_banner',
+      '-i',
+      source,
+      '-loop',
+      '1',
+      '-i',
+      backgroundFrame,
+      '-filter_complex',
+      graph,
+      '-map',
+      '[out]',
+      if (hasAudio && !dropSound) ...['-map', '0:a?', '-c:a', 'copy'] else '-an',
+      '-c:v',
+      'libx264',
+      '-preset',
+      'veryfast',
+      '-crf',
+      '${crf ?? 20}',
+      '-movflags',
+      '+faststart',
+      output,
+    ];
+  }
+
+  final scale = settings.resolution.height != null &&
+      height > settings.resolution.height!;
   final reencode = scale || fps || crf != null;
   if (!reencode && !dropSound) {
     return null;
@@ -198,6 +244,7 @@ class StudioSaveService implements FileSaveService {
       fileName: p.basenameWithoutExtension(suggestedName),
       folder: initialDirectory ?? defaultVideosFolder(),
       keepSound: recording.hasAudio,
+      background: RecordingOptions.instance.background,
     );
 
     final context = navigatorKey.currentContext;
@@ -227,26 +274,74 @@ class StudioSaveService implements FileSaveService {
   ) async {
     await Directory(settings.folder).create(recursive: true);
     final destination = uniqueDestination(settings.folder, settings.fileName);
-    final temp = p.join(p.dirname(source), 'export_${DateTime.now().millisecondsSinceEpoch}.mp4');
-    final args = buildExportArgs(
-      source: source,
-      output: temp,
-      settings: settings,
-      height: recording.height,
-      hasAudio: recording.hasAudio,
-    );
-    if (args != null) {
-      AppLogger.info('Export: ffmpeg ${args.join(' ')}');
-      final result = await runner.run(ffmpegExecutable, args);
-      if (result.exitCode != 0 || !await File(temp).exists()) {
-        throw ExportFailure(result.stderr.toString());
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final temp = p.join(p.dirname(source), 'export_$stamp.mp4');
+
+    BackgroundLayout? layout;
+    String? framePath;
+    if (settings.background.isActive) {
+      final (w, h) = await _videoSize(source, recording);
+      final (outW, outH) = exportOutputSize(w, h, settings.resolution);
+      layout = layoutBackground(outW, outH, settings.background);
+      framePath = p.join(p.dirname(source), 'background_$stamp.png');
+      await File(framePath).writeAsBytes(
+        await renderBackgroundFrame(layout, settings.background),
+      );
+    }
+
+    try {
+      final args = buildExportArgs(
+        source: source,
+        output: temp,
+        settings: settings,
+        height: recording.height,
+        hasAudio: recording.hasAudio,
+        background: layout,
+        backgroundFrame: framePath,
+      );
+      if (args != null) {
+        AppLogger.info('Export: ffmpeg ${args.join(' ')}');
+        final result = await runner.run(ffmpegExecutable, args);
+        if (result.exitCode != 0 || !await File(temp).exists()) {
+          throw ExportFailure(result.stderr.toString());
+        }
+        // Replace the produced file so the controller saves the new version.
+        await File(source).delete();
+        await File(temp).rename(source);
       }
-      // Replace the produced file so the controller saves the new version.
-      await File(source).delete();
-      await File(temp).rename(source);
+    } finally {
+      if (framePath != null) {
+        try {
+          await File(framePath).delete();
+        } catch (_) {}
+      }
     }
     return destination;
   }
+
+  /// The real pixel size of [source] (FFmpeg's stream info), falling back to
+  /// the size recorded for the region.
+  Future<(int, int)> _videoSize(String source, LastRecording recording) async {
+    try {
+      final result = await runner.run(ffmpegExecutable, ['-hide_banner', '-i', source]);
+      final size = parseVideoSize(result.stderr.toString());
+      if (size != null) return size;
+    } catch (_) {}
+    return (
+      recording.width > 0 ? recording.width : 1920,
+      recording.height > 0 ? recording.height : 1080,
+    );
+  }
+}
+
+/// Reads "1920x1080" from the video stream line of `ffmpeg -i` output.
+(int, int)? parseVideoSize(String ffmpegInfo) {
+  for (final line in ffmpegInfo.split('\n')) {
+    if (!line.contains('Video:')) continue;
+    final m = RegExp(r'[ ,](\d{2,5})x(\d{2,5})[ ,\[]').firstMatch(line);
+    if (m != null) return (int.parse(m.group(1)!), int.parse(m.group(2)!));
+  }
+  return null;
 }
 
 class ExportFailure implements Exception {
