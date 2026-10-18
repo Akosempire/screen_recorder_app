@@ -101,9 +101,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final enabled =
         widget.controller.canBeginSelection && !widget.controller.state.isBusy;
 
-    return Material(
-      color: Studio.chrome,
-      child: Stack(
+    return Scaffold(
+      backgroundColor: Studio.chrome,
+      body: Stack(
         children: [
           Column(
             children: [
