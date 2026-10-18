@@ -76,6 +76,7 @@ class Studio {
           pressedElevation: 3,
         ),
         showValueIndicator: ShowValueIndicator.never,
+        tickMarkShape: SliderTickMarkShape.noTickMark,
       ),
       switchTheme: SwitchThemeData(
         thumbColor: const WidgetStatePropertyAll(surface),

@@ -690,7 +690,11 @@ class _Transport extends StatelessWidget {
     final length = recording?.duration;
     return SizedBox(
       height: 48,
-      child: Row(
+      child: LayoutBuilder(builder: (context, box) {
+      // Drop the least important pills first so nothing gets clipped.
+      final showCursorPill = effects && box.maxWidth >= 720;
+      final showZoomPill = effects && box.maxWidth >= 560;
+      return Row(
         children: [
           FilledButton(
             onPressed: enabled ? onStartRecording : null,
@@ -732,50 +736,43 @@ class _Transport extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Flexible(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              reverse: true,
-              child: Row(
-                children: [
-                  if (effects) ...[
-                    StudioPill(
-                      icon: Icons.ads_click,
-                      label: options.cursorStyle.label,
-                      trailing: Icons.unfold_more,
-                      tooltip: 'Change cursor style',
-                      onTap: () {
-                        final values = CursorStyle.values;
-                        options.cursorStyle =
-                            values[(options.cursorStyle.index + 1) % values.length];
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    StudioPill(
-                      icon: Icons.zoom_in,
-                      label: options.autoZoom
-                          ? 'Auto-zoom ${options.zoomLevel.toStringAsFixed(1)}×'
-                          : 'Auto-zoom off',
-                      trailing: Icons.unfold_more,
-                      tooltip: 'Turn auto-zoom on or off',
-                      onTap: () => options.autoZoom = !options.autoZoom,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  StudioPill(
-                    icon: controller.recordMicrophone ? Icons.mic : Icons.mic_off_outlined,
-                    label: controller.recordMicrophone ? 'Mic on' : 'Mic off',
-                    tooltip: 'Record your microphone',
-                    onTap: enabled
-                        ? () => controller.setRecordMicrophone(!controller.recordMicrophone)
-                        : null,
-                  ),
-                ],
-              ),
+          if (showCursorPill) ...[
+            StudioPill(
+              icon: Icons.ads_click,
+              label: options.cursorStyle.label,
+              trailing: Icons.unfold_more,
+              tooltip: 'Change cursor style',
+              onTap: () {
+                final values = CursorStyle.values;
+                options.cursorStyle =
+                    values[(options.cursorStyle.index + 1) % values.length];
+              },
             ),
+            const SizedBox(width: 8),
+          ],
+          if (showZoomPill) ...[
+            StudioPill(
+              icon: Icons.zoom_in,
+              label: options.autoZoom
+                  ? 'Auto-zoom ${options.zoomLevel.toStringAsFixed(1)}×'
+                  : 'Auto-zoom off',
+              trailing: Icons.unfold_more,
+              tooltip: 'Turn auto-zoom on or off',
+              onTap: () => options.autoZoom = !options.autoZoom,
+            ),
+            const SizedBox(width: 8),
+          ],
+          StudioPill(
+            icon: controller.recordMicrophone ? Icons.mic : Icons.mic_off_outlined,
+            label: controller.recordMicrophone ? 'Mic on' : 'Mic off',
+            tooltip: 'Record your microphone',
+            onTap: enabled
+                ? () => controller.setRecordMicrophone(!controller.recordMicrophone)
+                : null,
           ),
         ],
-      ),
+      );
+      }),
     );
   }
 }
