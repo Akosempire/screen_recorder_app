@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:screen_recorder_app/screens/home_screen.dart';
 import 'package:screen_recorder_app/models/recording_state.dart';
 import 'package:screen_recorder_app/services/file_save_service.dart';
 import 'package:screen_recorder_app/services/native_window.dart';
+import 'package:screen_recorder_app/services/processing_status.dart';
 import 'package:screen_recorder_app/services/screen_recorder.dart';
 import 'package:screen_recorder_app/services/selector_backdrop.dart';
 import 'package:screen_recorder_app/services/window_coordinator.dart';
@@ -42,6 +44,16 @@ class _NoopRecorder implements ScreenRecorder {
   Future<String?> stop() async => null;
 }
 
+class _SlowStopRecorder extends _NoopRecorder {
+  final finish = Completer<String?>();
+
+  @override
+  Future<String?> stop() {
+    ProcessingStatus.instance.begin('Adding auto-zoom…');
+    return finish.future;
+  }
+}
+
 class _NoopSave implements FileSaveService {
   @override
   Future<String?> chooseSaveLocation({
@@ -53,6 +65,52 @@ class _NoopSave implements FileSaveService {
 }
 
 void main() {
+  testWidgets('Stop returns to the dashboard while the video is finished',
+      (tester) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final recorder = _SlowStopRecorder();
+    final controller = RecordingController(
+      recorder: recorder,
+      fileSaveService: _NoopSave(),
+      geometry: _geometry,
+    );
+    controller.beginSelection();
+    controller.updateReadyRegion(
+      const ScreenRegion(x: 0, y: 0, width: 400, height: 400),
+    );
+    await controller.startRecording();
+    expect(controller.state, RecordingState.recording);
+
+    await tester.pumpWidget(
+      ScreenRecorderApp(controller: controller, manageWindows: false),
+    );
+    await tester.pump();
+    expect(find.byType(RecordingScreen), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Stop'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(controller.state, RecordingState.stopping);
+    expect(find.byType(RecordingScreen), findsNothing);
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('Adding auto-zoom…'), findsOneWidget);
+
+    recorder.finish.complete(null);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(controller.state, isNot(RecordingState.stopping));
+    expect(ProcessingStatus.instance.active, isFalse);
+
+    await tester.pumpWidget(const SizedBox());
+    controller.dispose();
+  });
+
   testWidgets('home screen shows start recording and status', (tester) async {
     final controller = RecordingController(
       recorder: _NoopRecorder(),

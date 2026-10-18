@@ -336,32 +336,39 @@ class StudioSaveService implements FileSaveService {
     if (navigator == null || !navigator.mounted) {
       return null;
     }
-    // Editor first (trim, cut, background), then the Export dialog.
-    final destination = await navigator.push<String>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => EditorScreen(
+    Future<String?> exportDialog(List<EditRange>? segments) async {
+      final context = navigatorKey.currentContext;
+      if (context == null || !context.mounted) return null;
+      settings
+        ..segments = segments
+        ..background = RecordingOptions.instance.background;
+      return showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: const Color(0x33000000),
+        builder: (_) => ExportDialog(
           recording: recording,
-          onExport: (segments) async {
-            final context = navigatorKey.currentContext;
-            if (context == null || !context.mounted) return null;
-            settings
-              ..segments = segments
-              ..background = RecordingOptions.instance.background;
-            return showDialog<String>(
-              context: context,
-              barrierDismissible: false,
-              barrierColor: const Color(0x33000000),
-              builder: (_) => ExportDialog(
-                recording: recording,
-                settings: settings,
-                onExport: (chosen) => _export(source, recording, chosen),
-              ),
-            );
-          },
+          settings: settings,
+          onExport: (chosen) => _export(source, recording, chosen),
         ),
-      ),
-    );
+      );
+    }
+
+    // Editor first (trim, cut, background), then the Export dialog. If the
+    // editor can't open for any reason, go straight to the Export dialog so
+    // the recording is never stuck.
+    String? destination;
+    try {
+      destination = await navigator.push<String>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => EditorScreen(recording: recording, onExport: exportDialog),
+        ),
+      );
+    } catch (error, stack) {
+      AppLogger.error('Editor failed; opening Export directly', error, stack);
+      destination = await exportDialog(null);
+    }
     if (destination != null) {
       RecordingLibrary.instance.markSaved(destination);
     }

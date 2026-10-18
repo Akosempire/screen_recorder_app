@@ -19,6 +19,7 @@ import 'services/native_window.dart';
 import 'services/app_update.dart';
 import 'services/camera_bubble.dart';
 import 'services/demo_mode.dart';
+import 'services/processing_status.dart';
 import 'services/recording_options.dart';
 import 'services/screen_recorder.dart';
 import 'services/screen_recorder_factory.dart';
@@ -204,6 +205,7 @@ class _AppShellState extends State<AppShell> {
   bool _busyWindow = false;
   bool _startingCapture = false;
   bool _restoringHome = false;
+  bool _homeShownWhileFinishing = false;
   final RegionSelectionController _selection = RegionSelectionController();
   late final NativeWindowService _nativeWindow;
   late final Future<AlphaProbe> _probeFuture;
@@ -217,6 +219,7 @@ class _AppShellState extends State<AppShell> {
     _nativeWindow = widget.nativeWindow ?? NativeWindowService();
     _probeFuture = _nativeWindow.probe();
     _controller.addListener(_rebuild);
+    ProcessingStatus.instance.addListener(_onProcessing);
     if (DemoMode.active) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => DemoMode.afterFirstFrame(appNavigatorKey),
@@ -235,8 +238,23 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  /// Capture has stopped and the video is being finished: bring the full
+  /// dashboard back right away instead of leaving the small recording bar.
+  Future<void> _onProcessing() async {
+    final processing = ProcessingStatus.instance;
+    if (!processing.active) {
+      _homeShownWhileFinishing = false;
+      return;
+    }
+    _rebuild();
+    if (_homeShownWhileFinishing || !widget.manageWindows) return;
+    _homeShownWhileFinishing = true;
+    await widget.windowCoordinator.showHome();
+  }
+
   @override
   void dispose() {
+    ProcessingStatus.instance.removeListener(_onProcessing);
     _controller.removeListener(_rebuild);
     _selection.dispose();
     super.dispose();
@@ -245,6 +263,11 @@ class _AppShellState extends State<AppShell> {
   void _rebuild() {
     if (!mounted) {
       return;
+    }
+    // Finishing is over once the controller leaves "stopping" (editor/export
+    // opened, or an error).
+    if (_controller.state != RecordingState.stopping && ProcessingStatus.instance.active) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => ProcessingStatus.instance.end());
     }
     final phase = SchedulerBinding.instance.schedulerPhase;
     if (phase == SchedulerPhase.idle ||
@@ -481,10 +504,12 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _body(RecordingState state) {
-    if (_startingCapture ||
+    final finishing = state == RecordingState.stopping && ProcessingStatus.instance.active;
+    if (!finishing &&
+        (_startingCapture ||
         (_restoringHome && state != RecordingState.saving) ||
         state.isActiveCapture ||
-        state == RecordingState.stopping) {
+        state == RecordingState.stopping)) {
       return RecordingScreen(
         controller: _controller,
         onPauseResume: _togglePause,

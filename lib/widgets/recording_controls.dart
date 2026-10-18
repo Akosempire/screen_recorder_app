@@ -42,7 +42,9 @@ class RecordingControls extends StatelessWidget {
             _RecordingDot(active: recording),
             const SizedBox(width: 5),
             Text(
-              formatElapsed(controller.elapsed),
+              controller.state == RecordingState.stopping
+                  ? 'Stopping…'
+                  : formatElapsed(controller.elapsed),
               style: const TextStyle(
                 color: Colors.white,
                 fontFeatures: [FontFeature.tabularFigures()],

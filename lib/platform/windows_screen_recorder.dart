@@ -10,6 +10,7 @@ import '../services/cursor_tracker.dart';
 import '../services/ffmpeg_binary.dart';
 import '../services/ffmpeg_process_manager.dart';
 import '../services/ffmpeg_recorder.dart';
+import '../services/processing_status.dart';
 import '../services/recording_library.dart';
 import '../services/recording_options.dart';
 
@@ -128,10 +129,13 @@ class WindowsScreenRecorder extends SegmentingScreenRecorder {
     _activeRegion = null;
     await _overlay.hide();
 
+    // Capture has stopped once super.stop() returns; from here on the
+    // dashboard is shown with a "Finishing your recording" status.
     final produced = await super.stop();
     if (produced == null || region == null) {
       return produced;
     }
+    ProcessingStatus.instance.begin(zoom ? 'Adding auto-zoom…' : 'Finishing your recording…');
     final duration = Duration(
       milliseconds: log.samples.isEmpty ? 0 : (log.samples.last.t * 1000).round(),
     );
@@ -165,6 +169,7 @@ class WindowsScreenRecorder extends SegmentingScreenRecorder {
       }
     }
 
+    ProcessingStatus.instance.begin('Opening the editor…');
     RecordingLibrary.instance.register(
       LastRecording(
         finalPath: result,

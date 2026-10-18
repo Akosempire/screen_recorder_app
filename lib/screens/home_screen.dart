@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -9,6 +10,7 @@ import '../models/recording_state.dart';
 import '../services/app_update.dart';
 import '../services/camera_bubble.dart';
 import '../services/demo_mode.dart';
+import '../services/processing_status.dart';
 import '../services/recording_background.dart';
 import '../services/recording_library.dart';
 import '../services/recording_options.dart';
@@ -113,6 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _library,
               CameraBubbleService.instance,
               AppUpdateService.instance,
+              ProcessingStatus.instance,
             ]),
             builder: (context, _) => _studio(context, constraints),
           ),
@@ -499,9 +502,11 @@ class _Stage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(Studio.radiusLg),
               ),
               padding: const EdgeInsets.all(18),
-              child: recording == null
-                  ? const _EmptyStage()
-                  : _Preview(recording: recording!, mode: mode),
+              child: ProcessingStatus.instance.active
+                  ? const _Finishing()
+                  : recording == null
+                      ? const _EmptyStage()
+                      : _Preview(recording: recording!, mode: mode),
             ),
           ),
           const SizedBox(height: 12),
@@ -1714,6 +1719,67 @@ class _UpdateDialog extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Shown on the stage between "Stop" and the Editor: the video is being
+/// finished (and auto-zoomed), which can take a while for long recordings.
+class _Finishing extends StatefulWidget {
+  const _Finishing();
+
+  @override
+  State<_Finishing> createState() => _FinishingState();
+}
+
+class _FinishingState extends State<_Finishing> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = ProcessingStatus.instance;
+    final since = status.since;
+    final secs = since == null ? 0 : DateTime.now().difference(since).inSeconds;
+    final elapsed = '${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}';
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 34,
+              height: 34,
+              child: CircularProgressIndicator(strokeWidth: 3, color: Studio.ink),
+            ),
+            const SizedBox(height: 18),
+            Text(status.message ?? 'Finishing your recording…', style: StudioText.title, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            const Text(
+              'Your recording has stopped. We’re getting the video ready; the editor opens by itself when it’s done. '
+              'Auto-zoom can take about as long as the recording.',
+              style: StudioText.caption,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(elapsed, style: StudioText.caption.copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
+          ],
+        ),
       ),
     );
   }
