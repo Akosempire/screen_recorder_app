@@ -3,6 +3,9 @@ import 'screen_region.dart';
 enum DisplayServer {
   x11,
   wayland,
+
+  /// Windows desktop (GDI capture via FFmpeg gdigrab).
+  windows,
   unknown,
 }
 

@@ -1,6 +1,32 @@
 # Screen Recorder
 
-A Linux desktop app that records any rectangle of the screen (another window, a browser, a terminal — not this window). Built with Flutter.
+A desktop app for **Windows** and **Linux** that records any rectangle of the screen (another window, a browser, a terminal — not this window). Built with Flutter.
+
+## Windows
+
+**Install:** download `ScreenRecorder-Setup.exe` from the [Releases page](../../releases/tag/windows-latest), run it, and a **Screen Recorder** shortcut appears on your desktop. No admin rights, no FFmpeg install — everything is bundled.
+
+> The installer isn't code-signed, so Windows SmartScreen may say *"Windows protected your PC"*. Click **More info → Run anyway**.
+
+**Windows-only extras** (toggle them on the home screen):
+
+| Feature | What it does |
+| --- | --- |
+| **Cursor highlight** | A yellow halo follows the mouse and every click sends out a ripple (yellow = left, blue = right). It's visible live on screen while you record and is captured into the video. |
+| **Auto-zoom follows mouse** | After you stop, the video is re-rendered so the camera smoothly zooms in around your clicks, pans to follow the cursor, and zooms back out when you go idle. Zoom strength is adjustable (1.2×–3×). Recordings with no clicks are left as-is. |
+
+Notes:
+
+- The capture area is the monitor the app window is on. To record another monitor, drag the app there before pressing **Start Recording**.
+- The app's own window is excluded from recordings (Windows 10 2004 or newer).
+- Microphone uses the first DirectShow audio input (your default mic in most setups).
+- Auto-zoom adds a processing step after you press Stop; longer recordings take longer.
+
+**Build the installer yourself:** every push to `main` runs `.github/workflows/windows-installer.yml`, which builds the app, bundles FFmpeg 7.1.1 and the VC++ runtime, and packages `ScreenRecorder-Setup.exe` with Inno Setup (`installer/screen_recorder.iss`). Locally on Windows: `flutter build windows --release`, copy `ffmpeg.exe` into `build\windows\x64\runner\Release\ffmpeg\`, then `iscc installer\screen_recorder.iss`.
+
+---
+
+## Linux
 
 **Supported sessions**
 

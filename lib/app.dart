@@ -15,8 +15,9 @@ import 'screens/region_selection_screen.dart';
 import 'services/app_logger.dart';
 import 'services/file_save_service.dart';
 import 'services/last_save_path_store.dart';
-import 'services/linux_screen_service.dart';
+import 'services/desktop_geometry.dart';
 import 'services/native_window.dart';
+import 'services/recording_options.dart';
 import 'services/screen_recorder.dart';
 import 'services/screen_recorder_factory.dart';
 import 'services/selector_backdrop.dart';
@@ -108,6 +109,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
   Future<void> _boot() async {
     final save = const LinuxFileSaveService();
+    await RecordingOptions.instance.load();
     final lastSavePath = FileLastSavePathStore();
     try {
       final created = await ScreenRecorderFactory().create();
@@ -146,7 +148,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
 
   Future<DesktopGeometry?> _geometryOrNull() async {
     try {
-      return await LinuxScreenService().queryGeometry();
+      return await queryDesktopGeometry();
     } catch (_) {
       return null;
     }
@@ -246,8 +248,11 @@ class _AppShellState extends State<AppShell> {
     var entered = false;
     try {
       if (widget.manageWindows) {
-        final geometry =
-            _controller.geometry ?? await LinuxScreenService().queryGeometry();
+        // Windows records the monitor the app is on, which can change
+        // between recordings, so always re-query there.
+        final geometry = Platform.isWindows
+            ? await queryDesktopGeometry()
+            : _controller.geometry ?? await queryDesktopGeometry();
         _controller.updateGeometry(geometry);
         final probe = await _probeFuture;
         _backdrop = chooseSelectorBackdrop(

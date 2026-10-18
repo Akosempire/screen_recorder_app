@@ -1,12 +1,16 @@
+import 'dart:io';
+
 import '../models/display_server.dart';
 import '../models/recorder_exception.dart';
 import '../platform/wayland_screen_recorder.dart';
+import '../platform/windows_screen_recorder.dart';
 import '../platform/x11_screen_recorder.dart';
 import 'app_logger.dart';
 import 'ffmpeg_process_manager.dart';
 import 'linux_desktop.dart';
 import 'linux_screen_service.dart';
 import 'screen_recorder.dart';
+import 'windows_screen_service.dart';
 
 class ScreenRecorderFactory {
   ScreenRecorderFactory({
@@ -24,15 +28,18 @@ class ScreenRecorderFactory {
   Future<CreatedRecorder> create() async {
     final ffmpegOk = await _probe.isAvailable();
     if (!ffmpegOk) {
-      throw const RecorderException(
-        userMessage:
-            'FFmpeg is not installed or is not on PATH. '
-            'Install it with: sudo apt install ffmpeg',
+      throw RecorderException(
+        userMessage: Platform.isWindows
+            ? 'FFmpeg is missing from the app folder. Reinstall Screen Recorder.'
+            : 'FFmpeg is not installed or is not on PATH. '
+                'Install it with: sudo apt install ffmpeg',
         technicalDetails: 'ffmpeg -version failed',
       );
     }
 
-    final geometry = await _linuxScreen.queryGeometry();
+    final geometry = Platform.isWindows
+        ? await const WindowsScreenService().queryGeometry()
+        : await _linuxScreen.queryGeometry();
     if (geometry.isEmpty) {
       throw const RecorderException(
         userMessage: 'No monitors were detected.',
@@ -60,6 +67,15 @@ class ScreenRecorderFactory {
         return CreatedRecorder(
           recorder: await WaylandScreenRecorder.create(
             geometry: geometry,
+            encoder: encoder,
+            runner: _runner,
+          ),
+          geometry: geometry,
+          encoder: encoder,
+        );
+      case DisplayServer.windows:
+        return CreatedRecorder(
+          recorder: await WindowsScreenRecorder.create(
             encoder: encoder,
             runner: _runner,
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/recording_controller.dart';
 import '../models/recording_state.dart';
+import '../services/recording_options.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -59,7 +60,7 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const Text(
-                        'Records any rectangle of your desktop — other windows, a browser, a terminal — not this app.',
+                        'Records any rectangle of your screen — other windows, a browser, a terminal — not this app.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Color(0xFFB0BEC5),
@@ -85,6 +86,10 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (RecordingOptions.effectsSupported) ...[
+                        const SizedBox(height: 16),
+                        _EffectsPanel(enabled: enabled),
+                      ],
                       const SizedBox(height: 18),
                       _StatusRow(controller: controller),
                       if (error != null) ...[
@@ -154,6 +159,135 @@ class _StatusRow extends StatelessWidget {
             'Status: ${state.label}',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Cursor highlight and auto-zoom switches (Windows backend).
+class _EffectsPanel extends StatelessWidget {
+  const _EffectsPanel({required this.enabled});
+
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final options = RecordingOptions.instance;
+    return ListenableBuilder(
+      listenable: options,
+      builder: (context, _) {
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1D23),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF2A2F38)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Column(
+            children: [
+              _EffectSwitch(
+                icon: Icons.ads_click_rounded,
+                title: 'Cursor highlight',
+                subtitle: 'Yellow halo + click ripples, live and in the video',
+                value: options.cursorHighlight,
+                onChanged: enabled ? (v) => options.cursorHighlight = v : null,
+              ),
+              const Divider(height: 1, color: Color(0xFF2A2F38)),
+              _EffectSwitch(
+                icon: Icons.zoom_in_map_rounded,
+                title: 'Auto-zoom follows mouse',
+                subtitle: 'Zooms in on clicks and pans with the cursor',
+                value: options.autoZoom,
+                onChanged: enabled ? (v) => options.autoZoom = v : null,
+              ),
+              if (options.autoZoom)
+                Padding(
+                  padding: const EdgeInsets.only(left: 34, bottom: 4),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Zoom',
+                        style: TextStyle(fontSize: 12, color: Color(0xFFB0BEC5)),
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: options.zoomLevel,
+                          min: 1.2,
+                          max: 3.0,
+                          divisions: 18,
+                          label: '${options.zoomLevel.toStringAsFixed(1)}×',
+                          onChanged:
+                              enabled ? (v) => options.zoomLevel = v : null,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 36,
+                        child: Text(
+                          '${options.zoomLevel.toStringAsFixed(1)}×',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFB0BEC5),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _EffectSwitch extends StatelessWidget {
+  const _EffectSwitch({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: const Color(0xFFFFD600)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF8A939F),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );

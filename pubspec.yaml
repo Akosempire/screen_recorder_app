@@ -1,5 +1,5 @@
 name: screen_recorder_app
-description: Native Linux desktop screen-region recorder using Flutter and FFmpeg.
+description: Desktop screen-region recorder (Windows and Linux) using Flutter and FFmpeg.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -32,6 +32,10 @@ dependencies:
   # Session-bus client for the XDG Screenshot portal on Wayland.
   # Runtime Dart library (Unix socket); no extra native packages.
   dbus: ^0.7.11
+
+  # Win32 FFI helpers (cursor position, mouse buttons) for the Windows
+  # backend's auto-zoom cursor log. Pure Dart; no native build step.
+  ffi: ^2.1.3
 
 dev_dependencies:
   flutter_test:

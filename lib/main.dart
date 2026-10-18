@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -7,8 +9,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await windowManager.ensureInitialized();
-  const options = WindowOptions(
-    size: Size(460, 420),
+  final options = WindowOptions(
+    size: Platform.isWindows ? const Size(460, 560) : const Size(460, 420),
     minimumSize: Size(400, 360),
     center: true,
     title: 'Screen Recorder',

@@ -20,7 +20,8 @@ import 'selector_backdrop.dart';
 enum PortalTrust { unknown, trusted, untrusted }
 
 class WindowCoordinator {
-  static const Size homeSize = Size(460, 420);
+  static Size get homeSize =>
+      Platform.isWindows ? const Size(460, 560) : const Size(460, 420);
   static const Size recordingSize = Size(156, 40);
   static const Color opaqueBackground = Color(0xFF121418);
   static const Color liveBackground = Color(0x00000000);
@@ -255,6 +256,10 @@ class WindowCoordinator {
 
   Future<void> _applySelectorChrome() async {
     await _nativeWindow.clearFixedBounds();
+    if (Platform.isWindows) {
+      await _applyWindowsSelectorChrome();
+      return;
+    }
     await _call('setAsFrameless', () => windowManager.setAsFrameless());
     await _call(
       'setTitleBarStyle(hidden)',
@@ -282,6 +287,38 @@ class WindowCoordinator {
     }
   }
 
+  /// Windows: window_manager's `setAsFrameless` cannot be undone, so the
+  /// selector hides the title bar and goes fullscreen on the window's monitor
+  /// (the same monitor [WindowsScreenService] reports as the capture area).
+  Future<void> _applyWindowsSelectorChrome() async {
+    await _call(
+      'setTitleBarStyle(hidden)',
+      () => windowManager.setTitleBarStyle(
+        TitleBarStyle.hidden,
+        windowButtonVisibility: false,
+      ),
+    );
+    await _call('setAlwaysOnTop(true)', () => windowManager.setAlwaysOnTop(true));
+    await _call('setSkipTaskbar(true)', () => windowManager.setSkipTaskbar(true));
+    await _call('setResizable(true)', () => windowManager.setResizable(true));
+    await _call(
+      'clearMaximumSize',
+      () => windowManager.setMaximumSize(const Size(10000, 10000)),
+    );
+    await _call(
+      'setMinimumSize(overlay)',
+      () => windowManager.setMinimumSize(const Size(1, 1)),
+    );
+    await _call('setFullScreen(true)', () => windowManager.setFullScreen(true));
+  }
+
+  Future<void> _frameless() async {
+    if (Platform.isWindows) {
+      return;
+    }
+    await _call('setAsFrameless', () => windowManager.setAsFrameless());
+  }
+
   /// Leave fullscreen while still mapped, then shrink to the chip at opacity 0.
   ///
   /// Do not [windowManager.hide]: on Linux, hiding the only GTK window
@@ -293,7 +330,7 @@ class WindowCoordinator {
     await _call('setAlwaysOnTop(false)', () => windowManager.setAlwaysOnTop(false));
     await _call('setOpacity(0)', () => windowManager.setOpacity(0));
     await _leaveFullscreen();
-    await _call('setAsFrameless', () => windowManager.setAsFrameless());
+    await _frameless();
     await _call(
       'setTitleBarStyle(hidden)',
       () => windowManager.setTitleBarStyle(

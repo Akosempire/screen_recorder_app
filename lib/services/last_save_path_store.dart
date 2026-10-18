@@ -39,6 +39,10 @@ class FileLastSavePathStore implements LastSavePathStore {
     if (_configDir != null) {
       return _configDir;
     }
+    final appData = Platform.environment['APPDATA'];
+    if (Platform.isWindows && appData != null && appData.isNotEmpty) {
+      return Directory(p.join(appData, 'screen_recorder_app'));
+    }
     final configHome = Platform.environment['XDG_CONFIG_HOME'];
     final base = (configHome != null && configHome.isNotEmpty)
         ? configHome

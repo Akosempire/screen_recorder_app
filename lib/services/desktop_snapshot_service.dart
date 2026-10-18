@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../models/display_server.dart';
 import 'app_logger.dart';
+import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
 import 'linux_desktop.dart';
 import 'xdg_portal_screenshot.dart';
@@ -76,6 +77,10 @@ class DesktopSnapshotService {
     String parentWindow = '',
   }) async {
     final file = _newSnapshotFile();
+
+    if (geometry.displayServer == DisplayServer.windows) {
+      return _tryFfmpegGdigrab(file, geometry);
+    }
 
     if (geometry.displayServer == DisplayServer.wayland) {
       // x11grab on Wayland captures the XWayland root, which is typically
@@ -203,6 +208,44 @@ class DesktopSnapshotService {
         return file;
       }
       AppLogger.debug('ffmpeg snapshot failed: ${result.stderr}');
+    } on ProcessException catch (error) {
+      AppLogger.debug('ffmpeg snapshot unavailable: $error');
+    } on TimeoutException catch (error) {
+      AppLogger.debug('ffmpeg snapshot timed out: $error');
+    }
+    return null;
+  }
+
+  Future<File?> _tryFfmpegGdigrab(File file, DesktopGeometry geometry) async {
+    try {
+      final result = await _runner.run(
+        ffmpegExecutable,
+        [
+          '-y',
+          '-hide_banner',
+          '-f',
+          'gdigrab',
+          '-draw_mouse',
+          '0',
+          '-offset_x',
+          '${geometry.minX}',
+          '-offset_y',
+          '${geometry.minY}',
+          '-video_size',
+          '${geometry.width}x${geometry.height}',
+          '-i',
+          'desktop',
+          '-frames:v',
+          '1',
+          file.path,
+        ],
+        timeout: const Duration(seconds: 8),
+      );
+      if (result.exitCode == 0 && await _usable(file)) {
+        AppLogger.info('Snapshot via ffmpeg gdigrab: ${file.path}');
+        return file;
+      }
+      AppLogger.warn('gdigrab snapshot failed: ${result.stderr}');
     } on ProcessException catch (error) {
       AppLogger.debug('ffmpeg snapshot unavailable: $error');
     } on TimeoutException catch (error) {

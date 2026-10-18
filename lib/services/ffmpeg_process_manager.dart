@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../models/recorder_exception.dart';
 import 'app_logger.dart';
+import 'ffmpeg_binary.dart';
 
 class ProcessRunner {
   const ProcessRunner();
@@ -209,7 +210,7 @@ class FfmpegProbe {
 
   Future<bool> isAvailable() async {
     try {
-      final result = await _runner.run('ffmpeg', const ['-version']);
+      final result = await _runner.run(ffmpegExecutable, const ['-version']);
       return result.exitCode == 0;
     } on ProcessException catch (error, stack) {
       AppLogger.debug('ffmpeg -version failed: $error\n$stack');
@@ -219,7 +220,7 @@ class FfmpegProbe {
 
   Future<String> versionSummary() async {
     try {
-      final result = await _runner.run('ffmpeg', const ['-version']);
+      final result = await _runner.run(ffmpegExecutable, const ['-version']);
       final line = result.stdout.toString().split('\n').first.trim();
       return line.isEmpty ? 'ffmpeg' : line;
     } on ProcessException {
@@ -230,7 +231,7 @@ class FfmpegProbe {
   Future<String> preferredVideoEncoder() async {
     try {
       final result = await _runner.run(
-        'ffmpeg',
+        ffmpegExecutable,
         const ['-hide_banner', '-encoders'],
       );
       final out = '${result.stdout}\n${result.stderr}';
@@ -250,7 +251,7 @@ class FfmpegProbe {
   Future<bool> hasPipewireInput() async {
     try {
       final result = await _runner.run(
-        'ffmpeg',
+        ffmpegExecutable,
         const ['-hide_banner', '-devices'],
       );
       return '${result.stdout}\n${result.stderr}'.contains('pipewire');

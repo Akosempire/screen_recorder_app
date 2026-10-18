@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import '../models/recorder_exception.dart';
 import '../models/screen_region.dart';
 import 'app_logger.dart';
+import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
 import 'screen_recorder.dart';
 
@@ -294,7 +295,7 @@ Future<String> mergeMediaSegments({
 
   AppLogger.info('Merging ${segments.length} segments into $outputPath');
   var result = await runner.run(
-    'ffmpeg',
+    ffmpegExecutable,
     ffmpegConcatCopyArgs(
       listPath: listFile.path,
       outputPath: outputPath,
@@ -310,7 +311,7 @@ Future<String> mergeMediaSegments({
   // libx264 cannot be muxed into WebM; fall back to MP4 if we have to encode.
   final encodePath = _encodeOutputPath(outputPath, encoder);
   result = await runner.run(
-    'ffmpeg',
+    ffmpegExecutable,
     ffmpegConcatEncodeArgs(
       listPath: listFile.path,
       encoder: encoder,

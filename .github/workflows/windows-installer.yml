@@ -1,0 +1,103 @@
+name: Build Windows installer
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  checks:
+    name: Analyze and test (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter test
+
+  windows:
+    name: Build Setup.exe
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Download FFmpeg (static, pinned)
+        shell: pwsh
+        run: |
+          $url = "https://github.com/GyanD/codexffmpeg/releases/download/7.1.1/ffmpeg-7.1.1-essentials_build.zip"
+          Invoke-WebRequest $url -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_tmp
+          $bin = Get-ChildItem ffmpeg_tmp -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          New-Item -ItemType Directory -Force ffmpeg_bin | Out-Null
+          Copy-Item $bin.FullName ffmpeg_bin\
+          $license = Get-ChildItem ffmpeg_tmp -Recurse -Filter LICENSE | Select-Object -First 1
+          if ($license) { Copy-Item $license.FullName ffmpeg_bin\LICENSE.txt }
+          "$((Resolve-Path ffmpeg_bin).Path)" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & ffmpeg_bin\ffmpeg.exe -hide_banner -version | Select-Object -First 1
+
+      - run: flutter pub get
+
+      - name: Unit tests on Windows (includes FFmpeg auto-zoom render)
+        run: flutter test test/auto_zoom_test.dart test/windows_recorder_test.dart
+
+      - name: Smoke-test gdigrab capture on the runner desktop
+        shell: pwsh
+        run: |
+          & ffmpeg_bin\ffmpeg.exe -hide_banner -y -f gdigrab -framerate 30 -draw_mouse 1 -offset_x 0 -offset_y 0 -video_size 640x360 -i desktop -t 2 -c:v libx264 -preset ultrafast -pix_fmt yuv420p gdigrab_smoke.mp4
+          if (!(Test-Path gdigrab_smoke.mp4)) { Write-Warning "gdigrab smoke capture produced no file" }
+        continue-on-error: true
+
+      - name: Build Flutter app
+        run: flutter build windows --release
+
+      - name: Bundle FFmpeg and VC++ runtime next to the app
+        shell: pwsh
+        run: |
+          $rel = "build\windows\x64\runner\Release"
+          New-Item -ItemType Directory -Force "$rel\ffmpeg" | Out-Null
+          Copy-Item ffmpeg_bin\* "$rel\ffmpeg\"
+          foreach ($dll in "msvcp140.dll","vcruntime140.dll","vcruntime140_1.dll") {
+            Copy-Item "C:\Windows\System32\$dll" $rel
+          }
+          Get-ChildItem $rel -Recurse | Select-Object FullName, Length
+
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress; }
+          & $iscc "/DAppVersion=1.0.${{ github.run_number }}" installer\screen_recorder.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ScreenRecorder-Setup
+          path: dist/ScreenRecorder-Setup.exe
+          if-no-files-found: error
+
+      - name: Publish to the "windows-latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: windows-latest
+          name: Screen Recorder for Windows (latest build)
+          body: |
+            One-click installer. Download **ScreenRecorder-Setup.exe**, run it, and a
+            **Screen Recorder** shortcut appears on your desktop.
+
+            Build ${{ github.run_number }} from ${{ github.sha }}.
+          files: dist/ScreenRecorder-Setup.exe
+          make_latest: true
