@@ -116,7 +116,7 @@ h2 .serif{letter-spacing:-.03em}
 .get{padding:110px 0 120px;background:linear-gradient(180deg,#fff 0%,var(--sky) 28%,var(--blue) 52%,var(--navy) 72%,#fff 100%)}
 .get .lead{color:var(--ink-2)}
 .card{position:relative;max-width:420px;margin:56px auto 0;background:#F6F6F6;border-radius:32px;padding:44px 22px 22px;box-shadow:0 40px 80px -30px rgba(10,0,80,.5)}
-.card .tab{position:absolute;top:0;left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:13px;font-weight:600;padding:7px 14px 8px;border-radius:0 0 14px 14px;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.card .tab{position:absolute;top:0;left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:13px;font-weight:600;padding:7px 14px 8px;border-radius:0 0 14px 14px;display:flex;align-items:center;gap:8px;white-space:nowrap;width:max-content}
 .card .tab img{width:18px;height:18px;border-radius:5px}
 .card .tab::before,.card .tab::after{content:"";position:absolute;top:0;width:14px;height:14px}
 .card .tab::before{left:-14px;background:radial-gradient(circle at 0 100%,transparent 13.5px,#000 14px)}
@@ -145,6 +145,24 @@ input[aria-invalid=true]{border-color:var(--err);animation:shake .35s}
 .msg{font-size:13.5px;margin-top:8px}
 .msg.err{color:var(--err)}
 .done{display:none;text-align:center;padding:10px 4px}
+/* Download pop-up */
+.modal{border:0;padding:0;background:transparent;width:min(420px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:visible;margin:auto;color:inherit}
+.modal::backdrop{background:rgba(5,0,40,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.modal .card{margin:0;max-height:calc(100dvh - 32px);overflow:auto}
+.modal h3{text-align:center;font-size:26px;letter-spacing:-.04em;margin-top:8px}
+.modal .sub{text-align:center;font-size:14px;color:var(--ink-2);margin:6px 8px 0;line-height:1.45}
+.modal .fine{margin:12px 6px 0;text-align:center;color:var(--mute)}
+.modal .x{position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:0;background:#fff;color:#000;display:grid;place-items:center;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.08);transition:transform .2s var(--ease)}
+.modal .x:hover{transform:rotate(90deg)}
+.modal[open]{animation:pop .42s var(--ease)}
+.modal[open]::backdrop{animation:fade .3s ease}
+.modal.closing{animation:pop-out .2s ease forwards}
+.modal.closing::backdrop{animation:fade .2s ease reverse forwards}
+@keyframes pop{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes pop-out{to{opacity:0;transform:translateY(10px) scale(.97)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.modal[open],.modal[open]::backdrop,.modal.closing,.modal.closing::backdrop{animation:none}}
+html:has(.modal[open]){overflow:hidden}
 .signup.sent form{display:none}
 .signup.sent .done{display:block;animation:pop .6s var(--ease)}
 @keyframes pop{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:none}}
@@ -342,6 +360,21 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         <li><i></i>One-click installer, desktop shortcut</li>
         <li><i></i>Everything stays on your PC</li>
       </ul>
+      <button type="button" class="btn open-get" style="margin-top:20px"><span class="dot" aria-hidden="true"></span>Get the download link</button>
+    </div>
+    <div class="suya reveal">
+      <p>Enjoying the app? Buy me suya to keep it running.</p>
+      <a href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a>
+    </div>
+  </div>
+</section>
+
+<dialog class="modal" id="get-dialog" aria-labelledby="get-title">
+  <div class="card">
+      <div class="tab"><img src="/assets/icon.png" alt="">Screen Recorder for Windows</div>
+      <button type="button" class="x" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <h3 id="get-title">Get the download link</h3>
+      <p class="sub">Free for Windows 10 and 11. We'll email you a link that works for 7 days.</p>
       <div class="signup">
         <form id="signup-form" novalidate>
           <div class="fields">
@@ -360,14 +393,9 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
           <button type="button" class="reset">Use a different email</button>
         </div>
       </div>
-    </div>
-    <p class="fine">We use your email only to send the link and, if you tick the box, update notes.</p>
-    <div class="suya reveal">
-      <p>Enjoying the app? Buy me suya to keep it running.</p>
-      <a href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a>
-    </div>
+      <p class="fine">We use your email only to send the link and, if you tick the box, update notes.</p>
   </div>
-</section>
+</dialog>
 
 <section id="faq">
   <div class="wrap center">
@@ -463,6 +491,35 @@ document.querySelectorAll('.qa button').forEach(btn => {
     }
   });
   box.querySelector('.reset').addEventListener('click', () => { box.classList.remove('sent'); form.reset(); form.name.focus(); });
+})();
+
+// Download pop-up: every "Download" link opens it instead of scrolling.
+(function(){
+  const dlg = document.getElementById('get-dialog');
+  if (!dlg || typeof dlg.showModal !== 'function') return; // old browsers keep the #get scroll
+  const open = () => {
+    if (dlg.open) return;
+    dlg.classList.remove('closing');
+    dlg.showModal();
+    const first = dlg.querySelector('.signup.sent') ? dlg.querySelector('.reset') : dlg.querySelector('input[name=name]');
+    first && first.focus();
+  };
+  const close = () => {
+    if (!dlg.open || dlg.classList.contains('closing')) return;
+    if (reduce) return dlg.close();
+    dlg.classList.add('closing');
+    dlg.addEventListener('animationend', () => { dlg.classList.remove('closing'); dlg.close(); }, { once: true });
+  };
+  document.addEventListener('click', e => {
+    const t = e.target.closest('a[href="#get"], a[href="/#get"], .open-get');
+    if (!t) return;
+    e.preventDefault();
+    open();
+  });
+  dlg.querySelector('.x').addEventListener('click', close);
+  dlg.addEventListener('cancel', e => { e.preventDefault(); close(); });           // Esc
+  dlg.addEventListener('click', e => { if (e.target === dlg) close(); });          // click outside the card
+  if (location.hash === '#get') { history.replaceState(null, '', location.pathname); open(); }
 })();
 </script>
 </body>
