@@ -12,473 +12,335 @@
 @font-face{font-family:"Inter Tight";src:url(/assets/fonts/inter-tight.woff2) format("woff2-variations");font-weight:100 900;font-display:swap}
 @font-face{font-family:"Instrument Serif";src:url(/assets/fonts/instrument-serif-italic.woff2) format("woff2");font-style:italic;font-weight:400;font-display:swap}
 :root{
-  --bg:#FFFFFF; --soft:#F5F6F8; --soft-2:#EDEFF2; --ink:#0F1115; --ink-2:#3A3F47; --mute:#6B717B; --line:#E6E8EC;
-  --sky-1:#A9CBEF; --sky-2:#DCEAF8; --grass-1:#8DBA55; --grass-2:#5E9A34; --grass-3:#3F7A22;
-  --blue:#2F6BFF; --blue-2:#5AA0FF; --halo:#FFD21F; --rec:#E5483B; --err:#B3261E; --focus:#2F6BFF;
+  --ink:#000; --ink-2:#3C3C43; --mute:#6E6E73; --faint:#A1A1A6; --line:#E8E8ED;
+  --panel:#F6F6F6; --panel-2:#EDEDED; --white:#fff;
+  --navy:#190096; --blue:#0080FF; --sky:#78D2FF; --halo:#FFD21F; --rec:#E5483B; --err:#B3261E; --focus:#0080FF;
   --sans:"Inter Tight", "Segoe UI", system-ui, sans-serif;
   --serif:"Instrument Serif", Georgia, serif;
   --ease:cubic-bezier(.22,1,.36,1);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{background:#000;color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit}
 img{max-width:100%;display:block}
 button{font:inherit}
 :focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:8px}
-.wrap{max-width:1160px;margin:0 auto;padding-left:24px;padding-right:24px}
+.sheet{background:#fff;border-radius:0 0 40px 40px;position:relative;z-index:1;overflow:hidden}
+.wrap{max-width:1040px;margin:0 auto;padding-left:24px;padding-right:24px}
 .center{text-align:center}
+.serif{font-family:var(--serif);font-style:italic;font-weight:400}
 
-/* ---------- motion primitives ---------- */
-.reveal{opacity:0;transform:translateY(28px);filter:blur(8px);transition:opacity .9s var(--ease),transform .9s var(--ease),filter .9s var(--ease)}
-.reveal.in{opacity:1;transform:none;filter:none}
-.reveal[data-delay="1"]{transition-delay:.08s}.reveal[data-delay="2"]{transition-delay:.16s}.reveal[data-delay="3"]{transition-delay:.24s}.reveal[data-delay="4"]{transition-delay:.32s}.reveal[data-delay="5"]{transition-delay:.4s}
-.word{display:inline-block;opacity:0;transform:translateY(.45em);filter:blur(10px);transition:opacity .8s var(--ease),transform .8s var(--ease),filter .8s var(--ease)}
-.ready .word{opacity:1;transform:none;filter:none}
-.press{transition:transform .25s var(--ease),box-shadow .25s var(--ease),background .2s}
-.press:hover{transform:translateY(-2px)}
-.press:active{transform:translateY(0) scale(.97)}
+/* reveal on scroll */
+.reveal{opacity:0;transform:translateY(40px);transition:opacity 1s var(--ease),transform 1s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+.reveal[data-delay="1"]{transition-delay:.1s}.reveal[data-delay="2"]{transition-delay:.2s}.reveal[data-delay="3"]{transition-delay:.3s}
+.load{opacity:0;transform:translateY(16px);filter:blur(6px);animation:load 1s var(--ease) forwards}
+@keyframes load{to{opacity:1;transform:none;filter:none}}
 
-/* ---------- nav ---------- */
-.nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:50;width:min(760px,calc(100% - 24px));display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-radius:16px;background:rgba(255,255,255,.62);backdrop-filter:blur(18px) saturate(1.6);-webkit-backdrop-filter:blur(18px) saturate(1.6);border:1px solid rgba(255,255,255,.7);box-shadow:0 8px 30px -12px rgba(15,17,21,.25);transition:background .3s,box-shadow .3s}
-.nav.scrolled{background:rgba(255,255,255,.86);box-shadow:0 10px 30px -14px rgba(15,17,21,.35)}
-.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px;text-decoration:none;letter-spacing:-.01em}
-.brand img{width:26px;height:26px;border-radius:7px}
-.nav-links{display:flex;gap:2px;margin-left:auto}
-.nav-links a{font-size:14px;color:var(--ink-2);text-decoration:none;padding:7px 11px;border-radius:9px;transition:background .2s,color .2s}
-.nav-links a:hover{background:rgba(15,17,21,.06);color:var(--ink)}
-.nav-links a.nav-cta:hover{background:#000;color:#fff}
-.nav-links a.nav-cta,.nav-cta{background:var(--ink);color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:9px 14px;border-radius:11px}
+/* ---------- nav: black notch hanging from the top edge ---------- */
+.notch{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:6px;background:#000;color:#fff;padding:8px 8px 8px 10px;border-radius:0 0 20px 20px;height:46px}
+.notch::before,.notch::after{content:"";position:absolute;top:0;width:20px;height:20px}
+.notch::before{left:-20px;background:radial-gradient(circle at 0 100%,transparent 19.5px,#000 20px)}
+.notch::after{right:-20px;background:radial-gradient(circle at 100% 100%,transparent 19.5px,#000 20px)}
+.notch .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;text-decoration:none;margin-right:14px;letter-spacing:-.02em}
+.notch .brand img{width:26px;height:26px;border-radius:7px}
+.notch nav{display:flex;gap:2px}
+.notch nav a{font-size:13.5px;color:#A1A1A6;text-decoration:none;padding:6px 9px;border-radius:8px;transition:color .2s}
+.notch nav a:hover{color:#fff}
+.notch .dl{margin-left:10px;background:#fff;color:#000;text-decoration:none;font-weight:600;font-size:13px;padding:7px 12px;border-radius:9px;display:inline-flex;align-items:center;gap:6px;transition:transform .2s var(--ease)}
+.notch .dl:hover{transform:scale(1.04)}
 
 /* ---------- hero ---------- */
-.hero{position:relative;padding-top:150px;overflow:hidden;background:linear-gradient(180deg,var(--sky-1) 0%,var(--sky-2) 38%,#F4F8FC 62%)}
-.hero-copy{position:relative;z-index:2}
-.badge{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--ink-2);background:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.9);padding:6px 12px 6px 6px;border-radius:999px;backdrop-filter:blur(8px)}
-.badge img{width:20px;height:20px;border-radius:6px}
-h1{margin-top:22px;font-size:clamp(46px,7.4vw,92px);line-height:.96;letter-spacing:-.045em;font-weight:700}
-h1 .serif{font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.02em}
-.hero p.sub{margin:22px auto 0;max-width:34em;font-size:18.5px;color:var(--ink-2)}
-.hero-actions{margin-top:28px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:10px;border:0;cursor:pointer;background:var(--ink);color:#fff;font-weight:600;font-size:16px;padding:14px 20px;border-radius:14px;text-decoration:none;box-shadow:0 10px 24px -12px rgba(15,17,21,.55),inset 0 1px 0 rgba(255,255,255,.12)}
-.btn:hover{box-shadow:0 16px 30px -12px rgba(15,17,21,.6),inset 0 1px 0 rgba(255,255,255,.12)}
-.btn .dot{width:10px;height:10px;border-radius:50%;background:var(--rec);box-shadow:0 0 0 3px rgba(229,72,59,.28)}
-.btn.light{background:rgba(255,255,255,.75);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(15,17,21,.08)}
-.trust{margin-top:22px;display:flex;justify-content:center;gap:18px;flex-wrap:wrap;font-size:14px;color:var(--ink-2)}
-.trust span{display:inline-flex;align-items:center;gap:7px}
-.trust svg{width:16px;height:16px}
-
-.hills{position:absolute;left:0;right:0;bottom:0;height:62%;z-index:0;pointer-events:none}
+.hero{position:relative;padding-top:120px;color:#fff;background:linear-gradient(180deg,var(--navy) 0%,var(--blue) 21%,var(--sky) 53%,rgba(255,255,255,0) 100%)}
+.label{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.label img{width:22px;height:22px;border-radius:6px}
+h1{margin-top:22px;font-size:clamp(46px,6.2vw,80px);line-height:1;letter-spacing:-.05em;font-weight:700}
+h1 .serif{letter-spacing:-.04em;display:block}
+.hero .sub{margin:22px auto 0;max-width:30em;font-size:17.5px;line-height:1.45;color:rgba(255,255,255,.92)}
+.cta{display:inline-flex;align-items:center;gap:9px;background:#000;color:#fff;text-decoration:none;font-weight:600;font-size:15.5px;padding:13px 20px;border-radius:14px;margin-top:26px;transition:transform .25s var(--ease),box-shadow .25s}
+.cta:hover{transform:translateY(-2px);box-shadow:0 14px 28px -12px rgba(0,0,0,.6)}
+.cta .dot{width:9px;height:9px;border-radius:50%;background:var(--rec);box-shadow:0 0 0 3px rgba(229,72,59,.3)}
+.trust{margin-top:16px;display:flex;justify-content:center;gap:16px;flex-wrap:wrap;font-size:12.5px;color:rgba(255,255,255,.6)}
+.device{position:relative;z-index:2;max-width:1000px;margin:56px auto 0;border-radius:30px;padding:46px 12px 12px;background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,.18));border:1px solid rgba(255,255,255,.65);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 40px 80px -40px rgba(0,30,90,.45)}
+.device .bar{position:absolute;left:18px;right:18px;top:13px;display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#fff}
+.device .bar img{width:16px;height:16px;border-radius:4px}
+.device .bar .right{margin-left:auto;display:flex;gap:12px;align-items:center;opacity:.95}
+.device .screen{border-radius:18px;overflow:hidden;background:#F2F2F3;box-shadow:0 10px 30px -10px rgba(0,0,0,.25)}
+.device .screen img{width:100%;height:auto}
+.hills{position:relative;height:clamp(220px,30vw,420px);margin-top:-170px;z-index:1}
 .hills svg{width:100%;height:100%;display:block}
-.stage-wrap{position:relative;z-index:1;margin-top:56px;perspective:1600px;padding-bottom:90px}
-.stage{position:relative;max-width:1060px;margin:0 auto;border-radius:22px;padding:10px;background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,.25));border:1px solid rgba(255,255,255,.75);box-shadow:0 40px 80px -30px rgba(20,40,10,.55),0 10px 30px -10px rgba(20,40,10,.25);backdrop-filter:blur(10px);transform-origin:50% 0;will-change:transform}
-.screen{position:relative;width:100%;height:100%;border-radius:14px;overflow:hidden;background:#F7F8FA}
-.screen.real img{width:100%;height:auto}
-.cam{position:absolute;inset:0;transform-origin:0 0}
-.app{position:absolute;inset:0;display:grid;grid-template-columns:20% 1fr;font-size:clamp(8px,1.05vw,13px);color:#2B3038}
-.app .side{background:#1C2230;color:#AAB3C2;padding:6% 8%;display:grid;align-content:start;gap:.95em}
-.app .side b{color:#fff;font-weight:600;margin-bottom:.4em}
-.app .side span.on{color:#fff}
-.app .main{padding:4.5% 5%;display:grid;grid-template-rows:auto auto 1fr auto;gap:5%}
-.app h3{font-size:1.6em;font-weight:700;color:#0F1115;letter-spacing:-.02em}
-.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:4%}
-.kpi{background:#fff;border-radius:7px;padding:7% 8%;box-shadow:0 1px 2px rgba(0,0,0,.06)}
-.kpi small{color:#7A8290}
-.kpi strong{display:block;font-size:1.65em;margin-top:.15em;letter-spacing:-.02em}
-.chart{background:#fff;border-radius:7px;box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;align-items:flex-end;gap:3%;padding:4% 5%}
-.chart i{flex:1;background:#CBD5E3;border-radius:3px 3px 0 0}
-.chart i.hi{background:var(--blue)}
-.actions{display:flex;gap:3%}
-.actions span{background:#fff;border:1px solid #D5DAE1;border-radius:6px;padding:.55em 1em}
-.actions span.primary{background:var(--blue);border-color:var(--blue);color:#fff}
-.cursor{position:absolute;left:0;top:0;width:0;height:0;z-index:3}
-.cursor .halo{position:absolute;left:-15px;top:-15px;width:30px;height:30px;border-radius:50%;background:rgba(255,210,31,.32);border:2px solid var(--halo);transition:transform .12s}
-.cursor.down .halo{transform:scale(.82)}
-.cursor svg{position:absolute;left:-1px;top:-1px;width:17px;height:25px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
-.ripple{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:3px solid var(--halo);opacity:0;pointer-events:none;z-index:2}
-.ripple.go{animation:ripple .55s ease-out}
-@keyframes ripple{from{opacity:.95;transform:scale(1)}to{opacity:0;transform:scale(2.7)}}
-.face{position:absolute;left:3%;bottom:5%;width:16%;aspect-ratio:1;border-radius:50%;border:3px solid #fff;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.28);z-index:4;background:#7E9BBB}
-.rec{position:absolute;right:3%;top:4%;z-index:4;background:rgba(15,17,21,.88);color:#fff;font-size:12px;font-weight:600;border-radius:9px;padding:6px 10px;display:flex;gap:8px;align-items:center;font-variant-numeric:tabular-nums}
-.rec i{width:8px;height:8px;border-radius:50%;background:var(--rec);animation:blink 1.2s steps(2) infinite}
-@keyframes blink{50%{opacity:.25}}
-.zoomtag{position:absolute;left:3%;top:4%;z-index:4;background:var(--halo);color:var(--ink);font-size:12px;font-weight:600;border-radius:9px;padding:5px 9px;opacity:0;transform:translateY(-4px);transition:opacity .25s,transform .25s}
-.zoomtag.on{opacity:1;transform:none}
+.hills::after{content:"";position:absolute;inset:auto 0 0 0;height:45%;background:linear-gradient(180deg,rgba(255,255,255,0),#fff)}
 
-/* ---------- strip of icons + pills ---------- */
-.intro{padding:40px 0 30px}
-.icons{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
-.ic{width:52px;height:52px;border-radius:16px;background:var(--soft);border:1px solid var(--line);display:grid;place-items:center;transition:transform .35s var(--ease),background .2s}
-.ic:hover{transform:translateY(-4px) rotate(-4deg);background:#fff}
-.ic svg{width:24px;height:24px}
-h2{font-size:clamp(32px,4.6vw,54px);line-height:1.02;letter-spacing:-.04em;font-weight:700}
-h2 .serif{font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.02em}
-.lead{margin:16px auto 0;max-width:36em;font-size:18px;color:var(--ink-2)}
-.marquee{margin-top:36px;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
-.track{display:flex;gap:10px;width:max-content;animation:marquee 38s linear infinite}
-.marquee:hover .track{animation-play-state:paused}
-.track.rev{animation-direction:reverse;margin-top:10px;animation-duration:44s}
-@keyframes marquee{to{transform:translateX(-50%)}}
-.pill{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-size:15px;font-weight:500;padding:10px 16px;border-radius:999px;background:var(--soft);border:1px solid var(--line)}
-.pill i{width:8px;height:8px;border-radius:50%}
-
-/* ---------- big feature panels ---------- */
+/* ---------- sections ---------- */
 section{padding:90px 0}
-.panel{margin-top:44px;border-radius:28px;overflow:hidden;position:relative;background:linear-gradient(180deg,#CFE2F6,#EAF2FB 55%,#DDEBC9);padding:48px 48px 0}
-.panel .shot{border-radius:16px 16px 0 0;overflow:hidden;box-shadow:0 -10px 50px -20px rgba(20,40,10,.4);transform-origin:50% 100%}
-.panel .shot img{width:100%;height:auto}
+h2{font-size:clamp(34px,4.6vw,60px);line-height:1;letter-spacing:-.05em;font-weight:700}
+h2 .serif{letter-spacing:-.03em}
+.lead{margin:18px auto 0;max-width:36em;font-size:17.5px;line-height:1.45;color:var(--mute)}
+.tags{margin:24px auto 0;max-width:640px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.tag{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);background:var(--panel);border-radius:999px;padding:6px 12px}
+.tag i{width:7px;height:7px;border-radius:50%}
 
-/* ---------- alternating features ---------- */
-.feature{display:grid;grid-template-columns:1fr 1.1fr;gap:64px;align-items:center;padding:56px 0}
-.feature.flip .ftext{order:2}
-.ftext h3{font-size:clamp(28px,3.4vw,40px);line-height:1.05;letter-spacing:-.035em;font-weight:700}
-.ftext p{margin-top:14px;color:var(--ink-2);font-size:17.5px;max-width:30em}
-.ftext ul{list-style:none;margin-top:18px;display:grid;gap:9px}
-.ftext li{display:flex;gap:10px;align-items:flex-start;font-size:16px;color:var(--ink-2)}
-.ftext li svg{flex:none;margin-top:4px}
-.demo{position:relative;aspect-ratio:4/3;border-radius:24px;overflow:hidden;background:linear-gradient(180deg,#D5E6F7,#EEF4FA 60%,#D9E9C5);border:1px solid var(--line);transition:transform .5s var(--ease),box-shadow .5s var(--ease)}
-.demo:hover{transform:translateY(-4px);box-shadow:0 30px 60px -30px rgba(15,17,21,.35)}
-.demo .win{position:absolute;left:9%;top:11%;right:9%;bottom:11%;background:#fff;border-radius:12px;box-shadow:0 20px 40px -20px rgba(20,40,10,.45);overflow:hidden}
-.win .bar{height:11%;background:#F0F2F5;display:flex;align-items:center;gap:5px;padding-left:12px}
-.win .bar i{width:8px;height:8px;border-radius:50%;background:#D5D9DF}
-.line{position:absolute;height:5%;border-radius:4px;background:#E3E7EC}
+.panel{background:var(--panel);border-radius:32px;padding:44px 32px 32px;margin-top:28px}
+.panel h3{font-size:clamp(28px,3.6vw,46px);line-height:1.02;letter-spacing:-.045em;font-weight:700}
+.panel p{margin:14px auto 0;max-width:42em;font-size:16px;color:var(--mute)}
+.media{margin-top:30px;border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 1px 0 rgba(0,0,0,.04),0 20px 40px -24px rgba(0,0,0,.25);position:relative}
+.media>img{width:100%;height:auto;transition:transform 1.2s var(--ease)}
+.panel:hover .media>img{transform:scale(1.015)}
+.media .overlay{position:absolute;right:3%;bottom:5%;width:min(260px,30%);border-radius:14px;overflow:hidden;box-shadow:0 24px 50px -20px rgba(0,0,0,.45),0 0 0 1px rgba(0,0,0,.06);animation:bob 6s ease-in-out infinite}
+.media .overlay img{width:100%;height:auto}
+@keyframes bob{50%{transform:translateY(-8px)}}
 
-.card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 30px 60px -24px rgba(20,40,10,.45),0 0 0 1px rgba(15,17,21,.06)}
-.card img{width:100%;height:auto}
-.card.mini{left:auto;top:auto;transform:none;border-radius:12px}
-.d-face .card{transform:none}
-.float{animation:floaty 6s ease-in-out infinite}
-.card.mini.float,.d-face .card.float{animation-name:floaty2}
-@keyframes floaty{50%{transform:translate(-50%,calc(-50% - 8px))}}
-@keyframes floaty2{50%{transform:translateY(-8px)}}
-.kb{position:absolute;inset:7% 7% 7% 7%;border-radius:12px;overflow:hidden;box-shadow:0 24px 50px -24px rgba(20,40,10,.45)}
-.kb img{width:100%;height:100%;object-fit:cover;object-position:30% 50%;animation:kb 14s ease-in-out infinite alternate}
-@keyframes kb{from{transform:scale(1)}to{transform:scale(1.12) translate(-3%,2%)}}
-/* cursor demo */
-.d-cursor .target{position:absolute;left:12%;bottom:16%;width:30%;height:12%;border-radius:7px;background:var(--blue)}
-.d-cursor .c{position:absolute;z-index:3;left:78%;top:80%;animation:cpath 4.4s var(--ease) infinite}
-.d-cursor .c .h{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;background:rgba(255,210,31,.32);border:2.5px solid var(--halo)}
-.d-cursor .c .r{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;border:3px solid var(--halo);opacity:0;animation:cring 4.4s ease-out infinite}
-.d-cursor .c svg{position:absolute;width:19px;height:28px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
-@keyframes cpath{0%,10%{left:78%;top:80%}45%,70%{left:41%;top:31%}100%{left:78%;top:80%}}
-@keyframes cring{0%,46%{opacity:0;transform:scale(1)}48%{opacity:.95;transform:scale(1)}62%{opacity:0;transform:scale(2.6)}100%{opacity:0}}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:28px}
+.duo .panel{margin-top:0;padding:34px 28px 28px}
+.duo .panel h3{font-size:clamp(24px,2.4vw,30px)}
+.duo .panel p{font-size:15px}
+.duo .pic{margin:22px auto 0;max-width:300px;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 18px 36px -22px rgba(0,0,0,.35);transition:transform .5s var(--ease)}
+.duo .panel:hover .pic{transform:translateY(-4px)}
 
-/* zoom demo */
-.d-zoom .inner{position:absolute;inset:0;animation:zoomcam 6s var(--ease) infinite;transform-origin:70% 62%}
-@keyframes zoomcam{0%,18%{transform:scale(1)}38%,72%{transform:scale(1.85)}92%,100%{transform:scale(1)}}
-.d-zoom .tag{position:absolute;left:5%;top:6%;background:var(--halo);font-size:12px;font-weight:600;border-radius:8px;padding:4px 9px;animation:ztag 6s var(--ease) infinite}
-@keyframes ztag{0%,22%{opacity:0;transform:translateY(-4px)}34%,70%{opacity:1;transform:none}84%,100%{opacity:0}}
+.keys{display:flex;justify-content:center;gap:6px;margin-top:22px;flex-wrap:wrap}
+.key{min-width:40px;height:40px;padding:0 11px;display:inline-grid;place-items:center;border-radius:10px;background:#fff;box-shadow:0 2px 0 #D2D2D7,0 0 0 1px #E3E3E8;font-size:14px;font-weight:600;transition:transform .15s,box-shadow .15s}
+.keys:hover .key{transform:translateY(2px);box-shadow:0 0 0 #D2D2D7,0 0 0 1px #E3E3E8}
+.plus{color:var(--faint);align-self:center;font-weight:500}
+.keyrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+.keyrow small{display:block;margin-top:10px;color:var(--mute);font-size:14px}
 
-/* face demo */
-.d-face .bubble{position:absolute;z-index:2;width:26%;aspect-ratio:1;border-radius:50%;border:4px solid #fff;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.28);animation:bub 7s var(--ease) infinite;cursor:grab}
-@keyframes bub{0%,15%{left:66%;top:58%}45%,85%{left:66%;top:12%}100%{left:66%;top:58%}}
-.d-face .grab{position:absolute;width:19px;height:28px;animation:grab 7s var(--ease) infinite;z-index:3}
-@keyframes grab{0%,15%{left:79%;top:72%}45%,85%{left:79%;top:26%}100%{left:79%;top:72%}}
+.cases{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:40px}
+.case{background:var(--panel);border-radius:24px;padding:24px;transition:transform .4s var(--ease),background .3s}
+.case:hover{transform:translateY(-4px);background:var(--panel-2)}
+.case .ic{width:40px;height:40px;border-radius:50%;background:#fff;display:grid;place-items:center}
+.case h4{margin-top:22px;font-size:22px;letter-spacing:-.03em;line-height:1.1}
+.case p{margin-top:8px;font-size:14.5px;color:var(--mute)}
 
-/* export demo */
-.d-export .sheet{position:absolute;left:14%;right:14%;top:14%;bottom:14%;background:#fff;border-radius:16px;box-shadow:0 30px 50px -24px rgba(15,17,21,.45);padding:7% 8%;display:grid;align-content:start;gap:10px;font-size:clamp(10px,1.1vw,13.5px)}
-.sheet b{font-size:1.3em;text-align:center;letter-spacing:-.02em}
-.seg{display:flex;background:var(--soft-2);border-radius:9px;padding:3px;align-self:center;justify-self:center;margin-bottom:4px}
-.seg span{padding:4px 12px;border-radius:7px;color:var(--mute)}
-.seg span.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
-.row{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:6px 0;color:var(--ink-2)}
-.row em{font-style:normal;background:var(--soft-2);border-radius:7px;padding:3px 9px;color:var(--ink)}
-.save{justify-self:end;margin-top:6px;background:var(--ink);color:#fff;border-radius:9px;padding:7px 14px;font-weight:600;position:relative;overflow:hidden}
-.save::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);transform:translateX(-100%);animation:shine 3.2s ease-in-out infinite}
-@keyframes shine{60%,100%{transform:translateX(100%)}}
-
-/* ---------- use cases ---------- */
-.cases{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:44px}
-.case{border:1px solid var(--line);border-radius:22px;padding:26px;background:#fff;transition:transform .45s var(--ease),box-shadow .45s var(--ease),border-color .3s}
-.case:hover{transform:translateY(-6px);box-shadow:0 26px 50px -28px rgba(15,17,21,.35);border-color:#D7DBE1}
-.case .em{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:var(--soft)}
-.case h3{margin-top:16px;font-size:20px;letter-spacing:-.02em}
-.case p{margin-top:6px;color:var(--mute);font-size:15.5px}
-
-/* ---------- get it (pricing-style band) ---------- */
-.get{position:relative;padding:110px 0 120px;background:linear-gradient(180deg,#fff 0%,#DCE9FF 30%,#5AA0FF 70%,#2F6BFF 100%);overflow:hidden}
-.get h2{color:var(--ink)}
-.price-card{position:relative;margin:44px auto 0;max-width:520px;background:#fff;border-radius:28px;padding:30px;box-shadow:0 40px 80px -30px rgba(15,30,80,.55)}
-.price-top{display:flex;align-items:center;gap:14px}
-.price-top img{width:52px;height:52px;border-radius:14px}
-.price-top h3{font-size:20px;letter-spacing:-.02em}
-.price-top p{font-size:14px;color:var(--mute)}
-.price{display:flex;align-items:baseline;gap:10px;margin-top:22px}
-.price strong{font-size:56px;letter-spacing:-.05em;line-height:1}
-.price span{color:var(--mute)}
-.checks{list-style:none;margin-top:18px;display:grid;gap:8px}
-.checks li{display:flex;gap:10px;align-items:center;font-size:15.5px;color:var(--ink-2)}
-.signup{margin-top:22px;border-top:1px solid var(--line);padding-top:20px}
-.fields{display:grid;gap:10px}
-label.field{display:grid;gap:5px;font-size:13.5px;font-weight:600;color:var(--ink-2)}
-input[type=text],input[type=email]{font:inherit;font-size:16px;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--soft);color:var(--ink);transition:border-color .2s,background .2s,box-shadow .2s}
-input[type=text]:focus,input[type=email]:focus{outline:none;border-color:var(--ink);background:#fff;box-shadow:0 0 0 4px rgba(15,17,21,.06)}
+/* ---------- get it (blue band) ---------- */
+.get{padding:110px 0 120px;background:linear-gradient(180deg,#fff 0%,var(--sky) 28%,var(--blue) 52%,var(--navy) 72%,#fff 100%)}
+.get .lead{color:var(--ink-2)}
+.card{position:relative;max-width:420px;margin:56px auto 0;background:#F6F6F6;border-radius:32px;padding:44px 22px 22px;box-shadow:0 40px 80px -30px rgba(10,0,80,.5)}
+.card .tab{position:absolute;top:0;left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:13px;font-weight:600;padding:7px 14px 8px;border-radius:0 0 14px 14px;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.card .tab img{width:18px;height:18px;border-radius:5px}
+.card .tab::before,.card .tab::after{content:"";position:absolute;top:0;width:14px;height:14px}
+.card .tab::before{left:-14px;background:radial-gradient(circle at 0 100%,transparent 13.5px,#000 14px)}
+.card .tab::after{right:-14px;background:radial-gradient(circle at 100% 100%,transparent 13.5px,#000 14px)}
+.price{text-align:center;margin-top:10px}
+.price strong{font-size:58px;letter-spacing:-.05em;line-height:1}
+.price span{display:block;font-size:13px;color:var(--mute);margin-top:4px}
+.checks{list-style:none;margin:18px 4px 0;display:grid;gap:9px}
+.checks li{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--ink-2)}
+.checks li i{width:18px;height:18px;border-radius:50%;border:1.5px solid #CFCFD4;flex:none;position:relative}
+.checks li i::after{content:"";position:absolute;left:5px;top:2px;width:4px;height:8px;border:solid #0080FF;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.signup{margin-top:18px;background:#fff;border-radius:20px;padding:16px}
+.fields{display:grid;gap:9px}
+label.field{display:grid;gap:4px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+input[type=text],input[type=email]{font:inherit;font-size:15px;padding:12px 13px;border:1.5px solid var(--line);border-radius:12px;background:#FAFAFA;color:var(--ink);transition:border-color .2s,background .2s}
+input[type=text]:focus,input[type=email]:focus{outline:none;border-color:#000;background:#fff}
 input[aria-invalid=true]{border-color:var(--err);animation:shake .35s}
 @keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
-.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--mute)}
-.check input{margin-top:3px;width:16px;height:16px;accent-color:var(--ink)}
-.signup .btn{justify-content:center;width:100%;margin-top:4px}
+.check{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--mute)}
+.check input{margin-top:2px;width:15px;height:15px;accent-color:#000}
+.btn{display:flex;justify-content:center;align-items:center;gap:9px;width:100%;border:0;cursor:pointer;background:#000;color:#fff;font-weight:600;font-size:15px;padding:13px;border-radius:14px;margin-top:4px;transition:transform .2s var(--ease)}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:scale(.98)}
+.btn .dot{width:9px;height:9px;border-radius:50%;background:var(--rec)}
 .btn[disabled]{opacity:.75;cursor:progress}
-.fine{font-size:12.5px;color:var(--mute);margin-top:12px;text-align:center}
-.msg{font-size:14px;margin-top:10px}
+.msg{font-size:13.5px;margin-top:8px}
 .msg.err{color:var(--err)}
-.done{display:none;text-align:center;padding:10px 0}
+.done{display:none;text-align:center;padding:10px 4px}
 .signup.sent form{display:none}
 .signup.sent .done{display:block;animation:pop .6s var(--ease)}
-@keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
-.done .tick{width:48px;height:48px;margin:0 auto;border-radius:50%;background:var(--halo);display:grid;place-items:center}
-.done h3{margin-top:12px;font-size:22px;letter-spacing:-.02em}
-.done p{margin-top:6px;color:var(--ink-2);font-size:15.5px}
-.done button{background:none;border:0;text-decoration:underline;color:var(--mute);cursor:pointer;margin-top:10px;font-size:14px}
+@keyframes pop{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:none}}
+.done .tick{width:44px;height:44px;margin:0 auto;border-radius:50%;background:var(--halo);display:grid;place-items:center}
+.done h4{margin-top:10px;font-size:20px;letter-spacing:-.03em}
+.done p{margin-top:4px;color:var(--ink-2);font-size:14.5px}
+.done button{background:none;border:0;text-decoration:underline;color:var(--mute);cursor:pointer;margin-top:8px;font-size:13.5px}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-.suya{margin:26px auto 0;max-width:520px;display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:20px;padding:14px 14px 14px 18px;backdrop-filter:blur(10px)}
-.suya p{flex:1;font-size:15px;line-height:1.4}
-.suya a{background:#fff;color:var(--ink);text-decoration:none;font-weight:600;font-size:14.5px;padding:10px 14px;border-radius:12px;white-space:nowrap;display:inline-flex;gap:8px;align-items:center}
+.fine{margin:20px auto 0;max-width:420px;text-align:center;font-size:12.5px;color:rgba(255,255,255,.8)}
+.suya{max-width:420px;margin:14px auto 0;display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:12px 12px 12px 16px;box-shadow:0 10px 30px -20px rgba(0,0,0,.4)}
+.suya p{flex:1;font-size:14px;color:var(--ink-2);line-height:1.35}
+.suya a{background:#000;color:#fff;text-decoration:none;font-weight:600;font-size:13.5px;padding:9px 12px;border-radius:11px;white-space:nowrap;transition:transform .2s var(--ease)}
+.suya a:hover{transform:scale(1.04)}
 
-/* ---------- faq ---------- */
-.faq{max-width:760px;margin:40px auto 0}
-.qa{border-bottom:1px solid var(--line)}
-.qa button{width:100%;display:flex;justify-content:space-between;align-items:center;gap:20px;background:none;border:0;cursor:pointer;text-align:left;font-size:18.5px;font-weight:600;letter-spacing:-.015em;padding:22px 2px;color:var(--ink)}
-.qa .plus{flex:none;width:30px;height:30px;border-radius:50%;background:var(--soft);display:grid;place-items:center;transition:transform .4s var(--ease),background .2s}
-.qa[aria-expanded=true] .plus,.qa.open .plus{transform:rotate(45deg);background:var(--ink);color:#fff}
-.qa .a{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s var(--ease)}
+/* ---------- FAQ ---------- */
+.faq{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:40px;align-items:start}
+.qa{background:var(--panel);border-radius:14px;transition:background .2s}
+.qa:hover{background:var(--panel-2)}
+.qa button{width:100%;display:flex;align-items:center;gap:14px;background:none;border:0;cursor:pointer;text-align:left;font-size:14px;color:var(--ink);padding:15px 16px}
+.qa .pm{flex:none;width:14px;height:14px;position:relative}
+.qa .pm::before,.qa .pm::after{content:"";position:absolute;left:0;top:6px;width:14px;height:2px;background:#000;border-radius:1px;transition:transform .35s var(--ease)}
+.qa .pm::after{transform:rotate(90deg)}
+.qa.open .pm::after{transform:rotate(0)}
+.qa .a{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s var(--ease)}
 .qa.open .a{grid-template-rows:1fr}
 .qa .a>div{overflow:hidden}
-.qa .a p{padding:0 2px 22px;color:var(--ink-2);max-width:60ch}
+.qa .a p{padding:0 16px 16px 44px;color:var(--mute);font-size:14px}
 
 /* ---------- footer ---------- */
-footer{background:var(--ink);color:#C9CDD3;padding:72px 0 0;overflow:hidden}
-.foot-top{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:40px}
-.foot-top h3{color:#fff;font-size:28px;letter-spacing:-.03em;line-height:1.05}
-.foot-top h3 .serif{font-family:var(--serif);font-style:italic;font-weight:400}
-.foot-top .btn{margin-top:20px;background:#fff;color:var(--ink)}
-.foot-col h4{color:#fff;font-size:14px;margin-bottom:12px}
-.foot-col a{display:block;text-decoration:none;font-size:14.5px;padding:4px 0;color:#AEB4BC;transition:color .2s}
-.foot-col a:hover{color:#fff}
-.wordmark{margin-top:60px;font-weight:800;letter-spacing:-.06em;line-height:.8;font-size:clamp(64px,15.5vw,210px);color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.22);white-space:nowrap;text-align:center;transform:translateY(18%)}
-.legal{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px;color:#8D939B;padding:22px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:40px}
+footer{color:#fff;padding:70px 0 0;overflow:hidden}
+.foot{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:40px}
+.foot .brand{display:flex;align-items:center;gap:9px;font-weight:700}
+.foot .brand img{width:26px;height:26px;border-radius:7px}
+.foot .brand small{font-weight:400;color:#86868B}
+.foot h3{margin-top:16px;font-size:30px;line-height:1;letter-spacing:-.05em}
+.foot p{margin-top:12px;color:#A1A1A6;font-size:14px;max-width:24em}
+.foot .dlw{margin-top:18px;display:inline-flex;gap:8px;align-items:center;background:#fff;color:#000;text-decoration:none;font-weight:600;font-size:13.5px;padding:9px 14px;border-radius:11px}
+.foot h4{font-size:14px;color:#86868B;font-weight:500;margin-bottom:12px}
+.foot a.l{display:block;text-decoration:none;font-size:14px;padding:4px 0;color:#fff;opacity:.92;transition:opacity .2s}
+.foot a.l:hover{opacity:.6}
+.legal{margin-top:46px;font-size:12.5px;color:#86868B;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.wordmark{margin-top:40px;font-weight:800;letter-spacing:-.07em;line-height:.78;font-size:clamp(48px,12.4vw,180px);color:#1C1C1E;white-space:nowrap;text-align:center}
 
-@media (max-width:900px){
-  .nav-links a:not(.nav-cta){display:none}
-  .feature,.feature.flip{grid-template-columns:1fr;gap:28px}
-  .feature.flip .ftext{order:0}
+@media (max-width:860px){
+  .notch nav{display:none}
+  .duo,.faq,.keyrow{grid-template-columns:1fr}
   .cases{grid-template-columns:1fr 1fr}
-  .panel{padding:24px 18px 0;border-radius:22px}
-  .foot-top{grid-template-columns:1fr 1fr}
-  .foot-top>div:first-child{grid-column:1/-1}
+  .foot{grid-template-columns:1fr 1fr}
+  .foot>div:first-child{grid-column:1/-1}
+  .device{padding:34px 8px 8px;border-radius:22px}
+  .hills{margin-top:-110px}
+  .media .overlay{display:none}
 }
-@media (max-width:560px){
-  body{font-size:16px}
+@media (max-width:540px){
   .wrap{padding-left:16px;padding-right:16px}
-  .hero{padding-top:118px}
+  .hero{padding-top:96px}
   .cases{grid-template-columns:1fr}
-  .stage{border-radius:14px;padding:6px}
-  .price-card{padding:22px}
-  .suya{flex-direction:column;align-items:stretch;text-align:center}
+  .panel{padding:32px 16px 16px;border-radius:24px}
   section{padding:64px 0}
+  .sheet{border-radius:0 0 28px 28px}
 }
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
-  .reveal,.word{opacity:1;transform:none;filter:none;transition:none}
-  .track,.d-cursor .c,.d-cursor .c .r,.d-zoom .inner,.d-zoom .tag,.d-face .bubble,.d-face .grab,.save::after,.rec i{animation:none}
-  .d-zoom .inner{transform:scale(1.6)}
-  .d-zoom .tag{opacity:1}
-  .d-cursor .c{left:26%;top:75%}
-  .d-face .bubble{left:66%;top:58%}
-  .d-face .grab{left:79%;top:72%}
-  .float,.kb img{animation:none}
-  .d-cursor .c{left:41%;top:31%}
+  .reveal,.load{opacity:1;transform:none;filter:none;transition:none;animation:none}
+  .media .overlay{animation:none}
 }
 </style>
 </head>
 <body>
+<div class="sheet">
 
-<header class="nav" id="nav">
+<header class="notch">
   <a class="brand" href="#top"><img src="/assets/icon.png" alt="">Screen Recorder</a>
-  <nav class="nav-links" aria-label="Main">
+  <nav aria-label="Main">
     <a href="#features">Features</a>
     <a href="#uses">Use cases</a>
     <a href="#faq">FAQ</a>
     <a href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a>
-    <a class="nav-cta press" href="#get">Download</a>
   </nav>
+  <a class="dl" href="#get"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5l7.5-1v7H3zm0 13l7.5 1v-7H3zm8.5 1.1L21 21v-8.5h-9.5zm0-15.2V11.5H21V3z"/></svg>Download</a>
 </header>
 
 <main id="top">
-<!-- ================= HERO ================= -->
-<section class="hero" aria-labelledby="hero-title" style="padding-bottom:0">
+<section class="hero" style="padding-bottom:0">
+  <div class="wrap center">
+    <span class="label load"><img src="/assets/icon.png" alt="">Screen recorder for Windows</span>
+    <h1 class="load" style="animation-delay:.08s">Record once.<span class="serif">Explain anything.</span></h1>
+    <p class="sub load" style="animation-delay:.16s">Screen Recorder highlights every click, zooms in where you work, and puts your face in a bubble, so anyone can follow along. Everything stays on your PC.</p>
+    <a class="cta load" style="animation-delay:.24s" href="#get"><span class="dot" aria-hidden="true"></span>Get it free for Windows</a>
+    <div class="trust load" style="animation-delay:.3s"><span>Free, no watermark</span><span>Nothing uploaded</span><span>Windows 10 and 11</span></div>
+  </div>
+  <div class="wrap">
+    <div class="device load" style="animation-delay:.38s">
+      <div class="bar"><img src="/assets/icon.png" alt="">Screen Recorder<span class="right"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><svg width="15" height="13" viewBox="0 0 24 20" fill="#fff" aria-hidden="true"><path d="M12 18l3-3.5a4.6 4.6 0 00-6 0zM6 12a8.5 8.5 0 0112 0l2-2.3a11.6 11.6 0 00-16 0zM2 7.4a14.7 14.7 0 0120 0L24 5A17.8 17.8 0 000 5z"/></svg>09:41</span></div>
+      <div class="screen"><img src="/assets/real/app-compare.webp" width="1920" height="1008" alt="Screen Recorder comparing the original recording with the auto-zoomed version, with cursor, auto-zoom and camera settings" fetchpriority="high"></div>
+    </div>
+  </div>
   <div class="hills" aria-hidden="true">
-    <svg viewBox="0 0 1440 560" preserveAspectRatio="xMidYMax slice">
+    <svg viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice">
       <defs>
-        <linearGradient id="h1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B9D49A"/><stop offset="1" stop-color="#93BB6A"/></linearGradient>
-        <linearGradient id="h2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#94C35C"/><stop offset="1" stop-color="#5E9A34"/></linearGradient>
-        <linearGradient id="h3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6FA83E"/><stop offset="1" stop-color="#3F7A22"/></linearGradient>
-        <clipPath id="land"><path d="M0 300C200 250 380 240 600 290S980 360 1180 300 1380 250 1440 260V560H0Z"/></clipPath>
-        <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .07 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+        <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A9C98A"/><stop offset="1" stop-color="#7FA85A"/></linearGradient>
+        <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9FBF3C"/><stop offset="1" stop-color="#5E8A26"/></linearGradient>
+        <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#86A92E"/><stop offset="1" stop-color="#4C7A1E"/></linearGradient>
+        <clipPath id="land"><path d="M0 230C240 170 470 140 720 190S1180 270 1440 210V420H0Z"/></clipPath>
+        <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 .9  0 0 0 .09 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
       </defs>
-      <g data-parallax=".04"><path d="M0 230C180 170 330 150 520 190S860 260 1060 200 1340 140 1440 160V560H0Z" fill="url(#h1)" opacity=".75"/></g>
-      <g data-parallax=".08"><path d="M0 300C200 250 380 240 600 290S980 360 1180 300 1380 250 1440 260V560H0Z" fill="url(#h2)"/></g>
-      <g data-parallax=".13"><path d="M0 390C240 340 460 350 700 400S1120 450 1440 380V560H0Z" fill="url(#h3)"/><rect width="1440" height="560" filter="url(#grain)" clip-path="url(#land)" opacity=".9"/></g>
+      <path d="M0 150C200 110 360 120 520 150S900 170 1100 130 1360 100 1440 120V420H0Z" fill="url(#g1)" opacity=".7"/>
+      <path d="M0 230C240 170 470 140 720 190S1180 270 1440 210V420H0Z" fill="url(#g2)"/>
+      <path d="M0 320C300 270 600 290 860 320S1260 330 1440 300V420H0Z" fill="url(#g3)" opacity=".9"/>
+      <rect width="1440" height="420" filter="url(#grain)" clip-path="url(#land)"/>
     </svg>
   </div>
-
-  <div class="wrap center hero-copy" id="hero-copy">
-    <span class="badge reveal"><img src="/assets/icon.png" alt="">Free for Windows 10 and 11</span>
-    <h1 id="hero-title" class="split"><span>Record once.</span><br><span class="serif">Explain anything.</span></h1>
-    <p class="sub reveal" data-delay="2">A screen recorder that highlights every click, zooms in where you work, and puts your face in a bubble. Everything is recorded and processed on your PC.</p>
-    <div class="hero-actions reveal" data-delay="3">
-      <a class="btn press" href="#get"><span class="dot" aria-hidden="true"></span>Get it free</a>
-      <a class="btn light press" href="#features">See what it does</a>
-    </div>
-    <div class="trust reveal" data-delay="4">
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Free, no watermark</span>
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Nothing uploaded</span>
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Windows 10 and 11</span>
-    </div>
-  </div>
-
-  <div class="wrap stage-wrap">
-    <div class="stage" id="stage">
-      <div class="screen real"><img src="/assets/real/app-compare.webp" width="1920" height="1008" alt="Screen Recorder comparing the original recording with the auto-zoomed version, with cursor, auto-zoom and camera settings on the right" fetchpriority="high"></div>
-    </div>
-  </div>
 </section>
 
-<!-- ================= INTRO ================= -->
-<section class="intro" id="features">
+<section id="features" style="padding-top:30px">
   <div class="wrap center">
-    <div class="icons reveal">
-      <span class="ic" title="Cursor highlight"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8"><circle cx="12" cy="12" r="7" stroke="#E8B900"/><path d="M10 9v8l2-2 1.4 3 1.3-.6-1.4-2.9h2.7z" fill="#fff" stroke-linejoin="round"/></svg></span>
-      <span class="ic" title="Auto-zoom"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M8 10.5h5M10.5 8v5"/></svg></span>
-      <span class="ic" title="Face camera"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="10" r="3"/><path d="M6.5 18.2c1.3-2.3 3.2-3.4 5.5-3.4s4.2 1.1 5.5 3.4"/></svg></span>
-      <span class="ic" title="Microphone"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
-      <span class="ic" title="Compare"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 3v18"/></svg></span>
-      <span class="ic" title="Export"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14"/></svg></span>
-      <span class="ic" title="Private"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+    <h2 class="reveal">Recordings people<br>can actually follow</h2>
+    <p class="lead reveal" data-delay="1">Highlight the cursor, zoom in on clicks, and add your face, then export an MP4 that plays everywhere.</p>
+    <div class="tags reveal" data-delay="2">
+      <span class="tag"><i style="background:var(--halo)"></i>Cursor halo</span><span class="tag"><i style="background:var(--halo)"></i>Click ripples</span><span class="tag"><i style="background:var(--blue)"></i>Auto-zoom</span><span class="tag">Follows your mouse</span><span class="tag"><i style="background:var(--rec)"></i>Face camera</span><span class="tag">Microphone</span><span class="tag">Pause and resume</span><span class="tag">Before and after</span><span class="tag">MP4 export</span><span class="tag">Nothing uploaded</span><span class="tag">No watermark</span>
     </div>
-    <h2 class="reveal" data-delay="1" style="margin-top:30px">Recordings people can<br><span class="serif">actually follow.</span></h2>
-    <p class="lead reveal" data-delay="2">Viewers always know where you're pointing. The video zooms in on what matters, and your face keeps it personal.</p>
-  </div>
-  <div class="marquee reveal" data-delay="3" aria-hidden="true">
-    <div class="track">
-      <span class="pill"><i style="background:#FFD21F"></i>Cursor halo</span><span class="pill"><i style="background:#FFD21F"></i>Click ripples</span><span class="pill"><i style="background:#2F6BFF"></i>Auto-zoom</span><span class="pill"><i style="background:#2F6BFF"></i>Follows your mouse</span><span class="pill"><i style="background:#E5483B"></i>Face camera</span><span class="pill"><i style="background:#E5483B"></i>Drag the bubble</span><span class="pill"><i style="background:#5E9A34"></i>Microphone</span><span class="pill"><i style="background:#5E9A34"></i>Pause and resume</span><span class="pill"><i style="background:#0F1115"></i>MP4 export</span><span class="pill"><i style="background:#0F1115"></i>Before and after</span>
-      <span class="pill"><i style="background:#FFD21F"></i>Cursor halo</span><span class="pill"><i style="background:#FFD21F"></i>Click ripples</span><span class="pill"><i style="background:#2F6BFF"></i>Auto-zoom</span><span class="pill"><i style="background:#2F6BFF"></i>Follows your mouse</span><span class="pill"><i style="background:#E5483B"></i>Face camera</span><span class="pill"><i style="background:#E5483B"></i>Drag the bubble</span><span class="pill"><i style="background:#5E9A34"></i>Microphone</span><span class="pill"><i style="background:#5E9A34"></i>Pause and resume</span><span class="pill"><i style="background:#0F1115"></i>MP4 export</span><span class="pill"><i style="background:#0F1115"></i>Before and after</span>
-    </div>
-    <div class="track rev">
-      <span class="pill"><i style="background:#0F1115"></i>Nothing uploaded</span><span class="pill"><i style="background:#5E9A34"></i>Any area of the screen</span><span class="pill"><i style="background:#2F6BFF"></i>Adjustable zoom</span><span class="pill"><i style="background:#E5483B"></i>Circle or rounded</span><span class="pill"><i style="background:#FFD21F"></i>Keyboard shortcuts</span><span class="pill"><i style="background:#0F1115"></i>720p, 1080p or original</span><span class="pill"><i style="background:#5E9A34"></i>No watermark</span><span class="pill"><i style="background:#2F6BFF"></i>One-click installer</span>
-      <span class="pill"><i style="background:#0F1115"></i>Nothing uploaded</span><span class="pill"><i style="background:#5E9A34"></i>Any area of the screen</span><span class="pill"><i style="background:#2F6BFF"></i>Adjustable zoom</span><span class="pill"><i style="background:#E5483B"></i>Circle or rounded</span><span class="pill"><i style="background:#FFD21F"></i>Keyboard shortcuts</span><span class="pill"><i style="background:#0F1115"></i>720p, 1080p or original</span><span class="pill"><i style="background:#5E9A34"></i>No watermark</span><span class="pill"><i style="background:#2F6BFF"></i>One-click installer</span>
-    </div>
-  </div>
-</section>
 
-<!-- ================= APP PANEL ================= -->
-<section style="padding-top:40px">
-  <div class="wrap">
-    <div class="center">
-      <h2 class="reveal">Simple on the outside,<br><span class="serif">smart underneath.</span></h2>
-      <p class="lead reveal" data-delay="1">Pick a cursor style, set the zoom, then drag a box around what you want to record. That's the whole workflow.</p>
+    <div class="panel reveal">
+      <h3>Auto-zoom that follows your mouse</h3>
+      <p>When you stop, the video zooms in where you clicked, pans with your cursor, and eases back out. Drag the split to compare it with the original.</p>
+      <div class="media"><img src="/assets/real/crop-compare.webp" width="1400" height="699" alt="The app's Before and After view: the original recording on the left, the auto-zoomed version on the right" loading="lazy"><div class="overlay"><img src="/assets/real/crop-zoom-settings.webp" width="306" height="230" alt="Auto-zoom settings: zoom level, hold on click, smoothness" loading="lazy"></div></div>
     </div>
-    <div class="panel reveal" data-delay="2">
-      <div class="shot" id="panel-shot"><img src="/assets/real/app-home.webp" alt="The Screen Recorder app with a Start Recording button, cursor styles and auto-zoom settings" width="1920" height="1008" loading="lazy"></div>
-    </div>
-  </div>
-</section>
 
-<!-- ================= FEATURES ================= -->
-<section style="padding-top:30px">
-  <div class="wrap">
-    <div class="feature">
-      <div class="ftext reveal">
-        <h3>Your cursor, impossible to miss</h3>
-        <p>A soft yellow halo follows the mouse and every click sends out a ripple, live on screen and saved in the video.</p>
-        <ul>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Halo and ripples, halo only, ripples only, or off</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Left clicks in yellow, right clicks in blue</li>
-        </ul>
+    <div class="panel reveal">
+      <h3>Everything on one screen</h3>
+      <p>Pick a cursor style, set the zoom, turn on your camera or mic, then press Start Recording and drag a box around what you want to record.</p>
+      <div class="media"><img src="/assets/real/app-home.webp" width="1920" height="1008" alt="The Screen Recorder home screen with Start Recording, cursor styles, auto-zoom and a timeline" loading="lazy"></div>
+    </div>
+
+    <div class="duo">
+      <div class="panel reveal">
+        <h3>A cursor you can't miss</h3>
+        <p>A yellow halo follows the mouse and every click ripples, live on screen and in the video.</p>
+        <div class="pic"><img src="/assets/real/crop-cursor.webp" width="306" height="326" alt="Cursor styles: Halo + ripples, Halo only, Ripples only, Off" loading="lazy"></div>
       </div>
-      <div class="demo d-cursor reveal" data-delay="1">
-        <div class="float card" style="width:min(320px,62%)"><img src="/assets/real/crop-cursor.webp" width="306" height="326" alt="Cursor style options in the app: Halo + ripples, Halo only, Ripples only, Off"></div>
-        <div class="c" aria-hidden="true"><span class="r"></span><span class="h"></span><svg viewBox="0 0 13 20"><path d="M.5.5v16.4l4-3.9 2.8 6.4 2.7-1.2-2.7-6.1h5.4z" fill="#fff" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/></svg></div>
+      <div class="panel reveal" data-delay="1">
+        <h3>Your face in a bubble</h3>
+        <p>Drag the webcam bubble anywhere or snap it to a corner. Pick the size and shape.</p>
+        <div class="pic"><img src="/assets/real/crop-camera.webp" width="306" height="262" alt="Camera settings: size, shape and position" loading="lazy"></div>
       </div>
     </div>
 
-    <div class="feature flip">
-      <div class="ftext reveal">
-        <h3>Auto-zoom that follows your mouse</h3>
-        <p>When you stop, the video zooms in where you clicked, pans with your cursor, and eases back out when you're done.</p>
-        <ul>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Choose how close (1.2× to 3×) and how smooth</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Compare before and after with a drag</li>
-        </ul>
-      </div>
-      <div class="demo d-zoom reveal" data-delay="1">
-        <div class="kb"><img src="/assets/real/crop-compare.webp" width="1400" height="699" alt="Before and after comparison in the app, with a draggable split"></div>
-        <div class="float card mini" style="right:5%;bottom:6%;width:min(250px,48%)"><img src="/assets/real/crop-zoom-settings.webp" width="306" height="230" alt="Auto-zoom settings: zoom level, hold on click, smoothness"></div>
-      </div>
+    <div class="panel reveal">
+      <h3>Export the way you need it</h3>
+      <p>When you press Stop, choose resolution, frame rate, quality and sound, name the file, and save it to the folder you choose.</p>
+      <div class="media"><img src="/assets/real/app-export.webp" width="1920" height="1008" alt="The Export dialog over the app: format, resolution, frame rate, quality and keep the sound" loading="lazy"></div>
     </div>
 
-    <div class="feature">
-      <div class="ftext reveal">
-        <h3>Your face, wherever you want it</h3>
-        <p>Turn on the camera and your webcam floats in a bubble on top of everything. Drag it anywhere or snap it to a corner. It's recorded with your screen.</p>
-        <ul>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Small, medium or large; circle or rounded</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Mirrored like a selfie</li>
-        </ul>
-      </div>
-      <div class="demo d-face reveal" data-delay="1">
-        <div class="float card" style="left:8%;top:12%;width:min(300px,56%)"><img src="/assets/real/crop-camera.webp" width="306" height="262" alt="Camera settings in the app: on or off, size, shape and position"></div>
-        <div class="bubble" aria-hidden="true"><svg viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#7E9BBB"/><ellipse cx="50" cy="104" rx="38" ry="28" fill="#2B3A4D"/><rect x="43" y="62" width="14" height="14" rx="5" fill="#C99572"/><ellipse cx="50" cy="45" rx="19" ry="22" fill="#D9A983"/><path d="M30 42c0-15 9-23 20-23s21 8 21 22c-5-6-13-9-21-9-9 0-16 4-20 10z" fill="#2A2522"/><circle cx="43" cy="47" r="2" fill="#2A2522"/><circle cx="57" cy="47" r="2" fill="#2A2522"/><path d="M44 56q6 5 12 0" stroke="#7A4A35" stroke-width="2" fill="none" stroke-linecap="round"/></svg></div>
-        <svg class="grab" aria-hidden="true" viewBox="0 0 13 20"><path d="M.5.5v16.4l4-3.9 2.8 6.4 2.7-1.2-2.7-6.1h5.4z" fill="#fff" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/></svg>
-      </div>
-    </div>
-
-    <div class="feature flip">
-      <div class="ftext reveal">
-        <h3>Export the way you need it</h3>
-        <p>When you press Stop, choose the resolution, quality and sound, name the file, and save. MP4 plays everywhere.</p>
-        <ul>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Original, 1080p or 720p</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Saved only to the folder you choose</li>
-        </ul>
-      </div>
-      <div class="demo d-export reveal" data-delay="1">
-        <div class="float card" style="width:min(380px,70%)"><img src="/assets/real/crop-export.webp" width="617" height="550" alt="The Export dialog: format, resolution, frame rate, quality and keep the sound"></div>
+    <div class="panel reveal">
+      <h3>Start and stop from the keyboard</h3>
+      <p>Start a recording and stop it without reaching for the mouse.</p>
+      <div class="keyrow">
+        <div><div class="keys"><span class="key">Ctrl</span><span class="plus">+</span><span class="key">Shift</span><span class="plus">+</span><span class="key">R</span></div><small>Start recording</small></div>
+        <div><div class="keys"><span class="key">Ctrl</span><span class="plus">+</span><span class="key">Shift</span><span class="plus">+</span><span class="key">S</span></div><small>Stop and export</small></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ================= USE CASES ================= -->
-<section id="uses" style="background:var(--soft)">
+<section id="uses" style="padding-top:20px">
+  <div class="wrap center">
+    <h2 class="reveal">Built for everything<br><span class="serif">you explain</span></h2>
+    <p class="lead reveal" data-delay="1">From product demos to bug reports, Screen Recorder makes it obvious what you're clicking and why.</p>
+  </div>
   <div class="wrap">
-    <div class="center">
-      <h2 class="reveal">Built for everything<br><span class="serif">you explain.</span></h2>
-    </div>
     <div class="cases">
-      <article class="case reveal"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><path d="M4 5h16v11H4zM9 20h6"/><path d="M10 9l4 2-4 2z" fill="#0F1115"/></svg></div><h3>Tutorials</h3><p>Show each step, with the clicks people need to copy.</p></article>
-      <article class="case reveal" data-delay="1"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 13l3-3 2 2 4-4"/></svg></div><h3>Product demos</h3><p>Walk customers through a feature, face on screen.</p></article>
-      <article class="case reveal" data-delay="2"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><path d="M3 8l9-4 9 4-9 4z"/><path d="M7 10v5c3 2 7 2 10 0v-5"/></svg></div><h3>Teaching</h3><p>Record lessons students can pause and follow.</p></article>
-      <article class="case reveal"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><rect x="7" y="6" width="10" height="13" rx="5"/><path d="M12 6V3M4 13h3M17 13h3M5 7l2 2M19 7l-2 2"/></svg></div><h3>Bug reports</h3><p>Show exactly what went wrong instead of describing it.</p></article>
-      <article class="case reveal" data-delay="1"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></div><h3>Sales and support</h3><p>Answer questions with a quick, personal video.</p></article>
-      <article class="case reveal" data-delay="2"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></div><h3>Personal</h3><p>Help family with their PC, or save a moment from your screen.</p></article>
+      <article class="case reveal"><div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16v11H4zM9 20h6"/><path d="M10 9l4 2-4 2z" fill="#000"/></svg></div><h4>Tutorials</h4><p>Show each step, with the clicks people need to copy.</p></article>
+      <article class="case reveal" data-delay="1"><div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 13l3-3 2 2 4-4"/></svg></div><h4>Product demos</h4><p>Walk customers through a feature with your face on screen.</p></article>
+      <article class="case reveal" data-delay="2"><div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8l9-4 9 4-9 4z"/><path d="M7 10v5c3 2 7 2 10 0v-5"/></svg></div><h4>Teaching</h4><p>Record lessons students can pause and follow.</p></article>
+      <article class="case reveal"><div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="7" y="6" width="10" height="13" rx="5"/><path d="M12 6V3M4 13h3M17 13h3"/></svg></div><h4>Bug reports</h4><p>Show exactly what went wrong instead of describing it.</p></article>
+      <article class="case reveal" data-delay="1"><div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></div><h4>Sales and support</h4><p>Answer questions with a quick, personal video.</p></article>
+      <article class="case reveal" data-delay="2"><div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></div><h4>Personal</h4><p>Help family with their PC, or save a moment from your screen.</p></article>
     </div>
   </div>
 </section>
 
-<!-- ================= GET IT ================= -->
 <section class="get" id="get">
+  <div class="wrap center">
+    <h2 class="reveal">Free.<br><span class="serif">For good.</span></h2>
+    <p class="lead reveal" data-delay="1">No subscription, no watermark, no account.<br>Enter your email and we'll send you the download link.</p>
+  </div>
   <div class="wrap">
-    <div class="center">
-      <h2 class="reveal">One download.<br><span class="serif">Free, for good.</span></h2>
-      <p class="lead reveal" data-delay="1">Enter your name and email and we'll send you the download link.</p>
-    </div>
-    <div class="price-card reveal" data-delay="2">
-      <div class="price-top"><img src="/assets/icon.png" alt=""><div><h3>Screen Recorder for Windows</h3><p>Windows 10 (1809 or newer) and Windows 11</p></div></div>
-      <div class="price"><strong>Free</strong><span>no account, no watermark</span></div>
+    <div class="card reveal" data-delay="2">
+      <div class="tab"><img src="/assets/icon.png" alt="">Screen Recorder for Windows</div>
+      <div class="price"><strong>Free</strong><span>Windows 10 (1809+) and Windows 11</span></div>
       <ul class="checks">
-        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Cursor halo, auto-zoom and face camera</li>
-        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>One-click installer with a desktop shortcut</li>
-        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Everything stays on your PC</li>
+        <li><i></i>Cursor halo and click ripples</li>
+        <li><i></i>Auto-zoom that follows your mouse</li>
+        <li><i></i>Face camera and microphone</li>
+        <li><i></i>One-click installer, desktop shortcut</li>
+        <li><i></i>Everything stays on your PC</li>
       </ul>
       <div class="signup">
         <form id="signup-form" novalidate>
@@ -487,52 +349,58 @@ footer{background:var(--ink);color:#C9CDD3;padding:72px 0 0;overflow:hidden}
             <label class="field">Email<input type="email" name="email" autocomplete="email" required maxlength="160"></label>
             <div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
             <label class="check"><input type="checkbox" name="updates"> Email me when there's a new version.</label>
-            <button class="btn press" type="submit"><span class="dot" aria-hidden="true"></span><span class="label">Email me the download link</span></button>
+            <button class="btn" type="submit"><span class="dot" aria-hidden="true"></span><span class="label">Email me the download link</span></button>
           </div>
           <p class="msg" role="alert" aria-live="polite"></p>
-          <p class="fine">We use your email only to send the link and, if you tick the box, update notes.</p>
         </form>
         <div class="done" aria-live="polite">
-          <div class="tick" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-          <h3>Check your inbox</h3>
+          <div class="tick" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+          <h4>Check your inbox</h4>
           <p>We sent the download link to <strong class="sent-to"></strong>. It works for 7 days. Not there? Look in Spam or Promotions.</p>
           <button type="button" class="reset">Use a different email</button>
         </div>
       </div>
     </div>
-    <div class="suya reveal" data-delay="3">
+    <p class="fine">We use your email only to send the link and, if you tick the box, update notes.</p>
+    <div class="suya reveal">
       <p>Enjoying the app? Buy me suya to keep it running.</p>
-      <a class="press" href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3c2 3 5 4.5 5 9a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5.5 2 1.5 3 3 3-1-2.5-1-5 0-7.5z"/></svg>Buy me suya</a>
+      <a href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a>
     </div>
   </div>
 </section>
 
-<!-- ================= FAQ ================= -->
 <section id="faq">
+  <div class="wrap center">
+    <h2 class="reveal">Frequently Asked<br>Questions</h2>
+    <p class="lead reveal" data-delay="1">Everything you need to know before you start recording.</p>
+  </div>
   <div class="wrap">
-    <div class="center"><h2 class="reveal">Questions,<br><span class="serif">answered.</span></h2></div>
     <div class="faq">
-      <div class="qa reveal"><button type="button" aria-expanded="false">Is it really free?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>Yes. There are no paid features, watermarks or time limits. If it helps you, you can buy me suya to keep it going.</p></div></div></div>
-      <div class="qa reveal"><button type="button" aria-expanded="false">Windows says "Windows protected your PC". Is that normal?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>Yes. The installer isn't code-signed yet, so Windows shows that warning for new apps. Click More info, then Run anyway.</p></div></div></div>
-      <div class="qa reveal"><button type="button" aria-expanded="false">Does anything get uploaded?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>No. Recording, auto-zoom and saving all happen on your PC. The only thing we receive is the name and email you enter on this page.</p></div></div></div>
-      <div class="qa reveal"><button type="button" aria-expanded="false">How does auto-zoom know where to zoom?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>While you record, the app notes where your mouse is and where you click. When you stop, it zooms in around your clicks and follows the cursor. You can change the zoom level, how long it stays zoomed, and how smooth it moves, or switch it off.</p></div></div></div>
-      <div class="qa reveal"><button type="button" aria-expanded="false">Can I move the face camera?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>Yes. Drag the bubble anywhere on screen, or snap it to a corner from the Camera settings. It's recorded wherever you leave it.</p></div></div></div>
-      <div class="qa reveal"><button type="button" aria-expanded="false">What do I need?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>Windows 10 (version 1809 or newer) or Windows 11. A webcam and microphone are optional.</p></div></div></div>
-      <div class="qa reveal"><button type="button" aria-expanded="false">Is there a Mac version?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>Not yet. There is a Linux build for people comfortable compiling from source.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Is it really free?</button><div class="a"><div><p>Yes. There are no paid features, watermarks or time limits. If it helps you, you can buy me suya to keep it going.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Windows says "Windows protected your PC"</button><div class="a"><div><p>That's normal for new apps that aren't code-signed yet. Click More info, then Run anyway.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Does anything get uploaded?</button><div class="a"><div><p>No. Recording, auto-zoom and saving all happen on your PC. We only receive the name and email you enter on this page.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>How does auto-zoom know where to zoom?</button><div class="a"><div><p>While you record, the app notes where your mouse is and where you click. When you stop, it zooms in around your clicks and follows the cursor. You can change how close, how long and how smooth, or turn it off.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Can I move the face camera?</button><div class="a"><div><p>Yes. Drag the bubble anywhere on screen, or snap it to a corner from the Camera settings. It's recorded wherever you leave it.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Can I record my microphone?</button><div class="a"><div><p>Yes. Turn on Mic before you start. You can keep or remove the sound when you export.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>What do I need?</button><div class="a"><div><p>Windows 10 (version 1809 or newer) or Windows 11. A webcam and microphone are optional.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Is there a Mac version?</button><div class="a"><div><p>Not yet. There is a Linux build for people comfortable compiling from source.</p></div></div></div>
     </div>
   </div>
 </section>
 </main>
+</div>
 
 <footer>
   <div class="wrap">
-    <div class="foot-top">
+    <div class="foot">
       <div>
+        <div class="brand"><img src="/assets/icon.png" alt="">Screen Recorder <small>Windows app</small></div>
         <h3>Record once.<br><span class="serif">Explain anything.</span></h3>
-        <a class="btn press" href="#get"><span class="dot" aria-hidden="true"></span>Get it free</a>
+        <p>A free screen recorder with a cursor halo, auto-zoom and a face camera. Everything stays on your PC.</p>
+        <a class="dlw" href="#get"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5l7.5-1v7H3zm0 13l7.5 1v-7H3zm8.5 1.1L21 21v-8.5h-9.5zm0-15.2V11.5H21V3z"/></svg>Download for Windows</a>
       </div>
-      <div class="foot-col"><h4>Product</h4><a href="#features">Features</a><a href="#uses">Use cases</a><a href="#get">Download</a><a href="#faq">FAQ</a></div>
-      <div class="foot-col"><h4>Support the app</h4><a href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a><a href="https://github.com/Akosempire/screen_recorder_app" target="_blank" rel="noopener">Source code</a><a href="https://github.com/Akosempire/screen_recorder_app/releases" target="_blank" rel="noopener">Release notes</a></div>
+      <div><h4>Menu</h4><a class="l" href="#top">Home</a><a class="l" href="#features">Features</a><a class="l" href="#uses">Use cases</a><a class="l" href="#faq">FAQ</a><a class="l" href="#get">Download</a></div>
+      <div><h4>More</h4><a class="l" href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app" target="_blank" rel="noopener">Source code</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app/releases" target="_blank" rel="noopener">Release notes</a></div>
     </div>
     <div class="legal"><span>Screen Recorder for Windows</span><span>Record only what you have the right to share.</span></div>
   </div>
@@ -542,88 +410,27 @@ footer{background:var(--ink);color:#C9CDD3;padding:72px 0 0;overflow:hidden}
 <script>
 const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// ---------- headline: split into words, blur in one by one ----------
-(function(){
-  const h = document.querySelector('h1.split');
-  let i = 0;
-  h.querySelectorAll('span').forEach(part => {
-    const words = part.textContent.split(' ');
-    part.textContent = '';
-    words.forEach((w, n) => {
-      const s = document.createElement('span');
-      s.className = 'word'; s.textContent = w;
-      s.style.transitionDelay = (0.12 + i++ * 0.08) + 's';
-      part.appendChild(s);
-      if (n < words.length - 1) part.appendChild(document.createTextNode(' '));
-    });
-  });
-  requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add('ready')));
-})();
-
-// ---------- reveal on scroll ----------
+// Reveal sections as they scroll into view.
 (function(){
   const els = document.querySelectorAll('.reveal');
   if (reduce || !('IntersectionObserver' in window)) { els.forEach(e => e.classList.add('in')); return; }
   const io = new IntersectionObserver(entries => entries.forEach(e => {
     if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
-  }), { rootMargin: '0px 0px -8% 0px', threshold: .12 });
+  }), { rootMargin: '0px 0px -10% 0px', threshold: .1 });
   els.forEach(e => io.observe(e));
-  // Above-the-fold hero items come in right away.
-  document.querySelectorAll('#hero-copy .reveal').forEach(e => setTimeout(() => e.classList.add('in'), 120));
 })();
 
-// ---------- nav, hero tilt, hills parallax, panel scale (one rAF loop) ----------
-(function(){
-  const nav = document.getElementById('nav');
-  const stage = document.getElementById('stage');
-  const shot = document.getElementById('panel-shot');
-  const layers = [...document.querySelectorAll('[data-parallax]')];
-  let ticking = false;
-  function update(){
-    ticking = false;
-    const y = window.scrollY, vh = window.innerHeight;
-    nav.classList.toggle('scrolled', y > 24);
-    if (reduce) return;
-    // Product frame starts tilted back and settles flat as you scroll.
-    const p = Math.min(1, y / (vh * 0.6));
-    stage.style.transform = `rotateX(${(1 - p) * 14}deg) scale(${0.94 + p * 0.06}) translateY(${(1 - p) * 10}px)`;
-    layers.forEach(l => l.setAttribute('transform', `translate(0 ${y * parseFloat(l.dataset.parallax)})`));
-    // App screenshot grows to full size as it scrolls into view.
-    const r = shot.getBoundingClientRect();
-    const q = Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.9)));
-    shot.style.transform = `scale(${0.9 + q * 0.1})`;
-  }
-  window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
-  window.addEventListener('resize', update);
-  update();
-})();
-
-// ---------- magnetic buttons (small pull toward the pointer) ----------
-(function(){
-  if (reduce || window.matchMedia('(hover: none)').matches) return;
-  document.querySelectorAll('.btn').forEach(b => {
-    b.addEventListener('pointermove', e => {
-      const r = b.getBoundingClientRect();
-      const dx = (e.clientX - r.left - r.width / 2) / r.width;
-      const dy = (e.clientY - r.top - r.height / 2) / r.height;
-      b.style.transform = `translate(${dx * 6}px, ${dy * 5 - 2}px)`;
-    });
-    b.addEventListener('pointerleave', () => { b.style.transform = ''; });
-  });
-})();
-
-// ---------- FAQ accordion ----------
+// FAQ: one open at a time.
 document.querySelectorAll('.qa button').forEach(btn => {
   btn.addEventListener('click', () => {
-    const item = btn.parentElement;
-    const open = !item.classList.contains('open');
-    document.querySelectorAll('.qa.open').forEach(o => { o.classList.remove('open'); o.querySelector('button').setAttribute('aria-expanded', 'false'); });
+    const item = btn.parentElement, open = !item.classList.contains('open');
+    document.querySelectorAll('.qa.open').forEach(o => { o.classList.remove('open'); o.querySelector('button').setAttribute('aria-expanded','false'); });
     item.classList.toggle('open', open);
     btn.setAttribute('aria-expanded', String(open));
   });
 });
 
-// ---------- sign-up form ----------
+// Sign-up form.
 (function(){
   const box = document.querySelector('.signup');
   const form = document.getElementById('signup-form');
@@ -638,8 +445,7 @@ document.querySelectorAll('.qa button').forEach(btn => {
   form.addEventListener('input', e => { e.target.removeAttribute('aria-invalid'); msg.textContent=''; });
   form.addEventListener('submit', async e => {
     e.preventDefault();
-    const name = form.name.value.trim();
-    const email = form.email.value.trim();
+    const name = form.name.value.trim(), email = form.email.value.trim();
     if (!name) return fail(form.name, 'Enter your name.');
     if (!emailRe.test(email)) return fail(form.email, 'Enter a valid email address, like you@example.com.');
     btn.disabled = true; label.textContent = 'Sending…';
@@ -658,7 +464,6 @@ document.querySelectorAll('.qa button').forEach(btn => {
   });
   box.querySelector('.reset').addEventListener('click', () => { box.classList.remove('sent'); form.reset(); form.name.focus(); });
 })();
-
 </script>
 </body>
 </html>
