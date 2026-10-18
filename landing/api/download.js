@@ -1,4 +1,5 @@
 import { readToken, sendToSheet } from '../lib/token.js';
+import { hasDatabase, logDownload } from '../lib/db.js';
 
 const INSTALLER_URL =
   process.env.INSTALLER_URL ||
@@ -16,20 +17,20 @@ export default async function handler(req, res) {
     return res.end(expiredPage());
   }
 
-  // Record the download; never block the download on it.
-  try {
-    await Promise.race([
-      sendToSheet({
-        action: 'download',
-        email,
-        country: req.headers['x-vercel-ip-country'] || '',
-        userAgent: String(req.headers['user-agent'] || '').slice(0, 200),
-      }),
-      new Promise((resolve) => setTimeout(resolve, 2500)),
-    ]);
-  } catch (error) {
-    console.error('download log failed', error);
-  }
+  // Record the download in Postgres and the Sheet; never block the download on it.
+  const event = {
+    email,
+    country: req.headers['x-vercel-ip-country'] || '',
+    userAgent: String(req.headers['user-agent'] || '').slice(0, 200),
+  };
+  const logs = [];
+  if (hasDatabase()) logs.push(logDownload(event));
+  if (process.env.APPS_SCRIPT_URL) logs.push(sendToSheet({ action: 'download', ...event }));
+  const results = await Promise.race([
+    Promise.allSettled(logs),
+    new Promise((resolve) => setTimeout(() => resolve([]), 2500)),
+  ]);
+  for (const r of results) if (r.status === 'rejected') console.error('download log failed', r.reason);
 
   res.statusCode = 302;
   res.setHeader('Location', INSTALLER_URL);

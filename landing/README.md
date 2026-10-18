@@ -38,7 +38,8 @@ Gmail sending limit: about 100 emails a day on a free Google account
 ## 2. Vercel
 
 1. **Add New → Project → Import** `screen_recorder_app`.
-2. **Root Directory:** `landing`. Framework preset: **Other**. No build command.
+2. **Root Directory:** `landing`. Framework preset: **Other**. Vercel runs
+   `npm run build`, which only checks that the functions load.
 3. **Environment Variables**:
 
 | Name | Value |
@@ -46,11 +47,40 @@ Gmail sending limit: about 100 emails a day on a free Google account
 | `APPS_SCRIPT_URL` | the Web app URL from step 1.5 |
 | `APPS_SCRIPT_SECRET` | the same `SECRET` as step 1.3 |
 | `LINK_SECRET` | a different long random string (signs download links) |
+| `DATABASE_URL` | Neon pooled connection string (see step 3) |
 | `PUBLIC_URL` | optional, e.g. `https://yourdomain.com` once you add a domain |
 | `INSTALLER_URL` | optional; defaults to the latest GitHub release |
 
 4. **Deploy.** Then sign up on your page with your own email to check the
    whole flow.
+
+## 3. Neon Postgres
+
+Sign-ups and downloads are stored in Postgres on Neon (project
+`muddy-glade-60136833`, branch `production`; see `neon.ts` and `.neon`). The
+Sheet still gets a copy and still sends the email.
+
+```bash
+cd landing
+npm install
+npm i -g neon@latest
+neon init -y --org-id org-silent-wind-63080554 --project-id muddy-glade-60136833 --branch production --services postgres
+neon deploy            # signs in, provisions, writes DATABASE_URL(_UNPOOLED) to .env.local
+npm run db:migrate     # creates the signups and downloads tables (uses the direct URL)
+npm run build
+npm start              # http://localhost:3000, uses .env.local
+curl localhost:3000/api/health
+```
+
+Then copy `DATABASE_URL` (the pooled one, host ending in `-pooler`) into
+Vercel's environment variables and redeploy. `/api/health` returns
+`{"ok":true,"database":{"connected":true,...}}` when it's working.
+
+- Driver: `pg` with `attachDatabasePool` from `@vercel/functions`, as Neon
+  recommends for Vercel functions.
+- Schema changes go in `db/migrations/NNN_name.sql`; run `npm run db:migrate`.
+- If `DATABASE_URL` is not set, the site still works with the Sheet alone.
+- `TEST_DATABASE_URL=… npm test` also runs the database test.
 
 ## Notes
 
