@@ -21,7 +21,16 @@ export function hasDatabase() {
  * CA verification; local Postgres connects as configured.
  */
 export function connectionConfig(url = databaseUrl()) {
-  const u = new URL(url);
+  let u;
+  try {
+    u = new URL(url);
+  } catch {
+    throw new Error(
+      'POSTGRES_URL must be a full connection string like ' +
+      'postgresql://postgres.<project>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres ' +
+      `(it starts with "${String(url).slice(0, 12)}…").`,
+    );
+  }
   if (/\.supabase\.(co|com)$/.test(u.hostname)) {
     for (const key of ['sslmode', 'sslrootcert', 'sslcert', 'sslkey', 'supa']) u.searchParams.delete(key);
     return { connectionString: u.toString(), ssl: { rejectUnauthorized: false } };
