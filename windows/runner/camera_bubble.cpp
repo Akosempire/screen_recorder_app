@@ -206,17 +206,29 @@ void CameraBubble::CaptureLoop() {
   CoInitializeEx(nullptr, COINIT_MULTITHREADED);
   UINT32 width = 0;
   UINT32 height = 0;
+  // Row order of the frames. Media Foundation describes it with the sign of
+  // MF_MT_DEFAULT_STRIDE: positive = top row first, negative = bottom row
+  // first. Guessing wrong shows the picture upside down.
+  LONG default_stride = 0;
   {
     IMFMediaType* current = nullptr;
     if (SUCCEEDED(reader_->GetCurrentMediaType(
             static_cast<DWORD>(MF_SOURCE_READER_FIRST_VIDEO_STREAM),
             &current))) {
       MFGetAttributeSize(current, MF_MT_FRAME_SIZE, &width, &height);
+      UINT32 stride_attr = 0;
+      if (SUCCEEDED(current->GetUINT32(MF_MT_DEFAULT_STRIDE, &stride_attr))) {
+        default_stride = static_cast<LONG>(static_cast<INT32>(stride_attr));
+      } else {
+        MFGetStrideForBitmapInfoHeader(MFVideoFormat_RGB32.Data1, width,
+                                       &default_stride);
+      }
       SafeRelease(&current);
     }
   }
   const int w = static_cast<int>(width);
   const int h = static_cast<int>(height);
+  const bool bottom_up = default_stride < 0;
 
   while (running_ && w > 0 && h > 0) {
     DWORD stream = 0;
@@ -247,9 +259,14 @@ void CameraBubble::CaptureLoop() {
         DWORD max_length = 0;
         DWORD current_length = 0;
         if (SUCCEEDED(buffer->Lock(&data, &max_length, &current_length))) {
-          // RGB32 from the video processor is bottom-up by default.
-          pitch = -static_cast<LONG>(w * 4);
-          scan0 = data + static_cast<size_t>(h - 1) * static_cast<size_t>(w) * 4;
+          const LONG row_bytes = static_cast<LONG>(w * 4);
+          if (bottom_up) {
+            pitch = -row_bytes;
+            scan0 = data + static_cast<size_t>(h - 1) * static_cast<size_t>(row_bytes);
+          } else {
+            pitch = row_bytes;
+            scan0 = data;
+          }
         }
       }
       if (scan0) {
@@ -278,12 +295,13 @@ void CameraBubble::CaptureLoop() {
   CoUninitialize();
 }
 
-std::string CameraBubble::Show(int diameter_logical, bool circle,
+std::string CameraBubble::Show(int diameter_logical, bool circle, bool flip,
                                const std::wstring& device, int corner,
                                HWND anchor) {
   if (!EnsureWindow()) return "Could not create the camera window.";
   diameter_logical_ = std::clamp(diameter_logical, 96, 480);
   circle_ = circle;
+  flip_ = flip;
 
   if (!reader_ || device != device_) {
     CloseCamera();
@@ -458,7 +476,9 @@ void CameraBubble::Render() {
         // Mirror horizontally (selfie view).
         int sx = crop_x + side - 1 -
                  static_cast<int>(std::clamp(lx, 0.0, inner - 1) * scale);
-        int sy = crop_y + static_cast<int>(std::clamp(ly, 0.0, inner - 1) * scale);
+        const int oy = static_cast<int>(std::clamp(ly, 0.0, inner - 1) * scale);
+        // "Flip" setting: turn the picture the other way up.
+        int sy = flip_ ? crop_y + side - 1 - oy : crop_y + oy;
         sx = std::clamp(sx, 0, frame_width_ - 1);
         sy = std::clamp(sy, 0, frame_height_ - 1);
         const uint32_t p =

@@ -79,7 +79,7 @@ jobs:
         continue-on-error: true
 
       - name: Build Flutter app
-        run: flutter build windows --release
+        run: flutter build windows --release --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }} --dart-define=APP_BUILD=${{ github.run_number }} --dart-define=APP_VERSION=1.0.${{ github.run_number }}
 
       - name: Bundle FFmpeg and VC++ runtime next to the app
         shell: pwsh
@@ -186,6 +186,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-ChildItem dist
 
+      - name: Write update manifest (version.json)
+        shell: pwsh
+        run: |
+          # Installed apps read this to know a newer build exists.
+          $manifest = [ordered]@{
+            build     = [int]"${{ github.run_number }}"
+            version   = "1.0.${{ github.run_number }}"
+            installer = "https://github.com/${{ github.repository }}/releases/download/windows-latest/ScreenRecorder-Setup.exe"
+            commit    = "${{ github.sha }}"
+          }
+          $manifest | ConvertTo-Json | Set-Content -Encoding utf8NoBOM dist/version.json
+          Get-Content dist/version.json
+
       - uses: actions/upload-artifact@v4
         with:
           name: ScreenRecorder-Setup
@@ -204,5 +217,6 @@ jobs:
             Build ${{ github.run_number }} from ${{ github.sha }}.
           files: |
             dist/ScreenRecorder-Setup.exe
+            dist/version.json
             screenshots/*.png
           make_latest: true

@@ -62,6 +62,7 @@ class RecordingOptions extends ChangeNotifier {
   bool _cameraOn = false;
   CameraSize _cameraSize = CameraSize.medium;
   bool _cameraCircle = true;
+  bool _cameraFlip = false;
   String? _cameraDevice;
   CameraCorner _cameraCorner = CameraCorner.bottomLeft;
   BackgroundSpec _background = const BackgroundSpec();
@@ -99,6 +100,16 @@ class RecordingOptions extends ChangeNotifier {
   bool get cameraOn => _cameraOn;
   CameraSize get cameraSize => _cameraSize;
   bool get cameraCircle => _cameraCircle;
+
+  /// Show the camera picture the other way up (for cameras that report their
+  /// orientation wrongly).
+  bool get cameraFlip => _cameraFlip;
+
+  set cameraFlip(bool value) {
+    if (_cameraFlip == value) return;
+    _cameraFlip = value;
+    _changed();
+  }
 
   /// Camera friendly name, or null for the first camera.
   String? get cameraDevice => _cameraDevice;
@@ -284,6 +295,7 @@ class RecordingOptions extends ChangeNotifier {
             );
           }
           _cameraCircle = data['cameraCircle'] as bool? ?? _cameraCircle;
+          _cameraFlip = data['cameraFlip'] as bool? ?? _cameraFlip;
           _cameraDevice = data['cameraDevice'] as String?;
           final corner = data['cameraCorner'];
           if (corner is String) {
@@ -335,6 +347,7 @@ class RecordingOptions extends ChangeNotifier {
         'tourDone': _tourDone,
         'cameraSize': _cameraSize.name,
         'cameraCircle': _cameraCircle,
+        'cameraFlip': _cameraFlip,
         'cameraCorner': _cameraCorner.name,
         if (_cameraDevice != null) 'cameraDevice': _cameraDevice,
         'background': {

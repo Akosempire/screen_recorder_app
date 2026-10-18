@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../controllers/recording_controller.dart';
 import '../models/recording_state.dart';
+import '../services/app_update.dart';
 import '../services/camera_bubble.dart';
 import '../services/demo_mode.dart';
 import '../services/recording_background.dart';
@@ -111,6 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _options,
               _library,
               CameraBubbleService.instance,
+              AppUpdateService.instance,
             ]),
             builder: (context, _) => _studio(context, constraints),
           ),
@@ -141,6 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onMode: (m) => setState(() => _mode = m),
                 onHelp: () => _options.tourDone = false,
                 onRecord: enabled ? widget.onStartRecording : null,
+                recording: widget.controller.state.isBusy,
               ),
               const Divider(height: 1, color: Studio.divider),
               Expanded(
@@ -244,9 +247,11 @@ class _TopBar extends StatelessWidget {
     required this.onMode,
     required this.onHelp,
     required this.onRecord,
+    this.recording = false,
   });
 
   final String title;
+  final bool recording;
   final _ViewMode mode;
   final bool canCompare;
   final ValueChanged<_ViewMode> onMode;
@@ -285,6 +290,10 @@ class _TopBar extends StatelessWidget {
               ),
             ),
             const Expanded(child: SizedBox()),
+            if (AppUpdateService.instance.updateAvailable) ...[
+              _UpdatePill(recording: recording),
+              const SizedBox(width: 6),
+            ],
             if (MediaQuery.sizeOf(context).width >= 900) ...[
               const StudioPill(
                 icon: Icons.local_fire_department_outlined,
@@ -1287,7 +1296,20 @@ class _CameraSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            const SizedBox(width: 104, child: Text('Flip', style: StudioText.body)),
+            const Expanded(
+              child: Text('Picture upside down? Turn this on.', style: StudioText.caption),
+            ),
+            Switch(
+              value: options.cameraFlip,
+              onChanged: enabled ? (v) => options.cameraFlip = v : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1580,6 +1602,119 @@ class _BackgroundSection extends StatelessWidget {
           style: StudioText.caption.copyWith(height: 1.45),
         ),
       ],
+    );
+  }
+}
+
+/// "Update available" button in the top bar, and the dialog that installs it.
+class _UpdatePill extends StatelessWidget {
+  const _UpdatePill({required this.recording});
+
+  final bool recording;
+
+  @override
+  Widget build(BuildContext context) {
+    final update = AppUpdateService.instance;
+    return Material(
+      color: const Color(0xFFE8F5EC),
+      shape: const StadiumBorder(side: BorderSide(color: Color(0xFFBFE3CB))),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: () => showDialog<void>(
+          context: context,
+          barrierColor: const Color(0x33000000),
+          builder: (_) => _UpdateDialog(recording: recording),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.system_update_alt, size: 16, color: Studio.ok),
+              const SizedBox(width: 6),
+              Text(
+                update.status == UpdateStatus.downloading ? 'Updating…' : 'Update available',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E6B3D)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UpdateDialog extends StatelessWidget {
+  const _UpdateDialog({required this.recording});
+
+  final bool recording;
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Studio.theme(Theme.of(context)),
+      child: ListenableBuilder(
+        listenable: AppUpdateService.instance,
+        builder: (context, _) {
+          final update = AppUpdateService.instance;
+          final info = update.latest;
+          final busy = update.status == UpdateStatus.downloading || update.status == UpdateStatus.installing;
+          return AlertDialog(
+            backgroundColor: Studio.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Studio.radiusLg)),
+            title: const Text('A new version is ready', style: StudioText.title),
+            content: SizedBox(
+              width: 380,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Screen Recorder ${info?.version ?? ''} is available. You have $appVersion.',
+                    style: StudioText.body,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Updating closes the app, installs the new version, and opens it again. '
+                    'Your settings stay as they are. It takes about a minute.',
+                    style: StudioText.caption,
+                  ),
+                  if (update.status == UpdateStatus.downloading) ...[
+                    const SizedBox(height: 16),
+                    LinearProgressIndicator(value: update.progress > 0 ? update.progress : null),
+                    const SizedBox(height: 6),
+                    Text('Downloading… ${(update.progress * 100).round()}%', style: StudioText.caption),
+                  ],
+                  if (update.status == UpdateStatus.installing) ...[
+                    const SizedBox(height: 16),
+                    const LinearProgressIndicator(),
+                    const SizedBox(height: 6),
+                    const Text('Installing. The app will reopen by itself.', style: StudioText.caption),
+                  ],
+                  if (update.error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(update.error!, style: StudioText.caption.copyWith(color: Studio.danger)),
+                  ],
+                  if (recording) ...[
+                    const SizedBox(height: 12),
+                    Text('Finish your recording first.', style: StudioText.caption.copyWith(color: Studio.danger)),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: busy ? null : () => Navigator.of(context).pop(),
+                child: const Text('Later'),
+              ),
+              FilledButton(
+                onPressed: busy || recording ? null : update.install,
+                child: Text(update.status == UpdateStatus.failed ? 'Try again' : 'Update now'),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

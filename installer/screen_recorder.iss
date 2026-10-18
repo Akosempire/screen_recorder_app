@@ -5,6 +5,9 @@
 ; FFmpeg and the VC++ runtime DLLs are bundled, so nothing else is needed.
 ;
 ; Build:  iscc /DAppVersion=1.0.0 installer\screen_recorder.iss
+; Updates: the app downloads a newer copy of this installer and runs it with
+;          /SILENT /SUPPRESSMSGBOXES /CLOSEAPPLICATIONS /update=1 (same AppId,
+;          so it upgrades in place and keeps settings).
 
 #ifndef AppVersion
   #define AppVersion "1.0.0"
@@ -48,6 +51,14 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{ap
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Open {#AppName} now"; Flags: nowait postinstall skipifsilent
+; In-app updates run this installer with /SILENT /update=1: reopen the app afterwards.
+Filename: "{app}\{#AppExe}"; Flags: nowait; Check: IsAppUpdate
+
+[Code]
+function IsAppUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:update|0}') = '1';
+end;
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{userappdata}\screen_recorder_app"

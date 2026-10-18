@@ -31,7 +31,7 @@ class CameraBubble {
   // [corner]: 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right; used
   // for the first placement only (after that the user's drag position is
   // kept until MoveToCorner).
-  std::string Show(int diameter_logical, bool circle,
+  std::string Show(int diameter_logical, bool circle, bool flip,
                    const std::wstring& device, int corner, HWND anchor);
   // Snaps the bubble to a corner of the monitor it is on.
   void MoveToCorner(int corner);
@@ -62,6 +62,7 @@ class CameraBubble {
 
   int diameter_logical_ = 220;
   bool circle_ = true;
+  bool flip_ = false;  // user setting: show the picture the other way up
   bool visible_ = false;
   bool positioned_ = false;
   bool dragging_ = false;

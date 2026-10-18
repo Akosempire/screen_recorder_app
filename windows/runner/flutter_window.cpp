@@ -120,6 +120,7 @@ void FlutterWindow::RegisterWindowsChannel() {
         } else if (method == "showCamera") {
           int diameter = 220;
           bool circle = true;
+          bool flip = false;
           std::string device;
           int corner = 2;
           if (const auto* args =
@@ -133,6 +134,10 @@ void FlutterWindow::RegisterWindowsChannel() {
             it = args->find(flutter::EncodableValue("circle"));
             if (it != args->end()) {
               if (const auto* v = std::get_if<bool>(&it->second)) circle = *v;
+            }
+            it = args->find(flutter::EncodableValue("flip"));
+            if (it != args->end()) {
+              if (const auto* v = std::get_if<bool>(&it->second)) flip = *v;
             }
             it = args->find(flutter::EncodableValue("corner"));
             if (it != args->end()) {
@@ -148,7 +153,7 @@ void FlutterWindow::RegisterWindowsChannel() {
             }
           }
           const std::string error = camera_bubble_.Show(
-              diameter, circle, Utf8ToWide(device), corner, GetHandle());
+              diameter, circle, flip, Utf8ToWide(device), corner, GetHandle());
           if (error.empty()) {
             result->Success(flutter::EncodableValue());
           } else {

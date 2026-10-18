@@ -16,6 +16,7 @@ import 'services/app_logger.dart';
 import 'services/last_save_path_store.dart';
 import 'services/desktop_geometry.dart';
 import 'services/native_window.dart';
+import 'services/app_update.dart';
 import 'services/camera_bubble.dart';
 import 'services/demo_mode.dart';
 import 'services/recording_options.dart';
@@ -117,6 +118,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
     final save = StudioSaveService(navigatorKey: appNavigatorKey);
     await RecordingOptions.instance.load();
     DemoMode.prepare();
+    if (!DemoMode.active) AppUpdateService.instance.start();
     await CameraBubbleService.instance.refreshDevices();
     final lastSavePath = FileLastSavePathStore();
     try {

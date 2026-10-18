@@ -76,6 +76,7 @@ class CameraBubbleService extends ChangeNotifier {
             _options.cameraSize.diameter,
             _options.cameraCircle,
             _options.cameraDevice ?? '',
+            _options.cameraFlip,
           )
         : null;
     if (wanted == _applied && (wanted != null) == _visible) return;
@@ -89,6 +90,7 @@ class CameraBubbleService extends ChangeNotifier {
         final error = await _channel.invokeMethod<String?>('showCamera', {
           'diameter': wanted.diameter,
           'circle': wanted.circle,
+          'flip': wanted.flip,
           'device': wanted.device,
           'corner': _options.cameraCorner.index,
         });
@@ -120,6 +122,7 @@ class CameraBubbleService extends ChangeNotifier {
             _options.cameraSize.diameter,
             _options.cameraCircle,
             _options.cameraDevice ?? '',
+            _options.cameraFlip,
           )
         : null;
     if (latest != _applied) await _sync();
@@ -128,19 +131,21 @@ class CameraBubbleService extends ChangeNotifier {
 
 @immutable
 class _Applied {
-  const _Applied(this.diameter, this.circle, this.device);
+  const _Applied(this.diameter, this.circle, this.device, this.flip);
 
   final int diameter;
   final bool circle;
   final String device;
+  final bool flip;
 
   @override
   bool operator ==(Object other) =>
       other is _Applied &&
       other.diameter == diameter &&
       other.circle == circle &&
-      other.device == device;
+      other.device == device &&
+      other.flip == flip;
 
   @override
-  int get hashCode => Object.hash(diameter, circle, device);
+  int get hashCode => Object.hash(diameter, circle, device, flip);
 }
