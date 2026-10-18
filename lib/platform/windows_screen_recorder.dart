@@ -9,6 +9,7 @@ import '../services/cursor_tracker.dart';
 import '../services/ffmpeg_binary.dart';
 import '../services/ffmpeg_process_manager.dart';
 import '../services/ffmpeg_recorder.dart';
+import '../services/recording_library.dart';
 import '../services/recording_options.dart';
 
 /// Windows backend: FFmpeg `gdigrab` for video, DirectShow for the mic,
@@ -82,8 +83,9 @@ class WindowsScreenRecorder extends SegmentingScreenRecorder {
     _activeMic = recordMicrophone;
     _zoomThisSession = _options.autoZoom;
 
-    if (_options.cursorHighlight) {
-      await _overlay.show();
+    final style = _options.cursorStyle;
+    if (style != CursorStyle.off) {
+      await _overlay.show(halo: style.drawsHalo, ripples: style.drawsRipples);
     }
     // Start sampling just before FFmpeg so the log lines up with frame 0.
     _tracker.start(_activeRegion!);
@@ -124,27 +126,54 @@ class WindowsScreenRecorder extends SegmentingScreenRecorder {
     await _overlay.hide();
 
     final produced = await super.stop();
-    if (produced == null || region == null || !zoom) {
+    if (produced == null || region == null) {
       return produced;
     }
-    AppLogger.info(
-      'Cursor log: ${log.samples.length} samples, ${log.clicks.length} clicks',
+    final duration = Duration(
+      milliseconds: log.samples.isEmpty ? 0 : (log.samples.last.t * 1000).round(),
     );
-    try {
-      return await applyAutoZoom(
-        inputPath: produced,
-        log: log,
+    final focus = log.clicks.isEmpty ? null : log.clicks.first.t + 1.2;
+
+    var result = produced;
+    if (zoom) {
+      AppLogger.info(
+        'Cursor log: ${log.samples.length} samples, ${log.clicks.length} clicks',
+      );
+      try {
+        final pan = _options.panTau;
+        result = await applyAutoZoom(
+          inputPath: produced,
+          log: log,
+          width: region.width,
+          height: region.height,
+          encoder: encoder,
+          hasAudio: hasAudio,
+          settings: AutoZoomSettings(
+            maxZoom: _options.zoomLevel,
+            hold: _options.holdSeconds,
+            panTau: pan,
+            zoomTau: pan + 0.04,
+          ),
+          runner: _zoomRunner,
+        );
+      } catch (error, stack) {
+        AppLogger.error('Auto-zoom crashed; keeping original', error, stack);
+        result = produced;
+      }
+    }
+
+    RecordingLibrary.instance.register(
+      LastRecording(
+        finalPath: result,
+        originalPath: result == produced ? null : produced,
+        focusSeconds: focus,
         width: region.width,
         height: region.height,
-        encoder: encoder,
+        duration: duration,
         hasAudio: hasAudio,
-        settings: AutoZoomSettings(maxZoom: _options.zoomLevel),
-        runner: _zoomRunner,
-      );
-    } catch (error, stack) {
-      AppLogger.error('Auto-zoom crashed; keeping original', error, stack);
-      return produced;
-    }
+      ),
+    );
+    return result;
   }
 }
 

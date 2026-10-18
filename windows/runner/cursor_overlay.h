@@ -21,7 +21,7 @@ class CursorOverlay {
   CursorOverlay(const CursorOverlay&) = delete;
   CursorOverlay& operator=(const CursorOverlay&) = delete;
 
-  bool Show();
+  bool Show(bool halo, bool ripples);
   void Hide();
   bool visible() const { return visible_; }
 
@@ -49,6 +49,8 @@ class CursorOverlay {
   int size_ = 0;
   double scale_ = 1.0;
   bool visible_ = false;
+  bool draw_halo_ = true;
+  bool draw_ripples_ = true;
   bool left_was_down_ = false;
   bool right_was_down_ = false;
   bool last_pressed_ = false;

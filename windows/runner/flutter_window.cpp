@@ -62,7 +62,21 @@ void FlutterWindow::RegisterWindowsChannel() {
                  result) {
         const std::string& method = call.method_name();
         if (method == "showCursorOverlay") {
-          result->Success(flutter::EncodableValue(cursor_overlay_.Show()));
+          bool halo = true;
+          bool ripples = true;
+          if (const auto* args =
+                  std::get_if<flutter::EncodableMap>(call.arguments())) {
+            auto read = [args](const char* key, bool fallback) {
+              auto it = args->find(flutter::EncodableValue(key));
+              if (it == args->end()) return fallback;
+              const auto* value = std::get_if<bool>(&it->second);
+              return value ? *value : fallback;
+            };
+            halo = read("halo", true);
+            ripples = read("ripples", true);
+          }
+          result->Success(
+              flutter::EncodableValue(cursor_overlay_.Show(halo, ripples)));
         } else if (method == "hideCursorOverlay") {
           cursor_overlay_.Hide();
           result->Success(flutter::EncodableValue(true));

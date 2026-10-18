@@ -13,7 +13,6 @@ import 'screens/home_screen.dart';
 import 'screens/recording_screen.dart';
 import 'screens/region_selection_screen.dart';
 import 'services/app_logger.dart';
-import 'services/file_save_service.dart';
 import 'services/last_save_path_store.dart';
 import 'services/desktop_geometry.dart';
 import 'services/native_window.dart';
@@ -21,6 +20,7 @@ import 'services/recording_options.dart';
 import 'services/screen_recorder.dart';
 import 'services/screen_recorder_factory.dart';
 import 'services/selector_backdrop.dart';
+import 'services/studio_save_service.dart';
 import 'services/shortcut_intents.dart';
 import 'services/window_coordinator.dart';
 
@@ -37,6 +37,9 @@ class RecorderScope extends InheritedNotifier<RecordingController> {
     return scope!.notifier!;
   }
 }
+
+/// Root navigator, used by the in-app Export dialog.
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 class ScreenRecorderApp extends StatelessWidget {
   const ScreenRecorderApp({
@@ -65,6 +68,7 @@ class ScreenRecorderApp extends StatelessWidget {
     );
 
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'Screen Recorder',
       debugShowCheckedModeBanner: false,
       theme: theme,
@@ -108,7 +112,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
   }
 
   Future<void> _boot() async {
-    final save = const LinuxFileSaveService();
+    final save = StudioSaveService(navigatorKey: appNavigatorKey);
     await RecordingOptions.instance.load();
     final lastSavePath = FileLastSavePathStore();
     try {
@@ -119,6 +123,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
         lastSavePathStore: lastSavePath,
         geometry: created.geometry,
       );
+      save.controller = controller;
       if (!mounted) {
         return;
       }
@@ -206,6 +211,17 @@ class _AppShellState extends State<AppShell> {
     _nativeWindow = widget.nativeWindow ?? NativeWindowService();
     _probeFuture = _nativeWindow.probe();
     _controller.addListener(_rebuild);
+    final save = _controller.fileSaveService;
+    if (save is StudioSaveService) {
+      save.controller ??= _controller;
+      // The Export dialog needs the full window, not the recording chip.
+      save.beforePrompt = widget.manageWindows
+          ? () async {
+              await widget.windowCoordinator.showHome();
+              if (mounted) setState(() => _restoringHome = false);
+            }
+          : null;
+    }
   }
 
   @override
@@ -455,9 +471,9 @@ class _AppShellState extends State<AppShell> {
 
   Widget _body(RecordingState state) {
     if (_startingCapture ||
-        _restoringHome ||
+        (_restoringHome && state != RecordingState.saving) ||
         state.isActiveCapture ||
-        state.isBusy) {
+        state == RecordingState.stopping) {
       return RecordingScreen(
         controller: _controller,
         onPauseResume: _togglePause,

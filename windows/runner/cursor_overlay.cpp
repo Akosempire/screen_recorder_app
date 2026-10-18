@@ -121,7 +121,10 @@ void CursorOverlay::ReleaseSurface() {
   size_ = 0;
 }
 
-bool CursorOverlay::Show() {
+bool CursorOverlay::Show(bool halo, bool ripples) {
+  draw_halo_ = halo;
+  draw_ripples_ = ripples;
+  dirty_ = true;
   if (visible_) return true;
   if (!EnsureWindow()) return false;
   ripples_.clear();
@@ -175,8 +178,10 @@ void CursorOverlay::Tick() {
   const bool right = swapped ? phys_left : phys_right;
 
   const ULONGLONG now = GetTickCount64();
-  if (left && !left_was_down_) ripples_.push_back({now, false});
-  if (right && !right_was_down_) ripples_.push_back({now, true});
+  if (draw_ripples_) {
+    if (left && !left_was_down_) ripples_.push_back({now, false});
+    if (right && !right_was_down_) ripples_.push_back({now, true});
+  }
   left_was_down_ = left;
   right_was_down_ = right;
 
@@ -242,11 +247,13 @@ void CursorOverlay::Render(bool pressed, ULONGLONG now) {
       const double dx = x - c;
       const double d = std::sqrt(dx * dx + dy * dy);
       Pixel px;
-      // Soft filled halo.
-      px.Over(kYellow, fill_alpha * Clamp01(halo - d + 0.5));
-      // Crisp ring on the halo edge.
-      px.Over(kYellow,
-              ring_alpha * Clamp01(ring_w / 2 - std::abs(d - halo) + 0.5));
+      if (draw_halo_) {
+        // Soft filled halo.
+        px.Over(kYellow, fill_alpha * Clamp01(halo - d + 0.5));
+        // Crisp ring on the halo edge.
+        px.Over(kYellow,
+                ring_alpha * Clamp01(ring_w / 2 - std::abs(d - halo) + 0.5));
+      }
       for (const auto& r : active) {
         px.Over(*r.color,
                 r.alpha * Clamp01(r.width / 2 - std::abs(d - r.radius) + 0.5));

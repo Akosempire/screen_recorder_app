@@ -20,8 +20,8 @@ import 'selector_backdrop.dart';
 enum PortalTrust { unknown, trusted, untrusted }
 
 class WindowCoordinator {
-  static Size get homeSize =>
-      Platform.isWindows ? const Size(460, 560) : const Size(460, 420);
+  static const Size homeSize = Size(1180, 760);
+  static const Size homeMinimumSize = Size(860, 600);
   static const Size recordingSize = Size(156, 40);
   static const Color opaqueBackground = Color(0xFF121418);
   static const Color liveBackground = Color(0x00000000);
@@ -75,7 +75,7 @@ class WindowCoordinator {
     );
     await _call(
       'setMinimumSize(home)',
-      () => windowManager.setMinimumSize(const Size(400, 360)),
+      () => windowManager.setMinimumSize(homeMinimumSize),
     );
     await _call('setResizable(true)', () => windowManager.setResizable(true));
     await _call('setSize(home)', () => windowManager.setSize(homeSize));

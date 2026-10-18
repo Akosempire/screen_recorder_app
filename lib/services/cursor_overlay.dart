@@ -19,10 +19,13 @@ class CursorOverlay {
 
   bool get isSupported => Platform.isWindows;
 
-  Future<void> show() async {
-    if (!isSupported || _visible) return;
+  Future<void> show({bool halo = true, bool ripples = true}) async {
+    if (!isSupported || _visible || (!halo && !ripples)) return;
     try {
-      await _channel.invokeMethod<bool>('showCursorOverlay');
+      await _channel.invokeMethod<bool>('showCursorOverlay', {
+        'halo': halo,
+        'ripples': ripples,
+      });
       _visible = true;
     } on MissingPluginException {
       AppLogger.debug('Cursor overlay not available in this build');

@@ -27,6 +27,8 @@ class RecordingController extends ChangeNotifier {
 
   final ScreenRecorder _recorder;
   final FileSaveService _fileSaveService;
+
+  FileSaveService get fileSaveService => _fileSaveService;
   final RecordingStorage _storage;
   final LastSavePathStore _lastSavePathStore;
 
@@ -43,6 +45,7 @@ class RecordingController extends ChangeNotifier {
   DateTime? _segmentStartedAt;
   Duration _accumulated = Duration.zero;
   bool _recordMicrophone = false;
+  String? _pendingSavePath;
 
   RecordingState get state => _state;
   ScreenRegion? get region => _region;
@@ -55,6 +58,9 @@ class RecordingController extends ChangeNotifier {
   String get backendName => _recorder.backendName;
   bool get captureAvailable => _captureAvailable;
   bool get recordMicrophone => _recordMicrophone;
+
+  /// The produced recording while the save prompt is open.
+  String? get pendingSavePath => _pendingSavePath;
 
   bool get canBeginSelection =>
       _captureAvailable && _state.canBeginSelection;
@@ -239,12 +245,14 @@ class RecordingController extends ChangeNotifier {
     final suggested = _suggestedName(produced);
     final lastDirectory = await _lastSavePathStore.lastDirectory();
     String? destination;
+    _pendingSavePath = produced;
     try {
       destination = await _fileSaveService.chooseSaveLocation(
         suggestedName: suggested,
         initialDirectory: lastDirectory,
       );
     } catch (error, stack) {
+      _pendingSavePath = null;
       AppLogger.error('Save dialog failed', error, stack);
       _unsavedPath = produced;
       _statusDetail =
@@ -254,6 +262,7 @@ class RecordingController extends ChangeNotifier {
       return;
     }
 
+    _pendingSavePath = null;
     if (destination == null || destination.isEmpty) {
       _unsavedPath = produced;
       _outputPath = produced;
