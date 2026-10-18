@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../controllers/recording_controller.dart';
 import '../models/recording_state.dart';
 import '../services/camera_bubble.dart';
+import '../services/demo_mode.dart';
 import '../services/recording_library.dart';
 import '../services/recording_options.dart';
 import '../services/support_link.dart';
@@ -42,6 +43,18 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   _ViewMode _mode = _ViewMode.after;
   _Section _section = _Section.cursor;
+
+  @override
+  void initState() {
+    super.initState();
+    if (DemoMode.state == 'compare') _mode = _ViewMode.compare;
+    if (DemoMode.state == 'camera') {
+      _section = _Section.camera;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _focusSection(_Section.camera),
+      );
+    }
+  }
   final _sectionKeys = {
     for (final s in _Section.values) s: GlobalKey(),
   };

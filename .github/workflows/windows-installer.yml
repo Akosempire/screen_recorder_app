@@ -92,6 +92,36 @@ jobs:
           }
           Get-ChildItem $rel -Recurse | Select-Object FullName, Length
 
+      - name: Set the runner screen to 1920x1080
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Add-Type @"
+          using System; using System.Runtime.InteropServices;
+          public static class Disp {
+            [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+            public struct DEVMODE {
+              [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+              public short dmSpecVersion, dmDriverVersion, dmSize, dmDriverExtra; public int dmFields;
+              public int dmPositionX, dmPositionY, dmDisplayOrientation, dmDisplayFixedOutput;
+              public short dmColor, dmDuplex, dmYResolution, dmTTOption, dmCollate;
+              [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+              public short dmLogPixels; public int dmBitsPerPel, dmPelsWidth, dmPelsHeight, dmDisplayFlags, dmDisplayFrequency;
+              public int dmICMMethod, dmICMIntent, dmMediaType, dmDitherType, dmReserved1, dmReserved2, dmPanningWidth, dmPanningHeight;
+            }
+            [DllImport("user32.dll")] public static extern int EnumDisplaySettings(string d, int m, ref DEVMODE dm);
+            [DllImport("user32.dll")] public static extern int ChangeDisplaySettings(ref DEVMODE dm, int f);
+            public static int Set(int w, int h) {
+              DEVMODE dm = new DEVMODE(); dm.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+              EnumDisplaySettings(null, -1, ref dm); dm.dmPelsWidth = w; dm.dmPelsHeight = h; dm.dmFields = 0x80000 | 0x100000;
+              return ChangeDisplaySettings(ref dm, 0);
+            }
+          }
+          "@
+          "ChangeDisplaySettings: " + [Disp]::Set(1920, 1080)
+          Add-Type -AssemblyName System.Windows.Forms
+          [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+
       - name: Screenshot the running app
         shell: pwsh
         continue-on-error: true
@@ -109,14 +139,18 @@ jobs:
           }
           "@
           [W]::SetProcessDPIAware() | Out-Null
-          function Shot($name) {
-            $app = Start-Process "build\windows\x64\runner\Release\screen_recorder_app.exe" -ArgumentList "--allow-capture" -PassThru
+          $demo = (Resolve-Path tool\demo).Path
+          $cfg = Join-Path $env:APPDATA "screen_recorder_app"
+          function Shot($name, $state) {
+            Remove-Item -Recurse -Force $cfg -ErrorAction SilentlyContinue
+            $a = @("--allow-capture", "--demo=$state", "--demo-assets=$demo")
+            $app = Start-Process "build\windows\x64\runner\Release\screen_recorder_app.exe" -ArgumentList $a -PassThru
             Start-Sleep -Seconds 12
             $app.Refresh()
             $h = $app.MainWindowHandle
-            [W]::ShowWindow($h, 3) | Out-Null   # maximize to fill the runner screen
+            [W]::ShowWindow($h, 3) | Out-Null
             [W]::SetForegroundWindow($h) | Out-Null
-            Start-Sleep -Seconds 3
+            Start-Sleep -Seconds 4
             $r = New-Object W+RECT
             [W]::GetWindowRect($h, [ref]$r) | Out-Null
             $b = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
@@ -129,11 +163,11 @@ jobs:
             Stop-Process -Id $app.Id -Force
             Start-Sleep -Seconds 2
           }
-          Shot "app-first-run-tour"
-          $cfg = Join-Path $env:APPDATA "screen_recorder_app"
-          New-Item -ItemType Directory -Force $cfg | Out-Null
-          '{"tourDone":true}' | Out-File -Encoding ascii (Join-Path $cfg "options.json")
-          Shot "app-home"
+          Shot "app-first-run-tour" "tour"
+          Shot "app-home" "home"
+          Shot "app-compare" "compare"
+          Shot "app-export" "export"
+          Shot "app-camera" "camera"
           Get-ChildItem screenshots
 
       - uses: actions/upload-artifact@v4

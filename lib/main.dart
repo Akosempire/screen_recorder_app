@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
+import 'services/demo_mode.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  DemoMode.parse(args);
 
   await windowManager.ensureInitialized();
   const options = WindowOptions(

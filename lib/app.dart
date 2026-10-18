@@ -17,6 +17,7 @@ import 'services/last_save_path_store.dart';
 import 'services/desktop_geometry.dart';
 import 'services/native_window.dart';
 import 'services/camera_bubble.dart';
+import 'services/demo_mode.dart';
 import 'services/recording_options.dart';
 import 'services/screen_recorder.dart';
 import 'services/screen_recorder_factory.dart';
@@ -115,6 +116,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
   Future<void> _boot() async {
     final save = StudioSaveService(navigatorKey: appNavigatorKey);
     await RecordingOptions.instance.load();
+    DemoMode.prepare();
     await CameraBubbleService.instance.refreshDevices();
     final lastSavePath = FileLastSavePathStore();
     try {
@@ -213,6 +215,11 @@ class _AppShellState extends State<AppShell> {
     _nativeWindow = widget.nativeWindow ?? NativeWindowService();
     _probeFuture = _nativeWindow.probe();
     _controller.addListener(_rebuild);
+    if (DemoMode.active) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => DemoMode.afterFirstFrame(appNavigatorKey),
+      );
+    }
     final save = _controller.fileSaveService;
     if (save is StudioSaveService) {
       save.controller ??= _controller;
