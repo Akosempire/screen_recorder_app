@@ -21,7 +21,15 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
-      - run: flutter test
+      - name: flutter test
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! flutter test --reporter expanded 2>&1 | tee test-output.txt; then
+            msg=$(grep -nE "\[E\]|Expected:|Actual:|Which:|EXCEPTION|overflowed|Error:|error:|Test failed|══" test-output.txt | head -80 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=flutter test failures::${msg}"
+            exit 1
+          fi
 
   windows:
     name: Build Setup.exe
