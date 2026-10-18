@@ -3,6 +3,9 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 import '../services/recording_background.dart';
 import '../services/recording_edit.dart';
@@ -20,6 +23,7 @@ class EditorScreen extends StatefulWidget {
     required this.recording,
     required this.onExport,
     this.initialEdit,
+    this.playback = true,
   });
 
   final LastRecording recording;
@@ -30,6 +34,9 @@ class EditorScreen extends StatefulWidget {
 
   /// For demos and tests.
   final RecordingEdit? initialEdit;
+
+  /// Play the video (with sound). Off in tests, which have no media engine.
+  final bool playback;
 
   @override
   State<EditorScreen> createState() => _EditorScreenState();
@@ -44,6 +51,16 @@ class _EditorScreenState extends State<EditorScreen> {
   int _request = 0;
   bool _exporting = false;
 
+  // Playback (media_kit). Play follows the edits: it skips cuts and stops at
+  // the end trim, so you watch exactly what will be exported.
+  Player? _player;
+  VideoController? _video;
+  final List<StreamSubscription<Object?>> _subs = [];
+  bool _playing = false;
+  bool _videoReady = false;
+  bool _fromPlayer = false;
+  DateTime _lastSeek = DateTime.fromMillisecondsSinceEpoch(0);
+
   LastRecording get _rec => widget.recording;
 
   @override
@@ -53,19 +70,96 @@ class _EditorScreenState extends State<EditorScreen> {
       _edit.playhead = (_rec.focusSeconds ?? _edit.duration * 0.35).clamp(0.0, _edit.duration).toDouble();
     }
     _edit.addListener(_onEdit);
+    if (widget.playback) _startPlayer();
     _loadFrame();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    for (final sub in _subs) {
+      sub.cancel();
+    }
+    _player?.dispose();
     _edit.removeListener(_onEdit);
     if (widget.initialEdit == null) _edit.dispose();
     super.dispose();
   }
 
+  static Duration _at(double seconds) => Duration(milliseconds: (seconds * 1000).round());
+
+  void _startPlayer() {
+    try {
+      final player = Player();
+      _player = player;
+      _video = VideoController(player);
+      _subs
+        ..add(player.stream.position.listen(_onPosition))
+        ..add(player.stream.playing.listen((playing) {
+          if (mounted) setState(() => _playing = playing);
+        }))
+        ..add(player.stream.completed.listen((done) {
+          if (done && _playing) player.pause();
+        }))
+        ..add(player.stream.width.listen((width) {
+          if (width != null && width > 0 && mounted && !_videoReady) {
+            setState(() => _videoReady = true);
+          }
+        }));
+      unawaited(
+        player.open(Media(_rec.finalPath), play: false).then((_) => player.seek(_at(_edit.playhead))),
+      );
+    } catch (error) {
+      _player = null;
+      _video = null;
+    }
+  }
+
+  /// While playing: follow the video, skip cuts, stop after the last kept part.
+  void _onPosition(Duration position) {
+    final player = _player;
+    if (player == null || !_playing) return;
+    final t = position.inMilliseconds / 1000.0;
+    final next = nextPlayableTime(_edit.kept, t);
+    if (next == null) {
+      player.pause();
+      return;
+    }
+    if (next - t > 0.05) player.seek(_at(next));
+    _fromPlayer = true;
+    _edit.playhead = next;
+    _fromPlayer = false;
+  }
+
+  Future<void> _togglePlay() async {
+    final player = _player;
+    if (player == null) return;
+    if (_playing) {
+      await player.pause();
+      return;
+    }
+    final kept = _edit.kept;
+    if (kept.isEmpty) return;
+    final start = nextPlayableTime(kept, _edit.playhead) ?? kept.first.start;
+    await player.seek(_at(start));
+    await player.play();
+  }
+
   void _onEdit() {
-    if ((_edit.playhead - _framedAt).abs() >= 0.05) {
+    if (_fromPlayer) return;
+    final player = _player;
+    if (player != null) {
+      // The playhead was moved by hand: show that moment (seeks are throttled).
+      final now = DateTime.now();
+      _debounce?.cancel();
+      if (now.difference(_lastSeek).inMilliseconds >= 50) {
+        _lastSeek = now;
+        player.seek(_at(_edit.playhead));
+      } else {
+        _debounce = Timer(const Duration(milliseconds: 60), () => player.seek(_at(_edit.playhead)));
+      }
+    }
+    if (!_videoReady && (_edit.playhead - _framedAt).abs() >= 0.05) {
       _debounce?.cancel();
       _debounce = Timer(const Duration(milliseconds: 90), _loadFrame);
     }
@@ -82,13 +176,33 @@ class _EditorScreenState extends State<EditorScreen> {
     });
   }
 
+  /// Closes the player so the video file is not in use (Windows can't
+  /// replace a file that is open).
+  Future<void> _releasePlayer() async {
+    for (final sub in _subs) {
+      await sub.cancel();
+    }
+    _subs.clear();
+    final player = _player;
+    _player = null;
+    _video = null;
+    _videoReady = false;
+    _playing = false;
+    await player?.dispose();
+  }
+
   Future<void> _export() async {
     setState(() => _exporting = true);
+    await _releasePlayer();
+    String? destination;
     try {
-      final destination = await widget.onExport(_edit.exportSegments);
+      destination = await widget.onExport(_edit.exportSegments);
       if (destination != null && mounted) Navigator.of(context).pop(destination);
     } finally {
-      if (mounted) setState(() => _exporting = false);
+      if (mounted) {
+        if (destination == null && widget.playback) _startPlayer();
+        setState(() => _exporting = false);
+      }
     }
   }
 
@@ -96,7 +210,11 @@ class _EditorScreenState extends State<EditorScreen> {
   Widget build(BuildContext context) {
     return Theme(
       data: Studio.theme(Theme.of(context)),
-      child: Scaffold(
+      child: CallbackShortcuts(
+        bindings: {const SingleActivator(LogicalKeyboardKey.space): _togglePlay},
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
         backgroundColor: Studio.chrome,
         body: SafeArea(
           child: ListenableBuilder(
@@ -126,6 +244,8 @@ class _EditorScreenState extends State<EditorScreen> {
                 ),
               ],
             ),
+          ),
+        ),
           ),
         ),
       ),
@@ -176,6 +296,7 @@ class _EditorScreenState extends State<EditorScreen> {
   Widget _preview() {
     final aspect = _rec.width > 0 && _rec.height > 0 ? _rec.width / _rec.height : 16 / 9;
     final image = _frame ?? _rec.afterImage;
+    final video = _video;
     final inCut = !_edit.kept.any((r) => _edit.playhead >= r.start && _edit.playhead <= r.end);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
@@ -192,14 +313,27 @@ class _EditorScreenState extends State<EditorScreen> {
                 children: [
                   RecordingOnBackground(
                     spec: RecordingOptions.instance.background,
-                    child: image == null
-                        ? const ColoredBox(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (image == null)
+                          const ColoredBox(
                             color: Color(0xFF2A2A2D),
                             child: Center(child: Text('Preparing preview…', style: TextStyle(color: Color(0xFF9A9AA0)))),
                           )
-                        : Image.file(image, fit: BoxFit.cover, gaplessPlayback: true),
+                        else
+                          Image.file(image, fit: BoxFit.cover, gaplessPlayback: true),
+                        if (video != null && _videoReady)
+                          Video(
+                            controller: video,
+                            controls: NoVideoControls,
+                            fit: BoxFit.cover,
+                            fill: Colors.transparent,
+                          ),
+                      ],
+                    ),
                   ),
-                  if (inCut)
+                  if (inCut && !_playing)
                     const ColoredBox(
                       color: Color(0x99000000),
                       child: Center(
@@ -236,6 +370,15 @@ class _EditorScreenState extends State<EditorScreen> {
     final kept = _edit.keptDuration;
     return Row(
       children: [
+        if (_player != null) ...[
+          StudioPill(
+            icon: _playing ? Icons.pause : Icons.play_arrow,
+            label: _playing ? 'Pause' : 'Play',
+            tooltip: 'Play the edited video, skipping cuts (Space)',
+            onTap: _togglePlay,
+          ),
+          const SizedBox(width: 8),
+        ],
         StudioPill(
           icon: Icons.content_cut,
           label: 'Add cut',
@@ -252,7 +395,7 @@ class _EditorScreenState extends State<EditorScreen> {
         const SizedBox(width: 14),
         Expanded(
           child: Text(
-            'Drag the yellow handles to trim the start or end. Click the timeline to preview any moment.',
+            'Drag the yellow handles to trim. Click the timeline to jump anywhere. Play skips the cuts.',
             style: StudioText.caption,
             overflow: TextOverflow.ellipsis,
           ),

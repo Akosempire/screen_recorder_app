@@ -30,6 +30,16 @@ void main() {
     });
   });
 
+  test('nextPlayableTime skips cuts and stops at the end', () {
+    const kept = [EditRange(2, 10), EditRange(14, 20)];
+    expect(nextPlayableTime(kept, 0), 2); // before the start trim
+    expect(nextPlayableTime(kept, 5), 5); // inside a kept part
+    expect(nextPlayableTime(kept, 11), 14); // inside a cut
+    expect(nextPlayableTime(kept, 19.99), isNull); // at the very end
+    expect(nextPlayableTime(kept, 25), isNull);
+    expect(nextPlayableTime(const [], 1), isNull);
+  });
+
   group('RecordingEdit', () {
     test('trim handles keep at least minKeep apart and stay in range', () {
       final e = RecordingEdit(20);
@@ -142,6 +152,7 @@ void main() {
       home: EditorScreen(
         recording: recording,
         initialEdit: edit,
+        playback: false,
         onExport: (segments) async {
           exported = segments;
           return null;

@@ -84,6 +84,7 @@ class DemoMode {
           builder: (_) => EditorScreen(
             recording: recording,
             initialEdit: edit,
+            playback: false, // still screenshot; no media engine needed
             onExport: (_) async => null,
           ),
         ),

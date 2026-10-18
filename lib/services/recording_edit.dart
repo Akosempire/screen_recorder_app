@@ -141,3 +141,13 @@ List<EditRange> keptRanges(double duration, double trimStart, double trimEnd, Li
   if (hi - cursor >= RecordingEdit.minPiece) out.add(EditRange(cursor, hi));
   return out;
 }
+
+/// Where playback should be at [t] so it only shows [kept] parts: [t] itself
+/// inside a kept part, the start of the next kept part when [t] is in a cut,
+/// or null once past the last kept part.
+double? nextPlayableTime(List<EditRange> kept, double t) {
+  for (final r in kept) {
+    if (t < r.end - 0.03) return math.max(t, r.start);
+  }
+  return null;
+}
