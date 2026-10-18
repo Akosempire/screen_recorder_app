@@ -33,4 +33,13 @@ if (failed) {
   console.error(`build failed: ${failed} problem(s)`);
   process.exit(1);
 }
+
+// Vercel serves static files from public/ when a build step exists.
+// Copy only the site itself, so source files (lib/, scripts/, db/) stay private.
+const out = path.join(root, 'public');
+fs.rmSync(out, { recursive: true, force: true });
+fs.mkdirSync(out);
+fs.copyFileSync(path.join(root, 'index.html'), path.join(out, 'index.html'));
+fs.cpSync(path.join(root, 'assets'), path.join(out, 'assets'), { recursive: true });
+console.log('✓ copied index.html and assets/ to public/');
 console.log('build ok');
