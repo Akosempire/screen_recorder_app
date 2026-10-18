@@ -236,3 +236,45 @@ class ZoomIllustrationPainter extends CustomPainter {
   @override
   bool shouldRepaint(ZoomIllustrationPainter oldDelegate) => false;
 }
+
+/// Tour art for the face camera: a desktop with a round webcam bubble.
+class CameraIllustrationPainter extends CustomPainter {
+  const CameraIllustrationPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    paintMiniDesktop(canvas, size);
+    final r = size.shortestSide * 0.30;
+    final c = Offset(size.width * 0.20 + r * 0.2, size.height - r - 6);
+    final clip = Path()..addOval(Rect.fromCircle(center: c, radius: r));
+    canvas.save();
+    canvas.clipPath(clip);
+    canvas.drawCircle(c, r, Paint()..color = const Color(0xFF6D8FB3));
+    // Shoulders and head.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: c + Offset(0, r * 0.95),
+        width: r * 1.7,
+        height: r * 1.2,
+      ),
+      Paint()..color = const Color(0xFF2B3A4D),
+    );
+    canvas.drawCircle(
+      c + Offset(0, -r * 0.12),
+      r * 0.36,
+      Paint()..color = const Color(0xFFE2B48C),
+    );
+    canvas.restore();
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+  }
+
+  @override
+  bool shouldRepaint(CameraIllustrationPainter oldDelegate) => false;
+}

@@ -3,6 +3,7 @@
 #include <flutter/standard_method_codec.h>
 
 #include <cwchar>
+#include <string>
 #include <optional>
 
 #ifndef WDA_EXCLUDEFROMCAPTURE
@@ -10,6 +11,32 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+
+namespace {
+
+std::wstring Utf8ToWide(const std::string& text) {
+  if (text.empty()) return std::wstring();
+  const int length = MultiByteToWideChar(CP_UTF8, 0, text.data(),
+                                         static_cast<int>(text.size()),
+                                         nullptr, 0);
+  std::wstring wide(static_cast<size_t>(length), L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+                      wide.data(), length);
+  return wide;
+}
+
+std::string WideToUtf8(const std::wstring& text) {
+  if (text.empty()) return std::string();
+  const int length = WideCharToMultiByte(CP_UTF8, 0, text.data(),
+                                         static_cast<int>(text.size()),
+                                         nullptr, 0, nullptr, nullptr);
+  std::string narrow(static_cast<size_t>(length), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+                      narrow.data(), length, nullptr, nullptr);
+  return narrow;
+}
+
+}  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -84,6 +111,45 @@ void FlutterWindow::RegisterWindowsChannel() {
         } else if (method == "hideCursorOverlay") {
           cursor_overlay_.Hide();
           result->Success(flutter::EncodableValue(true));
+        } else if (method == "listCameras") {
+          flutter::EncodableList names;
+          for (const auto& name : CameraBubble::ListDevices()) {
+            names.push_back(flutter::EncodableValue(WideToUtf8(name)));
+          }
+          result->Success(flutter::EncodableValue(names));
+        } else if (method == "showCamera") {
+          int diameter = 220;
+          bool circle = true;
+          std::string device;
+          if (const auto* args =
+                  std::get_if<flutter::EncodableMap>(call.arguments())) {
+            auto it = args->find(flutter::EncodableValue("diameter"));
+            if (it != args->end()) {
+              if (const auto* v = std::get_if<int32_t>(&it->second)) {
+                diameter = *v;
+              }
+            }
+            it = args->find(flutter::EncodableValue("circle"));
+            if (it != args->end()) {
+              if (const auto* v = std::get_if<bool>(&it->second)) circle = *v;
+            }
+            it = args->find(flutter::EncodableValue("device"));
+            if (it != args->end()) {
+              if (const auto* v = std::get_if<std::string>(&it->second)) {
+                device = *v;
+              }
+            }
+          }
+          const std::string error = camera_bubble_.Show(
+              diameter, circle, Utf8ToWide(device), GetHandle());
+          if (error.empty()) {
+            result->Success(flutter::EncodableValue());
+          } else {
+            result->Success(flutter::EncodableValue(error));
+          }
+        } else if (method == "hideCamera") {
+          camera_bubble_.Hide();
+          result->Success(flutter::EncodableValue(true));
         } else if (method == "getMonitorRect") {
           HMONITOR monitor =
               MonitorFromWindow(GetHandle(), MONITOR_DEFAULTTOPRIMARY);
@@ -112,6 +178,7 @@ void FlutterWindow::RegisterWindowsChannel() {
 
 void FlutterWindow::OnDestroy() {
   cursor_overlay_.Hide();
+  camera_bubble_.Hide();
   windows_channel_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;

@@ -4,6 +4,7 @@ import '../models/recorder_exception.dart';
 import '../models/screen_region.dart';
 import '../services/app_logger.dart';
 import '../services/auto_zoom.dart';
+import '../services/camera_bubble.dart';
 import '../services/cursor_overlay.dart';
 import '../services/cursor_tracker.dart';
 import '../services/ffmpeg_binary.dart';
@@ -87,6 +88,8 @@ class WindowsScreenRecorder extends SegmentingScreenRecorder {
     if (style != CursorStyle.off) {
       await _overlay.show(halo: style.drawsHalo, ripples: style.drawsRipples);
     }
+    // Keep the face bubble above the recording chip and other windows.
+    await CameraBubbleService.instance.bringToFront();
     // Start sampling just before FFmpeg so the log lines up with frame 0.
     _tracker.start(_activeRegion!);
     try {

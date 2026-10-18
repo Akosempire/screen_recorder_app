@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../controllers/recording_controller.dart';
 import '../models/recording_state.dart';
+import '../services/camera_bubble.dart';
 import '../services/recording_library.dart';
 import '../services/recording_options.dart';
 import '../ui/studio_painters.dart';
@@ -14,7 +15,7 @@ import 'studio_tour.dart';
 
 enum _ViewMode { before, compare, after }
 
-enum _Section { cursor, zoom, audio }
+enum _Section { cursor, zoom, camera, audio }
 
 /// Editor-style home screen: top bar, tool rail, preview stage with a
 /// transport bar and timeline, settings inspector, and a status bar.
@@ -84,7 +85,11 @@ class _HomeScreenState extends State<HomeScreen> {
         return Theme(
           data: Studio.theme(Theme.of(context)),
           child: ListenableBuilder(
-            listenable: Listenable.merge([_options, _library]),
+            listenable: Listenable.merge([
+              _options,
+              _library,
+              CameraBubbleService.instance,
+            ]),
             builder: (context, _) => _studio(context, constraints),
           ),
         );
@@ -167,6 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   final section = switch (step.railIndex) {
                     1 => _Section.cursor,
                     2 => _Section.zoom,
+                    3 => _Section.camera,
                     _ => null,
                   };
                   if (section != null) _focusSection(section);
@@ -315,6 +321,12 @@ class _Rail extends StatelessWidget {
               label: 'Zoom',
               selected: section == _Section.zoom,
               onTap: () => onSection(_Section.zoom),
+            ),
+            _RailItem(
+              icon: Icons.videocam_outlined,
+              label: 'Camera',
+              selected: section == _Section.camera,
+              onTap: () => onSection(_Section.camera),
             ),
             _RailItem(
               icon: Icons.mic_none,
@@ -692,8 +704,9 @@ class _Transport extends StatelessWidget {
       height: 48,
       child: LayoutBuilder(builder: (context, box) {
       // Drop the least important pills first so nothing gets clipped.
-      final showCursorPill = effects && box.maxWidth >= 720;
-      final showZoomPill = effects && box.maxWidth >= 560;
+      final showCursorPill = effects && box.maxWidth >= 900;
+      final showZoomPill = effects && box.maxWidth >= 600;
+      final showCameraPill = effects && box.maxWidth >= 720;
       return Row(
         children: [
           FilledButton(
@@ -747,6 +760,15 @@ class _Transport extends StatelessWidget {
                 options.cursorStyle =
                     values[(options.cursorStyle.index + 1) % values.length];
               },
+            ),
+            const SizedBox(width: 8),
+          ],
+          if (showCameraPill) ...[
+            StudioPill(
+              icon: options.cameraOn ? Icons.videocam : Icons.videocam_off_outlined,
+              label: options.cameraOn ? 'Camera on' : 'Camera off',
+              tooltip: 'Show your face in a bubble',
+              onTap: () => options.cameraOn = !options.cameraOn,
             ),
             const SizedBox(width: 8),
           ],
@@ -939,6 +961,13 @@ class _Inspector extends StatelessWidget {
                       ? 'After you stop, the video zooms in where you click and follows your mouse, then eases back out.'
                       : 'Auto-zoom is available on Windows.',
                   style: StudioText.caption.copyWith(height: 1.45),
+                ),
+                const _InspectorDivider(),
+
+                // Camera
+                _CameraSection(
+                  sectionKey: sectionKeys[_Section.camera]!,
+                  enabled: effects,
                 ),
                 const _InspectorDivider(),
 
@@ -1145,6 +1174,113 @@ class _Dot extends StatelessWidget {
     return const Padding(
       padding: EdgeInsets.symmetric(horizontal: 8),
       child: Text('·', style: StudioText.tiny),
+    );
+  }
+}
+
+class _CameraSection extends StatelessWidget {
+  const _CameraSection({required this.sectionKey, required this.enabled});
+
+  final GlobalKey sectionKey;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final options = RecordingOptions.instance;
+    final camera = CameraBubbleService.instance;
+    final devices = camera.devices;
+    final error = camera.error;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          key: sectionKey,
+          children: [
+            const Expanded(child: Text('Camera', style: StudioText.section)),
+            Switch(
+              value: enabled && options.cameraOn,
+              onChanged: enabled
+                  ? (v) {
+                      if (v) camera.refreshDevices();
+                      options.cameraOn = v;
+                    }
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            const SizedBox(width: 104, child: Text('Size', style: StudioText.body)),
+            StudioSegmented<CameraSize>(
+              value: options.cameraSize,
+              dense: true,
+              onChanged: enabled ? (v) => options.cameraSize = v : null,
+              segments: [
+                for (final size in CameraSize.values)
+                  StudioSegment(size, size.label),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            const SizedBox(width: 104, child: Text('Shape', style: StudioText.body)),
+            StudioSegmented<bool>(
+              value: options.cameraCircle,
+              dense: true,
+              onChanged: enabled ? (v) => options.cameraCircle = v : null,
+              segments: const [
+                StudioSegment(true, 'Circle'),
+                StudioSegment(false, 'Rounded'),
+              ],
+            ),
+          ],
+        ),
+        if (devices.length > 1) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const SizedBox(width: 104, child: Text('Device', style: StudioText.body)),
+              Expanded(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: devices.contains(options.cameraDevice)
+                      ? options.cameraDevice
+                      : devices.first,
+                  style: StudioText.body,
+                  underline: const SizedBox(),
+                  onChanged: enabled
+                      ? (v) {
+                          if (v != null) options.cameraDevice = v;
+                        }
+                      : null,
+                  items: [
+                    for (final d in devices)
+                      DropdownMenuItem(
+                        value: d,
+                        child: Text(d, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 8),
+        Text(
+          error ??
+              (enabled
+                  ? 'Your face floats in a bubble you can drag anywhere. '
+                      'Put it inside the area you record.'
+                  : 'The face camera is available on Windows.'),
+          style: StudioText.caption.copyWith(
+            height: 1.45,
+            color: error != null ? Studio.danger : null,
+          ),
+        ),
+      ],
     );
   }
 }

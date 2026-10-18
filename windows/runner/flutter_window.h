@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "camera_bubble.h"
 #include "cursor_overlay.h"
 #include "win32_window.h"
 
@@ -37,6 +38,7 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       windows_channel_;
   CursorOverlay cursor_overlay_;
+  CameraBubble camera_bubble_;
 
   void RegisterWindowsChannel();
 };

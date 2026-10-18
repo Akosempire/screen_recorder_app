@@ -48,7 +48,15 @@ final tourSteps = <TourStep>[
     chip: '1.8×',
   ),
   const TourStep(
-    railIndex: 5,
+    railIndex: 3,
+    title: 'Show your face',
+    body: 'Turn on Camera and your webcam floats in a round bubble. Drag it '
+        'anywhere; it is recorded with your screen.',
+    art: CameraIllustrationPainter(),
+    chip: 'Camera',
+  ),
+  const TourStep(
+    railIndex: 6,
     title: 'Export and find it later',
     body: 'Choose resolution, quality and sound, then save. Compare the '
         'original and zoomed versions with Before / After.',

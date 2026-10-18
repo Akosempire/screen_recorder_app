@@ -20,6 +20,18 @@ enum CursorStyle {
   bool get drawsRipples => this == haloAndRipples || this == CursorStyle.ripples;
 }
 
+/// Size of the face-camera bubble (logical diameter in pixels).
+enum CameraSize {
+  small('S', 160),
+  medium('M', 220),
+  large('L', 300);
+
+  const CameraSize(this.label, this.diameter);
+
+  final String label;
+  final int diameter;
+}
+
 /// User-facing capture effects. Persisted to a small JSON file so the
 /// choices survive restarts.
 class RecordingOptions extends ChangeNotifier {
@@ -33,6 +45,10 @@ class RecordingOptions extends ChangeNotifier {
   double _holdSeconds = 2.6;
   double _smoothness = 4;
   bool _tourDone = false;
+  bool _cameraOn = false;
+  CameraSize _cameraSize = CameraSize.medium;
+  bool _cameraCircle = true;
+  String? _cameraDevice;
   bool _loaded = false;
 
   /// True once preferences have been read from disk (the app has booted).
@@ -61,6 +77,39 @@ class RecordingOptions extends ChangeNotifier {
   double get panTau => 0.12 + _smoothness * 0.04;
 
   bool get tourDone => _tourDone;
+
+  /// Face-camera bubble on screen. Not persisted: the camera only turns on
+  /// when the user asks for it in this session.
+  bool get cameraOn => _cameraOn;
+  CameraSize get cameraSize => _cameraSize;
+  bool get cameraCircle => _cameraCircle;
+
+  /// Camera friendly name, or null for the first camera.
+  String? get cameraDevice => _cameraDevice;
+
+  set cameraOn(bool value) {
+    if (_cameraOn == value) return;
+    _cameraOn = value;
+    notifyListeners();
+  }
+
+  set cameraSize(CameraSize value) {
+    if (_cameraSize == value) return;
+    _cameraSize = value;
+    _changed();
+  }
+
+  set cameraCircle(bool value) {
+    if (_cameraCircle == value) return;
+    _cameraCircle = value;
+    _changed();
+  }
+
+  set cameraDevice(String? value) {
+    if (_cameraDevice == value) return;
+    _cameraDevice = value;
+    _changed();
+  }
 
   /// Effects are implemented for the Windows backend.
   static bool get effectsSupported => Platform.isWindows;
@@ -148,6 +197,15 @@ class RecordingOptions extends ChangeNotifier {
           final smooth = data['smoothness'];
           if (smooth is num) _smoothness = smooth.toDouble().clamp(1.0, 10.0);
           _tourDone = data['tourDone'] as bool? ?? _tourDone;
+          final size = data['cameraSize'];
+          if (size is String) {
+            _cameraSize = CameraSize.values.firstWhere(
+              (s) => s.name == size,
+              orElse: () => _cameraSize,
+            );
+          }
+          _cameraCircle = data['cameraCircle'] as bool? ?? _cameraCircle;
+          _cameraDevice = data['cameraDevice'] as String?;
         }
       }
     } catch (_) {
@@ -169,6 +227,9 @@ class RecordingOptions extends ChangeNotifier {
         'holdSeconds': _holdSeconds,
         'smoothness': _smoothness,
         'tourDone': _tourDone,
+        'cameraSize': _cameraSize.name,
+        'cameraCircle': _cameraCircle,
+        if (_cameraDevice != null) 'cameraDevice': _cameraDevice,
       }));
     } catch (_) {}
   }
