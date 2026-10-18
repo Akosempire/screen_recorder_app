@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import '../models/recorder_exception.dart';
@@ -61,6 +62,36 @@ class ProcessRunner {
       arguments,
       workingDirectory: workingDirectory,
     );
+  }
+
+  /// Like [run], but hands each stdout line to [onLine] as it arrives (for
+  /// FFmpeg `-progress pipe:1`). Returns the collected stderr.
+  Future<ProcessResult> runStreaming(
+    String executable,
+    List<String> arguments, {
+    required void Function(String line) onLine,
+    String? workingDirectory,
+  }) async {
+    final process = await start(
+      executable,
+      arguments,
+      workingDirectory: workingDirectory,
+    );
+    final out = StringBuffer();
+    final stdoutDone = process.stdout
+        .transform(systemEncoding.decoder)
+        .transform(const LineSplitter())
+        .forEach((line) {
+      out.writeln(line);
+      try {
+        onLine(line);
+      } catch (_) {}
+    });
+    final stderrFuture =
+        process.stderr.transform(systemEncoding.decoder).join();
+    final exitCode = await process.exitCode;
+    await stdoutDone;
+    return ProcessResult(process.pid, exitCode, out.toString(), await stderrFuture);
   }
 
   Future<bool> hasBinary(String executable) async {

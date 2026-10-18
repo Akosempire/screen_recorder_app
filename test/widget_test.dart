@@ -49,7 +49,7 @@ class _SlowStopRecorder extends _NoopRecorder {
 
   @override
   Future<String?> stop() {
-    ProcessingStatus.instance.begin('Adding auto-zoom…');
+    ProcessingStatus.instance.begin('Auto-zoom');
     return finish.future;
   }
 }
@@ -65,13 +65,9 @@ class _NoopSave implements FileSaveService {
 }
 
 void main() {
-  testWidgets('Stop returns to the dashboard while the video is finished',
+  testWidgets('after Stop the floating bar shows progress, not the dashboard',
       (tester) async {
-    tester.view.physicalSize = const Size(1600, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
+    addTearDown(ProcessingStatus.instance.end);
     final recorder = _SlowStopRecorder();
     final controller = RecordingController(
       recorder: recorder,
@@ -96,9 +92,17 @@ void main() {
     await tester.pump();
 
     expect(controller.state, RecordingState.stopping);
-    expect(find.byType(RecordingScreen), findsNothing);
-    expect(find.byType(HomeScreen), findsOneWidget);
-    expect(find.text('Adding auto-zoom…'), findsOneWidget);
+    expect(find.byType(HomeScreen), findsNothing);
+    expect(find.byType(ProcessingPill), findsOneWidget);
+    expect(find.text('Auto-zoom'), findsOneWidget);
+
+    ProcessingStatus.instance.report(0.5);
+    await tester.pump();
+    expect(find.text('Auto-zoom 50%'), findsOneWidget);
+
+    final chip = tester.getSize(find.byType(ProcessingPill));
+    expect(chip.width, lessThan(WindowCoordinator.recordingSize.width + 1));
+    expect(chip.height, lessThan(WindowCoordinator.recordingSize.height + 1));
 
     recorder.finish.complete(null);
     await tester.pump();
@@ -106,9 +110,51 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
     expect(controller.state, isNot(RecordingState.stopping));
     expect(ProcessingStatus.instance.active, isFalse);
+    expect(find.byType(ProcessingPill), findsNothing);
 
     await tester.pumpWidget(const SizedBox());
     controller.dispose();
+  });
+
+  testWidgets('ready pill fits the bar and Open releases the wait',
+      (tester) async {
+    addTearDown(ProcessingStatus.instance.end);
+    final status = ProcessingStatus.instance..begin('Preparing');
+    var opened = false;
+    unawaited(status.waitForOpen().then((_) => opened = true));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Align(
+          alignment: Alignment.topLeft,
+          child: ProcessingPill(status: status),
+        ),
+      ),
+    );
+    expect(find.text('Ready'), findsOneWidget);
+    final chip = tester.getSize(find.byType(ProcessingPill));
+    expect(chip.width, lessThan(WindowCoordinator.recordingSize.width + 1));
+    expect(chip.height, lessThan(WindowCoordinator.recordingSize.height + 1));
+
+    await tester.tap(find.text('Open'));
+    await tester.pump();
+    expect(opened, isTrue);
+  });
+
+  test('progress reader and time-left estimate', () {
+    final seen = <double>[];
+    final read = ffmpegProgressReader(const Duration(seconds: 10), seen.add);
+    read('frame=12');
+    read('out_time_us=2500000');
+    read('out_time_ms=5000000');
+    read('out_time_us=N/A');
+    expect(seen, [0.25, 0.5]);
+
+    addTearDown(ProcessingStatus.instance.end);
+    final status = ProcessingStatus.instance..begin('Auto-zoom');
+    status.report(0.25, now: DateTime.now().add(const Duration(seconds: 10)));
+    final left = status.remaining!;
+    expect(left.inSeconds, inInclusiveRange(29, 31));
   });
 
   testWidgets('home screen shows start recording and status', (tester) async {

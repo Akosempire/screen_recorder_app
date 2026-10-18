@@ -205,7 +205,6 @@ class _AppShellState extends State<AppShell> {
   bool _busyWindow = false;
   bool _startingCapture = false;
   bool _restoringHome = false;
-  bool _homeShownWhileFinishing = false;
   final RegionSelectionController _selection = RegionSelectionController();
   late final NativeWindowService _nativeWindow;
   late final Future<AlphaProbe> _probeFuture;
@@ -219,7 +218,7 @@ class _AppShellState extends State<AppShell> {
     _nativeWindow = widget.nativeWindow ?? NativeWindowService();
     _probeFuture = _nativeWindow.probe();
     _controller.addListener(_rebuild);
-    ProcessingStatus.instance.addListener(_onProcessing);
+    ProcessingStatus.instance.addListener(_rebuild);
     if (DemoMode.active) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => DemoMode.afterFirstFrame(appNavigatorKey),
@@ -231,31 +230,23 @@ class _AppShellState extends State<AppShell> {
       // The Export dialog needs the full window, not the recording chip.
       save.beforePrompt = widget.manageWindows
           ? () async {
+              // While the video was being finished the floating bar showed
+              // progress; wait for "Open" there instead of pulling the
+              // dashboard in front of whatever the user is doing.
+              final status = ProcessingStatus.instance;
+              if (status.active) await status.waitForOpen();
               await widget.windowCoordinator.showHome();
+              status.end();
               if (mounted) setState(() => _restoringHome = false);
             }
           : null;
     }
   }
 
-  /// Capture has stopped and the video is being finished: bring the full
-  /// dashboard back right away instead of leaving the small recording bar.
-  Future<void> _onProcessing() async {
-    final processing = ProcessingStatus.instance;
-    if (!processing.active) {
-      _homeShownWhileFinishing = false;
-      return;
-    }
-    _rebuild();
-    if (_homeShownWhileFinishing || !widget.manageWindows) return;
-    _homeShownWhileFinishing = true;
-    await widget.windowCoordinator.showHome();
-  }
-
   @override
   void dispose() {
-    ProcessingStatus.instance.removeListener(_onProcessing);
     _controller.removeListener(_rebuild);
+    ProcessingStatus.instance.removeListener(_rebuild);
     _selection.dispose();
     super.dispose();
   }
@@ -264,9 +255,12 @@ class _AppShellState extends State<AppShell> {
     if (!mounted) {
       return;
     }
-    // Finishing is over once the controller leaves "stopping" (editor/export
-    // opened, or an error).
-    if (_controller.state != RecordingState.stopping && ProcessingStatus.instance.active) {
+    // Safety net: if stopping failed or the save finished some other way,
+    // drop the progress pill.
+    final state = _controller.state;
+    if (ProcessingStatus.instance.active &&
+        state != RecordingState.stopping &&
+        state != RecordingState.saving) {
       WidgetsBinding.instance.addPostFrameCallback((_) => ProcessingStatus.instance.end());
     }
     final phase = SchedulerBinding.instance.schedulerPhase;
@@ -504,12 +498,11 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _body(RecordingState state) {
-    final finishing = state == RecordingState.stopping && ProcessingStatus.instance.active;
-    if (!finishing &&
-        (_startingCapture ||
+    if (_startingCapture ||
+        ProcessingStatus.instance.active ||
         (_restoringHome && state != RecordingState.saving) ||
         state.isActiveCapture ||
-        state == RecordingState.stopping)) {
+        state == RecordingState.stopping) {
       return RecordingScreen(
         controller: _controller,
         onPauseResume: _togglePause,

@@ -129,13 +129,20 @@ class WindowsScreenRecorder extends SegmentingScreenRecorder {
     _activeRegion = null;
     await _overlay.hide();
 
-    // Capture has stopped once super.stop() returns; from here on the
-    // dashboard is shown with a "Finishing your recording" status.
-    final produced = await super.stop();
+    // The floating bar turns into a progress pill from here until the user
+    // opens the finished video; nothing else pops up over their work.
+    ProcessingStatus.instance.begin('Saving');
+    final String? produced;
+    try {
+      produced = await super.stop();
+    } catch (_) {
+      ProcessingStatus.instance.end();
+      rethrow;
+    }
     if (produced == null || region == null) {
+      ProcessingStatus.instance.end();
       return produced;
     }
-    ProcessingStatus.instance.begin(zoom ? 'Adding auto-zoom…' : 'Finishing your recording…');
     final duration = Duration(
       milliseconds: log.samples.isEmpty ? 0 : (log.samples.last.t * 1000).round(),
     );
@@ -146,6 +153,7 @@ class WindowsScreenRecorder extends SegmentingScreenRecorder {
       AppLogger.info(
         'Cursor log: ${log.samples.length} samples, ${log.clicks.length} clicks',
       );
+      ProcessingStatus.instance.begin('Auto-zoom');
       try {
         final pan = _options.panTau;
         result = await applyAutoZoom(
@@ -162,6 +170,8 @@ class WindowsScreenRecorder extends SegmentingScreenRecorder {
             zoomTau: pan + 0.04,
           ),
           runner: _zoomRunner,
+          duration: duration,
+          onProgress: ProcessingStatus.instance.report,
         );
       } catch (error, stack) {
         AppLogger.error('Auto-zoom crashed; keeping original', error, stack);
@@ -169,7 +179,7 @@ class WindowsScreenRecorder extends SegmentingScreenRecorder {
       }
     }
 
-    ProcessingStatus.instance.begin('Opening the editor…');
+    ProcessingStatus.instance.begin('Preparing');
     RecordingLibrary.instance.register(
       LastRecording(
         finalPath: result,

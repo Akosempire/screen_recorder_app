@@ -7,6 +7,7 @@ import 'app_logger.dart';
 import 'cursor_tracker.dart';
 import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
+import 'processing_status.dart';
 
 /// Camera keyframe: the visible source rectangle at video frame [frame].
 class ZoomKeyframe {
@@ -317,6 +318,8 @@ Future<String> applyAutoZoom({
   bool hasAudio = false,
   AutoZoomSettings settings = const AutoZoomSettings(),
   ProcessRunner runner = const ProcessRunner(),
+  Duration? duration,
+  void Function(double fraction)? onProgress,
 }) async {
   final keys = planAutoZoom(
     log: log,
@@ -342,8 +345,10 @@ Future<String> applyAutoZoom({
   final output = p.join(dir, 'autozoom.mp4');
 
   AppLogger.info('Auto-zoom: ${keys.length} keyframes → $output');
-  final result = await runner.run(ffmpegExecutable, [
+  final reportProgress = onProgress != null && duration != null && duration > Duration.zero;
+  final args = [
     '-y',
+    if (reportProgress) ...['-progress', 'pipe:1', '-nostats'],
     '-i',
     inputPath,
     '-filter_script:v',
@@ -357,7 +362,14 @@ Future<String> applyAutoZoom({
     '-movflags',
     '+faststart',
     output,
-  ]);
+  ];
+  final result = reportProgress
+      ? await runner.runStreaming(
+          ffmpegExecutable,
+          args,
+          onLine: ffmpegProgressReader(duration!, onProgress!),
+        )
+      : await runner.run(ffmpegExecutable, args);
   if (result.exitCode != 0 || !await File(output).exists()) {
     AppLogger.warn('Auto-zoom failed; keeping original. ${result.stderr}');
     return inputPath;

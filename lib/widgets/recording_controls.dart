@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/recording_controller.dart';
 import '../models/recording_state.dart';
+import '../services/processing_status.dart';
 
 String formatElapsed(Duration duration) {
   final hours = duration.inHours;
@@ -27,6 +28,17 @@ class RecordingControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: ProcessingStatus.instance,
+      builder: (context, _) {
+        final status = ProcessingStatus.instance;
+        if (status.active) return ProcessingPill(status: status);
+        return _controls(context);
+      },
+    );
+  }
+
+  Widget _controls(BuildContext context) {
     final recording = controller.state == RecordingState.recording;
     final paused = controller.state == RecordingState.paused;
     final busy = controller.state.isBusy;
@@ -42,9 +54,7 @@ class RecordingControls extends StatelessWidget {
             _RecordingDot(active: recording),
             const SizedBox(width: 5),
             Text(
-              controller.state == RecordingState.stopping
-                  ? 'Stopping…'
-                  : formatElapsed(controller.elapsed),
+              formatElapsed(controller.elapsed),
               style: const TextStyle(
                 color: Colors.white,
                 fontFeatures: [FontFeature.tabularFigures()],
@@ -167,6 +177,140 @@ class _RecordingDotState extends State<_RecordingDot>
           shape: BoxShape.circle,
         ),
       ),
+    );
+  }
+}
+
+/// Replaces the recording controls after Stop: a quiet pill with progress
+/// and time left while the video is finished, then "Ready · Open". It lives
+/// in the same small always-on-top bar, so it never takes focus or covers
+/// what the user is doing; the dashboard opens only when they click Open.
+class ProcessingPill extends StatelessWidget {
+  const ProcessingPill({super.key, required this.status});
+
+  final ProcessingStatus status;
+
+  static const _accent = Color(0xFF26A69A);
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = status.ready;
+    return Material(
+      color: const Color(0xF0161A20),
+      borderRadius: BorderRadius.circular(8),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: ready ? status.open : null,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(9, 5, ready ? 4 : 10, 5),
+          child: SizedBox(
+            height: 26,
+            child: ready ? _ready() : _working(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _working() {
+    final progress = status.progress;
+    final percent = progress == null ? '' : ' ${(progress * 100).floor()}%';
+    final remaining = status.remaining;
+    final detail = remaining != null
+        ? '${formatElapsed(remaining + const Duration(seconds: 1))} left'
+        : 'Keep working…';
+    return Tooltip(
+      message: 'Your video is being finished. Keep working; '
+          'click Open here when it’s ready.',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 17,
+            height: 17,
+            child: CircularProgressIndicator(
+              value: progress,
+              strokeWidth: 2.4,
+              color: _accent,
+              backgroundColor: Colors.white24,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${status.message ?? 'Saving'}$percent',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1.1,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+                Text(
+                  detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 10,
+                    height: 1.1,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ready() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.check_circle_rounded, size: 16, color: _accent),
+        const SizedBox(width: 6),
+        const Flexible(
+          child: Text(
+            'Ready',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          height: 26,
+          child: FilledButton(
+            onPressed: status.open,
+            style: FilledButton.styleFrom(
+              backgroundColor: _accent,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: const Size(0, 26),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            child: const Text('Open'),
+          ),
+        ),
+      ],
     );
   }
 }
