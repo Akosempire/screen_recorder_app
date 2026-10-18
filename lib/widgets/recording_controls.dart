@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../controllers/recording_controller.dart';
 import '../models/recording_state.dart';
 import '../services/processing_status.dart';
+import '../services/window_coordinator.dart';
 
 String formatElapsed(Duration duration) {
   final hours = duration.inHours;
@@ -195,7 +196,10 @@ class ProcessingPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ready = status.ready;
-    return Material(
+    final bar = WindowCoordinator.recordingSize;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: bar.width, maxHeight: bar.height),
+      child: Material(
       color: const Color(0xF0161A20),
       borderRadius: BorderRadius.circular(8),
       clipBehavior: Clip.antiAlias,
@@ -208,6 +212,7 @@ class ProcessingPill extends StatelessWidget {
             child: ready ? _ready() : _working(),
           ),
         ),
+      ),
       ),
     );
   }
