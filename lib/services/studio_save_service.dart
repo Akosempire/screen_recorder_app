@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../controllers/recording_controller.dart';
+import '../screens/editor_screen.dart';
 import '../screens/export_dialog.dart';
 import 'app_logger.dart';
 import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
 import 'file_save_service.dart';
 import 'recording_background.dart';
+import 'recording_edit.dart';
 import 'recording_library.dart';
 import 'recording_options.dart';
 
@@ -56,6 +58,7 @@ class ExportSettings {
     this.quality = ExportQuality.balanced,
     this.keepSound = true,
     this.background = const BackgroundSpec(),
+    this.segments,
   });
 
   String fileName;
@@ -67,6 +70,10 @@ class ExportSettings {
 
   /// Background behind the recording (none by default).
   BackgroundSpec background;
+
+  /// Parts of the recording to keep, in order (from the editor's trims and
+  /// cuts). Null exports the whole recording.
+  List<EditRange>? segments;
 }
 
 /// Size of the output for [resolution] given a [width]×[height] source.
@@ -98,6 +105,20 @@ List<String>? buildExportArgs({
   final fps = settings.frameRate == ExportFrameRate.fps15;
   final crf = settings.quality.crf;
   final dropSound = hasAudio && !settings.keepSound;
+  final segments = settings.segments;
+
+  if (segments != null && segments.isNotEmpty) {
+    return _editedExportArgs(
+      source: source,
+      output: output,
+      settings: settings,
+      height: height,
+      keepAudio: hasAudio && !dropSound,
+      segments: segments,
+      background: background,
+      backgroundFrame: backgroundFrame,
+    );
+  }
 
   if (background != null && backgroundFrame != null) {
     final b = background;
@@ -159,6 +180,70 @@ List<String>? buildExportArgs({
       'yuv420p',
     ] else ...['-c:v', 'copy'],
     if (!hasAudio || dropSound) '-an' else ...['-c:a', 'copy'],
+    '-movflags',
+    '+faststart',
+    output,
+  ];
+}
+
+String _sec(double v) => v.toStringAsFixed(3);
+
+/// Export with trims/cuts: keep [segments] of the source, join them (picture
+/// and sound), then scale / add the background as usual. Always re-encodes.
+List<String> _editedExportArgs({
+  required String source,
+  required String output,
+  required ExportSettings settings,
+  required int height,
+  required bool keepAudio,
+  required List<EditRange> segments,
+  BackgroundLayout? background,
+  String? backgroundFrame,
+}) {
+  final fps = settings.frameRate == ExportFrameRate.fps15;
+  final crf = settings.quality.crf;
+  final withBackground = background != null && backgroundFrame != null;
+  final parts = <String>[];
+  final joinInputs = StringBuffer();
+  for (var i = 0; i < segments.length; i++) {
+    final r = segments[i];
+    parts.add('[0:v]trim=start=${_sec(r.start)}:end=${_sec(r.end)},setpts=PTS-STARTPTS[v$i]');
+    joinInputs.write('[v$i]');
+    if (keepAudio) {
+      parts.add('[0:a]atrim=start=${_sec(r.start)}:end=${_sec(r.end)},asetpts=PTS-STARTPTS[a$i]');
+      joinInputs.write('[a$i]');
+    }
+  }
+  parts.add('${joinInputs}concat=n=${segments.length}:v=1:a=${keepAudio ? 1 : 0}[vcat]${keepAudio ? '[acat]' : ''}');
+
+  if (withBackground) {
+    final b = background!;
+    parts.add('[vcat]scale=${b.innerWidth}:${b.innerHeight}:flags=lanczos,setsar=1,'
+        'pad=${b.width}:${b.height}:${b.x}:${b.y}:color=black[rec]');
+    parts.add('[rec][1:v]overlay=0:0:shortest=1${fps ? ',fps=15' : ''},format=yuv420p[out]');
+  } else {
+    final scale = settings.resolution.height != null && height > settings.resolution.height!;
+    parts.add('[vcat]${scale ? 'scale=-2:${settings.resolution.height}:flags=lanczos,' : ''}'
+        '${fps ? 'fps=15,' : ''}format=yuv420p[out]');
+  }
+
+  return [
+    '-y',
+    '-hide_banner',
+    '-i',
+    source,
+    if (withBackground) ...['-loop', '1', '-i', backgroundFrame!],
+    '-filter_complex',
+    parts.join(';'),
+    '-map',
+    '[out]',
+    if (keepAudio) ...['-map', '[acat]', '-c:a', 'aac', '-b:a', '160k'] else '-an',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-crf',
+    '${crf ?? 20}',
     '-movflags',
     '+faststart',
     output,
@@ -247,18 +332,34 @@ class StudioSaveService implements FileSaveService {
       background: RecordingOptions.instance.background,
     );
 
-    final context = navigatorKey.currentContext;
-    if (context == null || !context.mounted) {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null || !navigator.mounted) {
       return null;
     }
-    final destination = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: const Color(0x33000000),
-      builder: (_) => ExportDialog(
-        recording: recording,
-        settings: settings,
-        onExport: (chosen) => _export(source, recording, chosen),
+    // Editor first (trim, cut, background), then the Export dialog.
+    final destination = await navigator.push<String>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => EditorScreen(
+          recording: recording,
+          onExport: (segments) async {
+            final context = navigatorKey.currentContext;
+            if (context == null || !context.mounted) return null;
+            settings
+              ..segments = segments
+              ..background = RecordingOptions.instance.background;
+            return showDialog<String>(
+              context: context,
+              barrierDismissible: false,
+              barrierColor: const Color(0x33000000),
+              builder: (_) => ExportDialog(
+                recording: recording,
+                settings: settings,
+                onExport: (chosen) => _export(source, recording, chosen),
+              ),
+            );
+          },
+        ),
       ),
     );
     if (destination != null) {

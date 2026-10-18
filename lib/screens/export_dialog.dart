@@ -2,6 +2,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import '../services/recording_background.dart';
+import '../services/recording_edit.dart';
 import '../services/recording_library.dart';
 import '../services/studio_save_service.dart';
 import '../ui/studio_theme.dart';
@@ -290,6 +291,12 @@ class _ExportDialogState extends State<ExportDialog> {
               ? 'Microphone audio recorded with the video'
               : 'This recording has no sound',
         ),
+        if (s.segments != null)
+          _row(
+            'Edits',
+            Text(_editSummary(s.segments!), style: StudioText.body),
+            hint: 'Trims and cuts from the editor',
+          ),
         if (_chosenBackground.isActive)
           _row(
             'Background',
@@ -305,6 +312,14 @@ class _ExportDialogState extends State<ExportDialog> {
           ),
       ],
     );
+  }
+
+  String _editSummary(List<EditRange> segments) {
+    final kept = segments.fold<double>(0, (sum, r) => sum + r.length);
+    final total = widget.recording.duration.inMilliseconds / 1000.0;
+    String clock(double v) => '${v ~/ 60}:${(v % 60).floor().toString().padLeft(2, '0')}';
+    final cuts = segments.length - 1;
+    return 'Keeps ${clock(kept)} of ${clock(total)}${cuts > 0 ? ' · $cuts cut${cuts == 1 ? '' : 's'}' : ''}';
   }
 
   Widget _fileTab() {

@@ -133,7 +133,24 @@ class RecordingLibrary extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<File?> _still(String video, double at, String out) async {
+  final Map<String, File> _frames = {};
+
+  /// A still of [recording] at [seconds] (for scrubbing in the editor).
+  /// Cached per tenth of a second; null if FFmpeg can't read that moment.
+  Future<File?> frameAt(LastRecording recording, double seconds) async {
+    final key = '${recording.finalPath}@${(seconds * 10).round()}';
+    final cached = _frames[key];
+    if (cached != null && cached.existsSync()) return cached;
+    final out = p.join(
+      p.dirname(recording.finalPath),
+      'frame_${recording.finalPath.hashCode.abs()}_${(seconds * 10).round()}.jpg',
+    );
+    final file = await _still(recording.finalPath, seconds, out, width: 960);
+    if (file != null) _frames[key] = file;
+    return file;
+  }
+
+  Future<File?> _still(String video, double at, String out, {int width = 1280}) async {
     try {
       final result = await runner.run(
         ffmpegExecutable,
@@ -147,7 +164,7 @@ class RecordingLibrary extends ChangeNotifier {
           '-frames:v',
           '1',
           '-vf',
-          'scale=1280:-2',
+          'scale=$width:-2',
           out,
         ],
         timeout: const Duration(seconds: 20),

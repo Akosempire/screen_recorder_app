@@ -2,8 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../screens/editor_screen.dart';
 import '../screens/export_dialog.dart';
 import 'recording_background.dart';
+import 'recording_edit.dart';
 import 'recording_library.dart';
 import 'recording_options.dart';
 import 'studio_save_service.dart';
@@ -13,7 +15,7 @@ import 'studio_save_service.dart';
 ///
 ///   screen_recorder_app.exe --demo=compare --demo-assets=C:\path\to\demo
 ///
-/// States: home, tour, compare, export, camera, background.
+/// States: home, tour, compare, export, camera, background, edit.
 /// The assets folder holds before.png, after.png and strip.png.
 class DemoMode {
   DemoMode._();
@@ -31,14 +33,14 @@ class DemoMode {
   }
 
   static bool get wantsRecording =>
-      state == 'compare' || state == 'export' || state == 'camera' || state == 'background';
+      state == 'compare' || state == 'export' || state == 'camera' || state == 'background' || state == 'edit';
 
   /// Prepares options and the sample recording. Call before the UI builds.
   static void prepare() {
     if (!active) return;
     final options = RecordingOptions.instance;
     options.tourDone = state != 'tour';
-    if (state == 'background') {
+    if (state == 'background' || state == 'edit') {
       options.setBackgroundPreset(BackgroundPreset.ocean);
     }
     final dir = assets;
@@ -65,6 +67,29 @@ class DemoMode {
 
   /// Opens dialogs for states that need them, once the app is on screen.
   static Future<void> afterFirstFrame(GlobalKey<NavigatorState> navigator) async {
+    if (state == 'edit') {
+      final recording = RecordingLibrary.instance.last;
+      final nav = navigator.currentState;
+      if (recording == null || nav == null) return;
+      final edit = RecordingEdit(recording.duration.inMilliseconds / 1000.0)
+        ..trimStart = 2.5
+        ..trimEnd = 38
+        ..playhead = 12;
+      edit.playhead = 21;
+      final i = edit.addCutAtPlayhead();
+      edit.setCut(i, 18, 24.5);
+      edit.playhead = 12;
+      await nav.push<String>(
+        MaterialPageRoute(
+          builder: (_) => EditorScreen(
+            recording: recording,
+            initialEdit: edit,
+            onExport: (_) async => null,
+          ),
+        ),
+      );
+      return;
+    }
     if (state != 'export') return;
     final recording = RecordingLibrary.instance.last;
     final context = navigator.currentContext;
