@@ -2,6 +2,7 @@
 
 #include <flutter/standard_method_codec.h>
 
+#include <cwchar>
 #include <optional>
 
 #ifndef WDA_EXCLUDEFROMCAPTURE
@@ -35,7 +36,10 @@ bool FlutterWindow::OnCreate() {
 
   // Keep this app's own window (home screen, recording controls) out of
   // screen captures. Supported on Windows 10 2004+; ignored elsewhere.
-  SetWindowDisplayAffinity(GetHandle(), WDA_EXCLUDEFROMCAPTURE);
+  // `--allow-capture` turns this off (used for CI screenshots).
+  if (std::wcsstr(GetCommandLineW(), L"--allow-capture") == nullptr) {
+    SetWindowDisplayAffinity(GetHandle(), WDA_EXCLUDEFROMCAPTURE);
+  }
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
