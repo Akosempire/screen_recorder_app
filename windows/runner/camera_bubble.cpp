@@ -279,7 +279,8 @@ void CameraBubble::CaptureLoop() {
 }
 
 std::string CameraBubble::Show(int diameter_logical, bool circle,
-                               const std::wstring& device, HWND anchor) {
+                               const std::wstring& device, int corner,
+                               HWND anchor) {
   if (!EnsureWindow()) return "Could not create the camera window.";
   diameter_logical_ = std::clamp(diameter_logical, 96, 480);
   circle_ = circle;
@@ -301,17 +302,14 @@ std::string CameraBubble::Show(int diameter_logical, bool circle,
   if (!EnsureSurface(size)) return "Could not draw the camera bubble.";
 
   if (!positioned_) {
-    // Start in the bottom-left corner of the app's monitor.
-    HMONITOR monitor = MonitorFromWindow(anchor ? anchor : hwnd_,
-                                         MONITOR_DEFAULTTOPRIMARY);
-    MONITORINFO info = {};
-    info.cbSize = sizeof(info);
-    GetMonitorInfo(monitor, &info);
-    const int pad = 32 * dpi / 96;
-    SetWindowPos(hwnd_, HWND_TOPMOST, info.rcWork.left + pad,
-                 info.rcWork.bottom - size - pad, size, size,
+    // First time: place it in the chosen corner of the app's monitor.
+    SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, size, size,
+                 SWP_NOACTIVATE | SWP_NOMOVE);
+    const RECT work = WorkAreaFor(anchor ? anchor : hwnd_);
+    SetWindowPos(hwnd_, HWND_TOPMOST, work.left, work.top, size, size,
                  SWP_NOACTIVATE);
     positioned_ = true;
+    MoveToCorner(corner);
   }
   visible_ = true;
   Render();
@@ -319,6 +317,68 @@ std::string CameraBubble::Show(int diameter_logical, bool circle,
   SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0,
                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
   return std::string();
+}
+
+RECT CameraBubble::WorkAreaFor(HWND window) const {
+  HMONITOR monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO info = {};
+  info.cbSize = sizeof(info);
+  if (!GetMonitorInfo(monitor, &info)) {
+    RECT fallback = {0, 0, GetSystemMetrics(SM_CXSCREEN),
+                     GetSystemMetrics(SM_CYSCREEN)};
+    return fallback;
+  }
+  return info.rcWork;
+}
+
+void CameraBubble::MoveToCorner(int corner) {
+  if (!hwnd_ || size_ <= 0) return;
+  const RECT work = WorkAreaFor(hwnd_);
+  int dpi = static_cast<int>(GetDpiForWindow(hwnd_));
+  if (dpi <= 0) dpi = 96;
+  const int pad = 32 * dpi / 96;
+  const bool right = corner == 1 || corner == 3;
+  const bool bottom = corner == 2 || corner == 3;
+  const int x = right ? work.right - size_ - pad : work.left + pad;
+  const int y = bottom ? work.bottom - size_ - pad : work.top + pad;
+  SetWindowPos(hwnd_, HWND_TOPMOST, x, y, 0, 0,
+               SWP_NOSIZE | SWP_NOACTIVATE);
+  Render();
+}
+
+void CameraBubble::OnMouseDown() {
+  POINT cursor;
+  RECT rect;
+  if (!GetCursorPos(&cursor) || !GetWindowRect(hwnd_, &rect)) return;
+  drag_offset_ = {cursor.x - rect.left, cursor.y - rect.top};
+  dragging_ = true;
+  SetCapture(hwnd_);
+}
+
+void CameraBubble::OnMouseMove() {
+  if (!dragging_) return;
+  POINT cursor;
+  if (!GetCursorPos(&cursor)) return;
+  int x = cursor.x - drag_offset_.x;
+  int y = cursor.y - drag_offset_.y;
+  // Keep at least a third of the bubble on the monitor under the cursor.
+  HMONITOR monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO info = {};
+  info.cbSize = sizeof(info);
+  if (GetMonitorInfo(monitor, &info)) {
+    const int keep = size_ / 3;
+    x = std::clamp(x, static_cast<int>(info.rcMonitor.left) - size_ + keep,
+                   static_cast<int>(info.rcMonitor.right) - keep);
+    y = std::clamp(y, static_cast<int>(info.rcMonitor.top) - size_ + keep,
+                   static_cast<int>(info.rcMonitor.bottom) - keep);
+  }
+  SetWindowPos(hwnd_, HWND_TOPMOST, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
+}
+
+void CameraBubble::OnMouseUp() {
+  if (!dragging_) return;
+  dragging_ = false;
+  ReleaseCapture();
 }
 
 void CameraBubble::Hide() {
@@ -456,9 +516,18 @@ LRESULT CALLBACK CameraBubble::WndProc(HWND hwnd, UINT message, WPARAM wparam,
     case kFrameMessage:
       if (self) self->Render();
       return 0;
-    case WM_NCHITTEST:
-      // Drag the bubble from anywhere on it.
-      return HTCAPTION;
+    case WM_LBUTTONDOWN:
+      if (self) self->OnMouseDown();
+      return 0;
+    case WM_MOUSEMOVE:
+      if (self) self->OnMouseMove();
+      return 0;
+    case WM_LBUTTONUP:
+      if (self) self->OnMouseUp();
+      return 0;
+    case WM_CAPTURECHANGED:
+      if (self) self->dragging_ = false;
+      return 0;
     case WM_MOUSEACTIVATE:
       return MA_NOACTIVATE;
     case WM_DPICHANGED:

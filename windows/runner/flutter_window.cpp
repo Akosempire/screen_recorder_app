@@ -121,6 +121,7 @@ void FlutterWindow::RegisterWindowsChannel() {
           int diameter = 220;
           bool circle = true;
           std::string device;
+          int corner = 2;
           if (const auto* args =
                   std::get_if<flutter::EncodableMap>(call.arguments())) {
             auto it = args->find(flutter::EncodableValue("diameter"));
@@ -133,6 +134,12 @@ void FlutterWindow::RegisterWindowsChannel() {
             if (it != args->end()) {
               if (const auto* v = std::get_if<bool>(&it->second)) circle = *v;
             }
+            it = args->find(flutter::EncodableValue("corner"));
+            if (it != args->end()) {
+              if (const auto* v = std::get_if<int32_t>(&it->second)) {
+                corner = *v;
+              }
+            }
             it = args->find(flutter::EncodableValue("device"));
             if (it != args->end()) {
               if (const auto* v = std::get_if<std::string>(&it->second)) {
@@ -141,12 +148,19 @@ void FlutterWindow::RegisterWindowsChannel() {
             }
           }
           const std::string error = camera_bubble_.Show(
-              diameter, circle, Utf8ToWide(device), GetHandle());
+              diameter, circle, Utf8ToWide(device), corner, GetHandle());
           if (error.empty()) {
             result->Success(flutter::EncodableValue());
           } else {
             result->Success(flutter::EncodableValue(error));
           }
+        } else if (method == "moveCamera") {
+          int corner = 2;
+          if (const auto* v = std::get_if<int32_t>(call.arguments())) {
+            corner = *v;
+          }
+          camera_bubble_.MoveToCorner(corner);
+          result->Success(flutter::EncodableValue(true));
         } else if (method == "hideCamera") {
           camera_bubble_.Hide();
           result->Success(flutter::EncodableValue(true));

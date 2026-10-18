@@ -32,6 +32,18 @@ enum CameraSize {
   final int diameter;
 }
 
+/// Where the face-camera bubble snaps to. Index matches the native side.
+enum CameraCorner {
+  topLeft('Top left'),
+  topRight('Top right'),
+  bottomLeft('Bottom left'),
+  bottomRight('Bottom right');
+
+  const CameraCorner(this.label);
+
+  final String label;
+}
+
 /// User-facing capture effects. Persisted to a small JSON file so the
 /// choices survive restarts.
 class RecordingOptions extends ChangeNotifier {
@@ -49,6 +61,7 @@ class RecordingOptions extends ChangeNotifier {
   CameraSize _cameraSize = CameraSize.medium;
   bool _cameraCircle = true;
   String? _cameraDevice;
+  CameraCorner _cameraCorner = CameraCorner.bottomLeft;
   bool _loaded = false;
 
   /// True once preferences have been read from disk (the app has booted).
@@ -86,6 +99,14 @@ class RecordingOptions extends ChangeNotifier {
 
   /// Camera friendly name, or null for the first camera.
   String? get cameraDevice => _cameraDevice;
+
+  CameraCorner get cameraCorner => _cameraCorner;
+
+  set cameraCorner(CameraCorner value) {
+    if (_cameraCorner == value) return;
+    _cameraCorner = value;
+    _changed();
+  }
 
   set cameraOn(bool value) {
     if (_cameraOn == value) return;
@@ -206,6 +227,13 @@ class RecordingOptions extends ChangeNotifier {
           }
           _cameraCircle = data['cameraCircle'] as bool? ?? _cameraCircle;
           _cameraDevice = data['cameraDevice'] as String?;
+          final corner = data['cameraCorner'];
+          if (corner is String) {
+            _cameraCorner = CameraCorner.values.firstWhere(
+              (c) => c.name == corner,
+              orElse: () => _cameraCorner,
+            );
+          }
         }
       }
     } catch (_) {
@@ -229,6 +257,7 @@ class RecordingOptions extends ChangeNotifier {
         'tourDone': _tourDone,
         'cameraSize': _cameraSize.name,
         'cameraCircle': _cameraCircle,
+        'cameraCorner': _cameraCorner.name,
         if (_cameraDevice != null) 'cameraDevice': _cameraDevice,
       }));
     } catch (_) {}

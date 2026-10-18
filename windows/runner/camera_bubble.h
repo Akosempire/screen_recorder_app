@@ -28,8 +28,13 @@ class CameraBubble {
   // Opens the camera and shows the bubble. Returns an empty string on
   // success, otherwise a user-facing error message. Calling it again while
   // visible updates size/shape (and reopens if the device changed).
+  // [corner]: 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right; used
+  // for the first placement only (after that the user's drag position is
+  // kept until MoveToCorner).
   std::string Show(int diameter_logical, bool circle,
-                   const std::wstring& device, HWND anchor);
+                   const std::wstring& device, int corner, HWND anchor);
+  // Snaps the bubble to a corner of the monitor it is on.
+  void MoveToCorner(int corner);
   void Hide();
   bool visible() const { return visible_; }
 
@@ -59,6 +64,13 @@ class CameraBubble {
   bool circle_ = true;
   bool visible_ = false;
   bool positioned_ = false;
+  bool dragging_ = false;
+  POINT drag_offset_ = {0, 0};
+
+  void OnMouseDown();
+  void OnMouseMove();
+  void OnMouseUp();
+  RECT WorkAreaFor(HWND window) const;
   std::wstring device_;
 
   IMFSourceReader* reader_ = nullptr;

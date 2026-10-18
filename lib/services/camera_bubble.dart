@@ -47,6 +47,20 @@ class CameraBubbleService extends ChangeNotifier {
     }
   }
 
+  /// Snaps the bubble to [corner] (and remembers the choice). The user can
+  /// also drag the bubble anywhere with the mouse.
+  Future<void> moveTo(CameraCorner corner) async {
+    _options.cameraCorner = corner;
+    if (!isSupported || !_visible) return;
+    try {
+      await _channel.invokeMethod<bool>('moveCamera', corner.index);
+    } on MissingPluginException {
+      return;
+    } catch (error) {
+      AppLogger.debug('moveCamera failed: $error');
+    }
+  }
+
   /// Re-shows the bubble on top (e.g. after the selector overlay closed).
   Future<void> bringToFront() async {
     if (_options.cameraOn) {
@@ -76,6 +90,7 @@ class CameraBubbleService extends ChangeNotifier {
           'diameter': wanted.diameter,
           'circle': wanted.circle,
           'device': wanted.device,
+          'corner': _options.cameraCorner.index,
         });
         if (error != null && error.isNotEmpty) {
           _error = error;

@@ -1238,6 +1238,33 @@ class _CameraSection extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(
+              width: 104,
+              child: Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text('Position', style: StudioText.body),
+              ),
+            ),
+            _CornerPicker(
+              value: options.cameraCorner,
+              onChanged: enabled ? camera.moveTo : null,
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                  'Or drag the bubble anywhere on screen.',
+                  style: StudioText.caption,
+                ),
+              ),
+            ),
+          ],
+        ),
         if (devices.length > 1) ...[
           const SizedBox(height: 10),
           Row(
@@ -1272,8 +1299,8 @@ class _CameraSection extends StatelessWidget {
         Text(
           error ??
               (enabled
-                  ? 'Your face floats in a bubble you can drag anywhere. '
-                      'Put it inside the area you record.'
+                  ? 'Your face floats in a bubble on top of everything. '
+                      'Keep it inside the area you record.'
                   : 'The face camera is available on Windows.'),
           style: StudioText.caption.copyWith(
             height: 1.45,
@@ -1281,6 +1308,66 @@ class _CameraSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 2×2 mini screen with one dot per corner; the selected corner is filled.
+class _CornerPicker extends StatelessWidget {
+  const _CornerPicker({required this.value, required this.onChanged});
+
+  final CameraCorner value;
+  final ValueChanged<CameraCorner>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget dot(CameraCorner corner, Alignment alignment) {
+      final selected = corner == value;
+      return Align(
+        alignment: alignment,
+        child: Tooltip(
+          message: corner.label,
+          child: MouseRegion(
+            cursor: onChanged == null
+                ? SystemMouseCursors.basic
+                : SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: onChanged == null ? null : () => onChanged!(corner),
+              child: Container(
+                width: 18,
+                height: 18,
+                margin: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? Studio.primary : Studio.surface,
+                  border: Border.all(
+                    color: selected ? Studio.primary : Studio.border,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: 84,
+      height: 56,
+      decoration: BoxDecoration(
+        color: Studio.track,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Studio.border),
+      ),
+      child: Stack(
+        children: [
+          dot(CameraCorner.topLeft, Alignment.topLeft),
+          dot(CameraCorner.topRight, Alignment.topRight),
+          dot(CameraCorner.bottomLeft, Alignment.bottomLeft),
+          dot(CameraCorner.bottomRight, Alignment.bottomRight),
+        ],
+      ),
     );
   }
 }
