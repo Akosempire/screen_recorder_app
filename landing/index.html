@@ -170,7 +170,13 @@ html:has(.modal[open]){overflow:hidden}
 .done h4{margin-top:10px;font-size:20px;letter-spacing:-.03em}
 .done p{margin-top:4px;color:var(--ink-2);font-size:14.5px}
 .done .get-file{margin-top:14px;text-decoration:none}
-.done .smart{margin-top:10px;font-size:12.5px;color:var(--mute)}
+.done .smart{margin-top:14px;text-align:left;background:#EEF5FD;border:1px solid #CFE3F8;border-radius:14px;padding:12px 14px}
+.smart-head{display:flex;gap:8px;align-items:center;font-size:13.5px;color:#0B2E59}
+.smart-head svg{flex:none}
+.done .smart p{margin:4px 0 0 26px;font-size:13px;color:#2B4A70}
+.smart-steps{list-style:none;display:flex;gap:8px;margin:10px 0 0 26px;padding:0;flex-wrap:wrap}
+.smart-steps li{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #CFE3F8;border-radius:9px;padding:5px 9px 5px 6px;font-size:13px;color:#0B2E59}
+.smart-steps span{width:18px;height:18px;border-radius:50%;background:#0067C0;color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
 .done button{background:none;border:0;text-decoration:underline;color:var(--mute);cursor:pointer;margin-top:8px;font-size:13.5px}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .fine{margin:20px auto 0;max-width:420px;text-align:center;font-size:12.5px;color:rgba(255,255,255,.8)}
@@ -391,9 +397,19 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         <div class="done" aria-live="polite">
           <div class="tick" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
           <h4>Your download is starting</h4>
-          <p>If it doesn’t start, use the button below. Open <b>ScreenRecorder-Setup.exe</b> and a shortcut appears on your desktop.</p>
-          <a class="btn get-file" href="#" download><span class="dot" aria-hidden="true"></span>Download ScreenRecorder-Setup.exe</a>
-          <p class="smart">If Windows says “Windows protected your PC”, click <b>More info</b>, then <b>Run anyway</b>.</p>
+          <p>If it doesn’t start, use the button below. Then open <b>ScreenRecorder-Setup.exe</b> and a shortcut appears on your desktop.</p>
+          <a class="btn get-file" href="#" download><span class="dot" aria-hidden="true"></span>Download for Windows</a>
+          <div class="smart" role="note">
+            <div class="smart-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l8 3v6.2c0 4.7-3.3 8.6-8 9.8-4.7-1.2-8-5.1-8-9.8V5.5z" fill="#0067C0"/><path d="M12 7.5v5.2M12 15.6v.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+              <strong>Windows says “Windows protected your PC”</strong>
+            </div>
+            <p>That’s normal for new apps that aren’t code-signed yet.</p>
+            <ol class="smart-steps">
+              <li><span>1</span>Click <b>More info</b></li>
+              <li><span>2</span>Click <b>Run anyway</b></li>
+            </ol>
+          </div>
           <button type="button" class="reset">Not <span class="sent-to"></span>? Start again</button>
         </div>
       </div>
