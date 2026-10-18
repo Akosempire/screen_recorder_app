@@ -46,7 +46,9 @@ data in **Supabase → Table Editor** (`signups`, `downloads`).
 
 | Name | Value |
 | --- | --- |
-| `POSTGRES_URL` | set by the Supabase integration (pooled, port 6543) |
+| `SUPABASE_URL` | `https://<project-ref>.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API keys → `service_role` (server only, never in the page) |
+| `POSTGRES_URL` | optional alternative: the pooled connection string (port 6543); used only when the two above are not set |
 | `SENDBYTE_API_KEY` | your SendByte live key |
 | `EMAIL_FROM` | e.g. `Screen Recorder <downloads@yourdomain.com>` (a verified domain) |
 | `LINK_SECRET` | a long random string (signs download links) |
@@ -76,8 +78,10 @@ TEST_DATABASE_URL=postgres://... npm test   # full flow against a real Postgres
 
 ## Notes
 
-- Driver: `pg` with `attachDatabasePool` from `@vercel/functions`, on
-  Supabase's pooled connection. Supabase uses its own TLS certificate
+- Database access: Supabase's HTTPS API with the service_role key
+  (`lib/supabase-rest.js`) when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+  are set; otherwise `pg` with `attachDatabasePool` on `POSTGRES_URL`.
+  With `pg` on Supabase's pooled connection, Supabase uses its own TLS certificate
   authority, so the connection is encrypted without CA verification
   (`lib/db.js`).
 - Double clicks within a minute send one email (SendByte idempotency key).
