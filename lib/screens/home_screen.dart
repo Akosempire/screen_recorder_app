@@ -8,6 +8,7 @@ import '../models/recording_state.dart';
 import '../services/camera_bubble.dart';
 import '../services/recording_library.dart';
 import '../services/recording_options.dart';
+import '../services/support_link.dart';
 import '../ui/studio_painters.dart';
 import '../ui/studio_theme.dart';
 import '../ui/studio_widgets.dart';
@@ -263,6 +264,15 @@ class _TopBar extends StatelessWidget {
               ),
             ),
             const Expanded(child: SizedBox()),
+            if (MediaQuery.sizeOf(context).width >= 900) ...[
+              const StudioPill(
+                icon: Icons.local_fire_department_outlined,
+                label: 'Buy me suya',
+                tooltip: 'Enjoying the app? Buy me suya to keep it running.',
+                onTap: openSupportPage,
+              ),
+              const SizedBox(width: 4),
+            ],
             IconButton(
               tooltip: 'Show the tour',
               onPressed: onHelp,

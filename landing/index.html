@@ -6,203 +6,324 @@
 <title>Screen Recorder for Windows</title>
 <meta name="description" content="A free Windows screen recorder that highlights every click, zooms in where you work, and puts your face in a bubble. Everything stays on your PC.">
 <link rel="icon" href="/assets/icon.png">
-<link rel="preload" href="/assets/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/inter-tight.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/instrument-serif-italic.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-@font-face{font-family:"Bricolage Grotesque";src:url(/assets/fonts/bricolage-grotesque.woff2) format("woff2-variations");font-weight:200 800;font-display:swap}
-@font-face{font-family:"Onest";src:url(/assets/fonts/onest-400.woff2) format("woff2");font-weight:400;font-display:swap}
-@font-face{font-family:"Onest";src:url(/assets/fonts/onest-500.woff2) format("woff2");font-weight:500;font-display:swap}
-@font-face{font-family:"Onest";src:url(/assets/fonts/onest-600.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Inter Tight";src:url(/assets/fonts/inter-tight.woff2) format("woff2-variations");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Instrument Serif";src:url(/assets/fonts/instrument-serif-italic.woff2) format("woff2");font-style:italic;font-weight:400;font-display:swap}
 :root{
-  --paper:#EEF0F2; --paper-2:#E3E6EA; --card:#FFFFFF; --ink:#15171A; --ink-2:#3B4048;
-  --slate:#5E6670; --line:#D5D9DE; --halo:#FFD21F; --halo-soft:rgba(255,210,31,.32);
-  --rec:#E5483B; --ok:#1F8A4C; --err:#B3261E; --focus:#2F6FEB;
-  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --body:"Onest", "Segoe UI", system-ui, sans-serif;
+  --bg:#FFFFFF; --soft:#F5F6F8; --soft-2:#EDEFF2; --ink:#0F1115; --ink-2:#3A3F47; --mute:#6B717B; --line:#E6E8EC;
+  --sky-1:#A9CBEF; --sky-2:#DCEAF8; --grass-1:#8DBA55; --grass-2:#5E9A34; --grass-3:#3F7A22;
+  --blue:#2F6BFF; --blue-2:#5AA0FF; --halo:#FFD21F; --rec:#E5483B; --err:#B3261E; --focus:#2F6BFF;
+  --sans:"Inter Tight", "Segoe UI", system-ui, sans-serif;
+  --serif:"Instrument Serif", Georgia, serif;
+  --ease:cubic-bezier(.22,1,.36,1);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit}
 img{max-width:100%;display:block}
-:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
-.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+button{font:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:8px}
+.wrap{max-width:1160px;margin:0 auto;padding-left:24px;padding-right:24px}
+.center{text-align:center}
 
-/* nav */
-.nav{display:flex;align-items:center;gap:28px;height:76px}
-.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:19px;text-decoration:none}
-.brand img{width:30px;height:30px;border-radius:7px}
-.nav-links{margin-left:auto;display:flex;gap:26px;font-size:15px;color:var(--ink-2)}
-.nav-links a{text-decoration:none}
-.nav-links a:hover{color:var(--ink)}
-.nav-cta{background:var(--ink);color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:10px 16px;border-radius:10px}
+/* ---------- motion primitives ---------- */
+.reveal{opacity:0;transform:translateY(28px);filter:blur(8px);transition:opacity .9s var(--ease),transform .9s var(--ease),filter .9s var(--ease)}
+.reveal.in{opacity:1;transform:none;filter:none}
+.reveal[data-delay="1"]{transition-delay:.08s}.reveal[data-delay="2"]{transition-delay:.16s}.reveal[data-delay="3"]{transition-delay:.24s}.reveal[data-delay="4"]{transition-delay:.32s}.reveal[data-delay="5"]{transition-delay:.4s}
+.word{display:inline-block;opacity:0;transform:translateY(.45em);filter:blur(10px);transition:opacity .8s var(--ease),transform .8s var(--ease),filter .8s var(--ease)}
+.ready .word{opacity:1;transform:none;filter:none}
+.press{transition:transform .25s var(--ease),box-shadow .25s var(--ease),background .2s}
+.press:hover{transform:translateY(-2px)}
+.press:active{transform:translateY(0) scale(.97)}
 
-/* hero */
-.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:56px;align-items:start;padding-top:40px;padding-bottom:84px}
-.hero-demo{padding-top:10px}
-h1{font-family:var(--display);font-weight:800;font-size:clamp(38px,4.4vw,58px);line-height:1;max-width:11.5em;letter-spacing:-.025em;font-variation-settings:"opsz" 96}
-.lede{margin-top:22px;font-size:19px;color:var(--ink-2);max-width:34em}
+/* ---------- nav ---------- */
+.nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:50;width:min(760px,calc(100% - 24px));display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-radius:16px;background:rgba(255,255,255,.62);backdrop-filter:blur(18px) saturate(1.6);-webkit-backdrop-filter:blur(18px) saturate(1.6);border:1px solid rgba(255,255,255,.7);box-shadow:0 8px 30px -12px rgba(15,17,21,.25);transition:background .3s,box-shadow .3s}
+.nav.scrolled{background:rgba(255,255,255,.86);box-shadow:0 10px 30px -14px rgba(15,17,21,.35)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px;text-decoration:none;letter-spacing:-.01em}
+.brand img{width:26px;height:26px;border-radius:7px}
+.nav-links{display:flex;gap:2px;margin-left:auto}
+.nav-links a{font-size:14px;color:var(--ink-2);text-decoration:none;padding:7px 11px;border-radius:9px;transition:background .2s,color .2s}
+.nav-links a:hover{background:rgba(15,17,21,.06);color:var(--ink)}
+.nav-links a.nav-cta:hover{background:#000;color:#fff}
+.nav-links a.nav-cta,.nav-cta{background:var(--ink);color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:9px 14px;border-radius:11px}
 
-.signup{margin-top:30px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;max-width:470px;box-shadow:0 1px 0 rgba(21,23,26,.04)}
-.signup h2{font-family:var(--display);font-size:20px;font-weight:700;letter-spacing:-.01em}
-.signup p.hint{font-size:14.5px;color:var(--slate);margin-top:4px}
-.fields{display:grid;gap:10px;margin-top:16px}
-label.field{display:grid;gap:5px;font-size:14px;font-weight:600;color:var(--ink-2)}
-input[type=text],input[type=email]{font:inherit;font-size:16px;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:#FBFBFC;color:var(--ink)}
-input[type=text]:focus,input[type=email]:focus{outline:none;border-color:var(--ink);background:#fff}
-input[aria-invalid=true]{border-color:var(--err)}
-.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--slate);margin-top:4px}
-.check input{margin-top:3px;width:16px;height:16px;accent-color:var(--ink)}
-.btn{font:inherit;font-weight:600;font-size:16px;border:0;cursor:pointer;background:var(--ink);color:#fff;padding:14px 18px;border-radius:12px;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:10px}
-.btn:hover{background:#000}
-.btn[disabled]{opacity:.7;cursor:progress}
-.btn .dot{width:10px;height:10px;border-radius:50%;background:var(--rec);box-shadow:0 0 0 3px rgba(229,72,59,.25)}
-.fine{font-size:13px;color:var(--slate);margin-top:12px}
-.msg{font-size:14px;margin-top:10px;min-height:1px}
-.msg.err{color:var(--err)}
-.done{display:none}
-.signup.sent form{display:none}
-.signup.sent .done{display:block}
-.done h2{display:flex;gap:10px;align-items:center}
-.done .tick{width:26px;height:26px;border-radius:50%;background:var(--halo);display:grid;place-items:center;flex:none}
-.done p{margin-top:8px;color:var(--ink-2);font-size:15.5px}
-.done button{font:inherit;font-size:14px;background:none;border:0;text-decoration:underline;color:var(--slate);cursor:pointer;margin-top:12px;padding:0}
-.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+/* ---------- hero ---------- */
+.hero{position:relative;padding-top:150px;overflow:hidden;background:linear-gradient(180deg,var(--sky-1) 0%,var(--sky-2) 38%,#F4F8FC 62%)}
+.hero-copy{position:relative;z-index:2}
+.badge{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--ink-2);background:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.9);padding:6px 12px 6px 6px;border-radius:999px;backdrop-filter:blur(8px)}
+.badge img{width:20px;height:20px;border-radius:6px}
+h1{margin-top:22px;font-size:clamp(46px,7.4vw,92px);line-height:.96;letter-spacing:-.045em;font-weight:700}
+h1 .serif{font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.02em}
+.hero p.sub{margin:22px auto 0;max-width:34em;font-size:18.5px;color:var(--ink-2)}
+.hero-actions{margin-top:28px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:10px;border:0;cursor:pointer;background:var(--ink);color:#fff;font-weight:600;font-size:16px;padding:14px 20px;border-radius:14px;text-decoration:none;box-shadow:0 10px 24px -12px rgba(15,17,21,.55),inset 0 1px 0 rgba(255,255,255,.12)}
+.btn:hover{box-shadow:0 16px 30px -12px rgba(15,17,21,.6),inset 0 1px 0 rgba(255,255,255,.12)}
+.btn .dot{width:10px;height:10px;border-radius:50%;background:var(--rec);box-shadow:0 0 0 3px rgba(229,72,59,.28)}
+.btn.light{background:rgba(255,255,255,.75);color:var(--ink);box-shadow:inset 0 0 0 1px rgba(15,17,21,.08)}
+.trust{margin-top:22px;display:flex;justify-content:center;gap:18px;flex-wrap:wrap;font-size:14px;color:var(--ink-2)}
+.trust span{display:inline-flex;align-items:center;gap:7px}
+.trust svg{width:16px;height:16px}
 
-/* demo stage */
-.stage{position:relative;aspect-ratio:16/10.4;border-radius:18px;background:#1D2128;padding:10px;box-shadow:0 30px 60px -28px rgba(21,23,26,.45)}
-.screen{position:relative;width:100%;height:100%;border-radius:10px;overflow:hidden;background:#F7F8FA}
+.hills{position:absolute;left:0;right:0;bottom:0;height:62%;z-index:0;pointer-events:none}
+.hills svg{width:100%;height:100%;display:block}
+.stage-wrap{position:relative;z-index:1;margin-top:56px;perspective:1600px;padding-bottom:90px}
+.stage{position:relative;max-width:980px;margin:0 auto;aspect-ratio:16/9.6;border-radius:22px;padding:10px;background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,.25));border:1px solid rgba(255,255,255,.75);box-shadow:0 40px 80px -30px rgba(20,40,10,.55),0 10px 30px -10px rgba(20,40,10,.25);backdrop-filter:blur(10px);transform-origin:50% 0;will-change:transform}
+.screen{position:relative;width:100%;height:100%;border-radius:14px;overflow:hidden;background:#F7F8FA}
 .cam{position:absolute;inset:0;transform-origin:0 0}
-.app{position:absolute;inset:0;display:grid;grid-template-columns:22% 1fr;font-family:var(--body);font-size:clamp(8px,1.05vw,12.5px);color:#2B3038}
-.app .side{background:#232A35;color:#AEB7C4;padding:6% 8%;display:grid;align-content:start;gap:.9em}
+.app{position:absolute;inset:0;display:grid;grid-template-columns:20% 1fr;font-size:clamp(8px,1.05vw,13px);color:#2B3038}
+.app .side{background:#1C2230;color:#AAB3C2;padding:6% 8%;display:grid;align-content:start;gap:.95em}
 .app .side b{color:#fff;font-weight:600;margin-bottom:.4em}
 .app .side span.on{color:#fff}
 .app .main{padding:4.5% 5%;display:grid;grid-template-rows:auto auto 1fr auto;gap:5%}
-.app h3{font-family:var(--display);font-size:1.55em;font-weight:700;color:#15171A}
+.app h3{font-size:1.6em;font-weight:700;color:#0F1115;letter-spacing:-.02em}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:4%}
-.kpi{background:#fff;border-radius:6px;padding:7% 8%;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.kpi{background:#fff;border-radius:7px;padding:7% 8%;box-shadow:0 1px 2px rgba(0,0,0,.06)}
 .kpi small{color:#7A8290}
-.kpi strong{display:block;font-family:var(--display);font-size:1.6em;margin-top:.15em}
-.chart{background:#fff;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;align-items:flex-end;gap:3%;padding:4% 5%}
-.chart i{flex:1;background:#C9D3E1;border-radius:3px 3px 0 0}
-.chart i.hi{background:#3A6FE0}
+.kpi strong{display:block;font-size:1.65em;margin-top:.15em;letter-spacing:-.02em}
+.chart{background:#fff;border-radius:7px;box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;align-items:flex-end;gap:3%;padding:4% 5%}
+.chart i{flex:1;background:#CBD5E3;border-radius:3px 3px 0 0}
+.chart i.hi{background:var(--blue)}
 .actions{display:flex;gap:3%}
-.actions span{background:#fff;border:1px solid #D5DAE1;border-radius:5px;padding:.55em 1em}
-.actions span.primary{background:#3A6FE0;border-color:#3A6FE0;color:#fff}
-.cursor{position:absolute;left:0;top:0;width:0;height:0;will-change:transform;z-index:3}
-.cursor .halo{position:absolute;left:-15px;top:-15px;width:30px;height:30px;border-radius:50%;background:var(--halo-soft);border:2px solid var(--halo);transition:transform .12s}
-.cursor.down .halo{transform:scale(.85)}
+.actions span{background:#fff;border:1px solid #D5DAE1;border-radius:6px;padding:.55em 1em}
+.actions span.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.cursor{position:absolute;left:0;top:0;width:0;height:0;z-index:3}
+.cursor .halo{position:absolute;left:-15px;top:-15px;width:30px;height:30px;border-radius:50%;background:rgba(255,210,31,.32);border:2px solid var(--halo);transition:transform .12s}
+.cursor.down .halo{transform:scale(.82)}
 .cursor svg{position:absolute;left:-1px;top:-1px;width:17px;height:25px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
 .ripple{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:3px solid var(--halo);opacity:0;pointer-events:none;z-index:2}
 .ripple.go{animation:ripple .55s ease-out}
 @keyframes ripple{from{opacity:.95;transform:scale(1)}to{opacity:0;transform:scale(2.7)}}
-.face{position:absolute;left:3.2%;bottom:5%;width:17%;aspect-ratio:1;border-radius:50%;border:3px solid #fff;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.28);z-index:4;background:#7E9BBB}
-.rec{position:absolute;right:3%;top:4%;z-index:4;background:rgba(21,23,26,.88);color:#fff;font-size:12px;font-weight:600;border-radius:8px;padding:6px 10px;display:flex;gap:8px;align-items:center;font-variant-numeric:tabular-nums}
-.rec i{width:8px;height:8px;border-radius:50%;background:var(--rec)}
-.zoomtag{position:absolute;left:3%;top:4%;z-index:4;background:var(--halo);color:var(--ink);font-size:12px;font-weight:600;border-radius:8px;padding:5px 9px;opacity:0;transition:opacity .25s}
-.zoomtag.on{opacity:1}
-.caption{margin-top:14px;font-size:14px;color:var(--slate)}
+.face{position:absolute;left:3%;bottom:5%;width:16%;aspect-ratio:1;border-radius:50%;border:3px solid #fff;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.28);z-index:4;background:#7E9BBB}
+.rec{position:absolute;right:3%;top:4%;z-index:4;background:rgba(15,17,21,.88);color:#fff;font-size:12px;font-weight:600;border-radius:9px;padding:6px 10px;display:flex;gap:8px;align-items:center;font-variant-numeric:tabular-nums}
+.rec i{width:8px;height:8px;border-radius:50%;background:var(--rec);animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+.zoomtag{position:absolute;left:3%;top:4%;z-index:4;background:var(--halo);color:var(--ink);font-size:12px;font-weight:600;border-radius:9px;padding:5px 9px;opacity:0;transform:translateY(-4px);transition:opacity .25s,transform .25s}
+.zoomtag.on{opacity:1;transform:none}
 
-/* features */
-section{padding:84px 0}
-.section-head{max-width:640px}
-h2.big{font-family:var(--display);font-weight:800;font-size:clamp(30px,3.6vw,44px);letter-spacing:-.02em;line-height:1.05}
-.section-head p{margin-top:14px;color:var(--ink-2);font-size:18px}
-.feats{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;margin-top:48px}
-.feat .art{aspect-ratio:4/3;border-radius:14px;background:var(--paper-2);position:relative;overflow:hidden}
-.feat h3{font-family:var(--display);font-size:22px;font-weight:700;margin-top:18px;letter-spacing:-.01em}
-.feat p{margin-top:6px;color:var(--ink-2);font-size:16px}
+/* ---------- strip of icons + pills ---------- */
+.intro{padding:40px 0 30px}
+.icons{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.ic{width:52px;height:52px;border-radius:16px;background:var(--soft);border:1px solid var(--line);display:grid;place-items:center;transition:transform .35s var(--ease),background .2s}
+.ic:hover{transform:translateY(-4px) rotate(-4deg);background:#fff}
+.ic svg{width:24px;height:24px}
+h2{font-size:clamp(32px,4.6vw,54px);line-height:1.02;letter-spacing:-.04em;font-weight:700}
+h2 .serif{font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.02em}
+.lead{margin:16px auto 0;max-width:36em;font-size:18px;color:var(--ink-2)}
+.marquee{margin-top:36px;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.track{display:flex;gap:10px;width:max-content;animation:marquee 38s linear infinite}
+.marquee:hover .track{animation-play-state:paused}
+.track.rev{animation-direction:reverse;margin-top:10px;animation-duration:44s}
+@keyframes marquee{to{transform:translateX(-50%)}}
+.pill{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-size:15px;font-weight:500;padding:10px 16px;border-radius:999px;background:var(--soft);border:1px solid var(--line)}
+.pill i{width:8px;height:8px;border-radius:50%}
 
-.shot{margin-top:44px;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#fff;box-shadow:0 24px 50px -30px rgba(21,23,26,.35)}
-.shot img{width:100%;height:auto}
-.shot-note{margin-top:12px;font-size:14px;color:var(--slate)}
+/* ---------- big feature panels ---------- */
+section{padding:90px 0}
+.panel{margin-top:44px;border-radius:28px;overflow:hidden;position:relative;background:linear-gradient(180deg,#CFE2F6,#EAF2FB 55%,#DDEBC9);padding:48px 48px 0}
+.panel .shot{border-radius:16px 16px 0 0;overflow:hidden;box-shadow:0 -10px 50px -20px rgba(20,40,10,.4);transform-origin:50% 100%}
+.panel .shot img{width:100%;height:auto}
 
-/* steps */
-.band{background:var(--ink);color:#fff;border-radius:28px;padding:64px 56px}
-.band h2.big{color:#fff}
-.steps{list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:36px;margin-top:40px;counter-reset:s}
-.steps li{counter-increment:s;border-top:2px solid rgba(255,255,255,.18);padding-top:18px}
-.steps li::before{content:counter(s);font-family:var(--display);font-weight:800;font-size:34px;color:var(--halo);display:block;line-height:1}
-.steps h3{font-family:var(--display);font-size:21px;margin-top:12px}
-.steps p{margin-top:6px;color:#C3C8CF;font-size:15.5px}
-.steps code{background:rgba(255,255,255,.1);padding:1px 6px;border-radius:5px;font-size:14px}
-.band .again{margin-top:40px;display:inline-flex;background:var(--halo);color:var(--ink);font-weight:600;text-decoration:none;padding:13px 18px;border-radius:12px}
+/* ---------- alternating features ---------- */
+.feature{display:grid;grid-template-columns:1fr 1.1fr;gap:64px;align-items:center;padding:56px 0}
+.feature.flip .ftext{order:2}
+.ftext h3{font-size:clamp(28px,3.4vw,40px);line-height:1.05;letter-spacing:-.035em;font-weight:700}
+.ftext p{margin-top:14px;color:var(--ink-2);font-size:17.5px;max-width:30em}
+.ftext ul{list-style:none;margin-top:18px;display:grid;gap:9px}
+.ftext li{display:flex;gap:10px;align-items:flex-start;font-size:16px;color:var(--ink-2)}
+.ftext li svg{flex:none;margin-top:4px}
+.demo{position:relative;aspect-ratio:4/3;border-radius:24px;overflow:hidden;background:linear-gradient(180deg,#D5E6F7,#EEF4FA 60%,#D9E9C5);border:1px solid var(--line);transition:transform .5s var(--ease),box-shadow .5s var(--ease)}
+.demo:hover{transform:translateY(-4px);box-shadow:0 30px 60px -30px rgba(15,17,21,.35)}
+.demo .win{position:absolute;left:9%;top:11%;right:9%;bottom:11%;background:#fff;border-radius:12px;box-shadow:0 20px 40px -20px rgba(20,40,10,.45);overflow:hidden}
+.win .bar{height:11%;background:#F0F2F5;display:flex;align-items:center;gap:5px;padding-left:12px}
+.win .bar i{width:8px;height:8px;border-radius:50%;background:#D5D9DF}
+.line{position:absolute;height:5%;border-radius:4px;background:#E3E7EC}
 
-/* faq */
-.faq{max-width:760px;margin-top:36px}
-details{border-top:1px solid var(--line);padding:18px 0}
-details:last-child{border-bottom:1px solid var(--line)}
-summary{cursor:pointer;font-family:var(--display);font-size:20px;font-weight:700;list-style:none;display:flex;justify-content:space-between;gap:16px}
-summary::-webkit-details-marker{display:none}
-summary::after{content:"+";font-weight:500;color:var(--slate)}
-details[open] summary::after{content:"\2212"}
-details p{margin-top:10px;color:var(--ink-2);max-width:60ch}
+/* cursor demo */
+.d-cursor .target{position:absolute;left:12%;bottom:16%;width:30%;height:12%;border-radius:7px;background:var(--blue)}
+.d-cursor .c{position:absolute;left:72%;top:28%;animation:cpath 4.4s var(--ease) infinite}
+.d-cursor .c .h{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;background:rgba(255,210,31,.32);border:2.5px solid var(--halo)}
+.d-cursor .c .r{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;border:3px solid var(--halo);opacity:0;animation:cring 4.4s ease-out infinite}
+.d-cursor .c svg{position:absolute;width:19px;height:28px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+@keyframes cpath{0%,10%{left:72%;top:28%}45%,70%{left:26%;top:75%}100%{left:72%;top:28%}}
+@keyframes cring{0%,46%{opacity:0;transform:scale(1)}48%{opacity:.95;transform:scale(1)}62%{opacity:0;transform:scale(2.6)}100%{opacity:0}}
 
-footer{padding:40px 0 56px;color:var(--slate);font-size:14px;display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;border-top:1px solid var(--line)}
+/* zoom demo */
+.d-zoom .inner{position:absolute;inset:0;animation:zoomcam 6s var(--ease) infinite;transform-origin:70% 62%}
+@keyframes zoomcam{0%,18%{transform:scale(1)}38%,72%{transform:scale(1.85)}92%,100%{transform:scale(1)}}
+.d-zoom .tag{position:absolute;left:5%;top:6%;background:var(--halo);font-size:12px;font-weight:600;border-radius:8px;padding:4px 9px;animation:ztag 6s var(--ease) infinite}
+@keyframes ztag{0%,22%{opacity:0;transform:translateY(-4px)}34%,70%{opacity:1;transform:none}84%,100%{opacity:0}}
+
+/* face demo */
+.d-face .bubble{position:absolute;width:26%;aspect-ratio:1;border-radius:50%;border:4px solid #fff;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.28);animation:bub 7s var(--ease) infinite;cursor:grab}
+@keyframes bub{0%,15%{left:7%;top:58%}35%,55%{left:66%;top:56%}75%,90%{left:66%;top:14%}100%{left:7%;top:58%}}
+.d-face .grab{position:absolute;width:19px;height:28px;animation:grab 7s var(--ease) infinite;z-index:3}
+@keyframes grab{0%,15%{left:20%;top:72%}35%,55%{left:79%;top:70%}75%,90%{left:79%;top:28%}100%{left:20%;top:72%}}
+
+/* export demo */
+.d-export .sheet{position:absolute;left:14%;right:14%;top:14%;bottom:14%;background:#fff;border-radius:16px;box-shadow:0 30px 50px -24px rgba(15,17,21,.45);padding:7% 8%;display:grid;align-content:start;gap:10px;font-size:clamp(10px,1.1vw,13.5px)}
+.sheet b{font-size:1.3em;text-align:center;letter-spacing:-.02em}
+.seg{display:flex;background:var(--soft-2);border-radius:9px;padding:3px;align-self:center;justify-self:center;margin-bottom:4px}
+.seg span{padding:4px 12px;border-radius:7px;color:var(--mute)}
+.seg span.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.row{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:6px 0;color:var(--ink-2)}
+.row em{font-style:normal;background:var(--soft-2);border-radius:7px;padding:3px 9px;color:var(--ink)}
+.save{justify-self:end;margin-top:6px;background:var(--ink);color:#fff;border-radius:9px;padding:7px 14px;font-weight:600;position:relative;overflow:hidden}
+.save::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);transform:translateX(-100%);animation:shine 3.2s ease-in-out infinite}
+@keyframes shine{60%,100%{transform:translateX(100%)}}
+
+/* ---------- use cases ---------- */
+.cases{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:44px}
+.case{border:1px solid var(--line);border-radius:22px;padding:26px;background:#fff;transition:transform .45s var(--ease),box-shadow .45s var(--ease),border-color .3s}
+.case:hover{transform:translateY(-6px);box-shadow:0 26px 50px -28px rgba(15,17,21,.35);border-color:#D7DBE1}
+.case .em{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:var(--soft)}
+.case h3{margin-top:16px;font-size:20px;letter-spacing:-.02em}
+.case p{margin-top:6px;color:var(--mute);font-size:15.5px}
+
+/* ---------- get it (pricing-style band) ---------- */
+.get{position:relative;padding:110px 0 120px;background:linear-gradient(180deg,#fff 0%,#DCE9FF 30%,#5AA0FF 70%,#2F6BFF 100%);overflow:hidden}
+.get h2{color:var(--ink)}
+.price-card{position:relative;margin:44px auto 0;max-width:520px;background:#fff;border-radius:28px;padding:30px;box-shadow:0 40px 80px -30px rgba(15,30,80,.55)}
+.price-top{display:flex;align-items:center;gap:14px}
+.price-top img{width:52px;height:52px;border-radius:14px}
+.price-top h3{font-size:20px;letter-spacing:-.02em}
+.price-top p{font-size:14px;color:var(--mute)}
+.price{display:flex;align-items:baseline;gap:10px;margin-top:22px}
+.price strong{font-size:56px;letter-spacing:-.05em;line-height:1}
+.price span{color:var(--mute)}
+.checks{list-style:none;margin-top:18px;display:grid;gap:8px}
+.checks li{display:flex;gap:10px;align-items:center;font-size:15.5px;color:var(--ink-2)}
+.signup{margin-top:22px;border-top:1px solid var(--line);padding-top:20px}
+.fields{display:grid;gap:10px}
+label.field{display:grid;gap:5px;font-size:13.5px;font-weight:600;color:var(--ink-2)}
+input[type=text],input[type=email]{font:inherit;font-size:16px;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--soft);color:var(--ink);transition:border-color .2s,background .2s,box-shadow .2s}
+input[type=text]:focus,input[type=email]:focus{outline:none;border-color:var(--ink);background:#fff;box-shadow:0 0 0 4px rgba(15,17,21,.06)}
+input[aria-invalid=true]{border-color:var(--err);animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--mute)}
+.check input{margin-top:3px;width:16px;height:16px;accent-color:var(--ink)}
+.signup .btn{justify-content:center;width:100%;margin-top:4px}
+.btn[disabled]{opacity:.75;cursor:progress}
+.fine{font-size:12.5px;color:var(--mute);margin-top:12px;text-align:center}
+.msg{font-size:14px;margin-top:10px}
+.msg.err{color:var(--err)}
+.done{display:none;text-align:center;padding:10px 0}
+.signup.sent form{display:none}
+.signup.sent .done{display:block;animation:pop .6s var(--ease)}
+@keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+.done .tick{width:48px;height:48px;margin:0 auto;border-radius:50%;background:var(--halo);display:grid;place-items:center}
+.done h3{margin-top:12px;font-size:22px;letter-spacing:-.02em}
+.done p{margin-top:6px;color:var(--ink-2);font-size:15.5px}
+.done button{background:none;border:0;text-decoration:underline;color:var(--mute);cursor:pointer;margin-top:10px;font-size:14px}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.suya{margin:26px auto 0;max-width:520px;display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:20px;padding:14px 14px 14px 18px;backdrop-filter:blur(10px)}
+.suya p{flex:1;font-size:15px;line-height:1.4}
+.suya a{background:#fff;color:var(--ink);text-decoration:none;font-weight:600;font-size:14.5px;padding:10px 14px;border-radius:12px;white-space:nowrap;display:inline-flex;gap:8px;align-items:center}
+
+/* ---------- faq ---------- */
+.faq{max-width:760px;margin:40px auto 0}
+.qa{border-bottom:1px solid var(--line)}
+.qa button{width:100%;display:flex;justify-content:space-between;align-items:center;gap:20px;background:none;border:0;cursor:pointer;text-align:left;font-size:18.5px;font-weight:600;letter-spacing:-.015em;padding:22px 2px;color:var(--ink)}
+.qa .plus{flex:none;width:30px;height:30px;border-radius:50%;background:var(--soft);display:grid;place-items:center;transition:transform .4s var(--ease),background .2s}
+.qa[aria-expanded=true] .plus,.qa.open .plus{transform:rotate(45deg);background:var(--ink);color:#fff}
+.qa .a{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s var(--ease)}
+.qa.open .a{grid-template-rows:1fr}
+.qa .a>div{overflow:hidden}
+.qa .a p{padding:0 2px 22px;color:var(--ink-2);max-width:60ch}
+
+/* ---------- footer ---------- */
+footer{background:var(--ink);color:#C9CDD3;padding:72px 0 0;overflow:hidden}
+.foot-top{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:40px}
+.foot-top h3{color:#fff;font-size:28px;letter-spacing:-.03em;line-height:1.05}
+.foot-top h3 .serif{font-family:var(--serif);font-style:italic;font-weight:400}
+.foot-top .btn{margin-top:20px;background:#fff;color:var(--ink)}
+.foot-col h4{color:#fff;font-size:14px;margin-bottom:12px}
+.foot-col a{display:block;text-decoration:none;font-size:14.5px;padding:4px 0;color:#AEB4BC;transition:color .2s}
+.foot-col a:hover{color:#fff}
+.wordmark{margin-top:60px;font-weight:800;letter-spacing:-.06em;line-height:.8;font-size:clamp(64px,15.5vw,210px);color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.22);white-space:nowrap;text-align:center;transform:translateY(18%)}
+.legal{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px;color:#8D939B;padding:22px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:40px}
 
 @media (max-width:900px){
-  .hero{grid-template-columns:1fr;gap:40px;padding-top:12px}
-  .hero-demo{padding-top:0}
-  .feats,.steps{grid-template-columns:1fr;gap:32px}
-  .band{padding:44px 26px;border-radius:22px}
   .nav-links a:not(.nav-cta){display:none}
+  .feature,.feature.flip{grid-template-columns:1fr;gap:28px}
+  .feature.flip .ftext{order:0}
+  .cases{grid-template-columns:1fr 1fr}
+  .panel{padding:24px 18px 0;border-radius:22px}
+  .foot-top{grid-template-columns:1fr 1fr}
+  .foot-top>div:first-child{grid-column:1/-1}
 }
-@media (max-width:520px){
-  .wrap{padding:0 16px}
+@media (max-width:560px){
   body{font-size:16px}
-  .signup{padding:18px}
-  section{padding:60px 0}
+  .wrap{padding-left:16px;padding-right:16px}
+  .hero{padding-top:118px}
+  .cases{grid-template-columns:1fr}
+  .stage{border-radius:14px;padding:6px}
+  .price-card{padding:22px}
+  .suya{flex-direction:column;align-items:stretch;text-align:center}
+  section{padding:64px 0}
 }
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
-  .ripple.go{animation:none}
+  .reveal,.word{opacity:1;transform:none;filter:none;transition:none}
+  .track,.d-cursor .c,.d-cursor .c .r,.d-zoom .inner,.d-zoom .tag,.d-face .bubble,.d-face .grab,.save::after,.rec i{animation:none}
+  .d-zoom .inner{transform:scale(1.6)}
+  .d-zoom .tag{opacity:1}
+  .d-cursor .c{left:26%;top:75%}
+  .d-face .bubble{left:66%;top:56%}
+  .d-face .grab{left:79%;top:70%}
 }
 </style>
 </head>
 <body>
-<header class="wrap nav">
-  <a class="brand" href="/"><img src="/assets/icon.png" alt="">Screen Recorder</a>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top"><img src="/assets/icon.png" alt="">Screen Recorder</a>
   <nav class="nav-links" aria-label="Main">
     <a href="#features">Features</a>
-    <a href="#how">How to get it</a>
-    <a href="#faq">Questions</a>
-    <a class="nav-cta" href="#get">Get it free</a>
+    <a href="#uses">Use cases</a>
+    <a href="#faq">FAQ</a>
+    <a href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a>
+    <a class="nav-cta press" href="#get">Download</a>
   </nav>
 </header>
 
-<main>
-<div class="wrap hero">
-  <div>
-    <h1>Screen recordings that follow your cursor.</h1>
-    <p class="lede">A free Windows recorder that highlights every click, zooms in where you work, and puts your face in a bubble. Everything is recorded and processed on your PC.</p>
+<main id="top">
+<!-- ================= HERO ================= -->
+<section class="hero" aria-labelledby="hero-title" style="padding-bottom:0">
+  <div class="hills" aria-hidden="true">
+    <svg viewBox="0 0 1440 560" preserveAspectRatio="xMidYMax slice">
+      <defs>
+        <linearGradient id="h1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B9D49A"/><stop offset="1" stop-color="#93BB6A"/></linearGradient>
+        <linearGradient id="h2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#94C35C"/><stop offset="1" stop-color="#5E9A34"/></linearGradient>
+        <linearGradient id="h3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6FA83E"/><stop offset="1" stop-color="#3F7A22"/></linearGradient>
+        <clipPath id="land"><path d="M0 300C200 250 380 240 600 290S980 360 1180 300 1380 250 1440 260V560H0Z"/></clipPath>
+        <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .07 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+      </defs>
+      <g data-parallax=".04"><path d="M0 230C180 170 330 150 520 190S860 260 1060 200 1340 140 1440 160V560H0Z" fill="url(#h1)" opacity=".75"/></g>
+      <g data-parallax=".08"><path d="M0 300C200 250 380 240 600 290S980 360 1180 300 1380 250 1440 260V560H0Z" fill="url(#h2)"/></g>
+      <g data-parallax=".13"><path d="M0 390C240 340 460 350 700 400S1120 450 1440 380V560H0Z" fill="url(#h3)"/><rect width="1440" height="560" filter="url(#grain)" clip-path="url(#land)" opacity=".9"/></g>
+    </svg>
+  </div>
 
-    <div class="signup" id="get">
-      <form id="signup-form" novalidate>
-        <h2>Get the download link</h2>
-        <p class="hint">We'll email it to you. Works on Windows 10 and 11.</p>
-        <div class="fields">
-          <label class="field">Your name
-            <input type="text" name="name" autocomplete="name" required maxlength="80">
-          </label>
-          <label class="field">Email
-            <input type="email" name="email" autocomplete="email" required maxlength="160">
-          </label>
-          <div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-          <label class="check"><input type="checkbox" name="updates"> Send me an email when there's a new version.</label>
-          <button class="btn" type="submit"><span class="dot" aria-hidden="true"></span><span class="label">Email me the download link</span></button>
-        </div>
-        <p class="msg" role="alert" aria-live="polite"></p>
-        <p class="fine">We use your email only to send the link and, if you tick the box, update notes. We don't share it.</p>
-      </form>
-      <div class="done" aria-live="polite">
-        <h2><span class="tick" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15171A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Check your inbox</h2>
-        <p>We sent the download link to <strong class="sent-to"></strong>. It works for 7 days. If you don't see it in a minute, look in Spam or Promotions.</p>
-        <button type="button" class="reset">Use a different email</button>
-      </div>
+  <div class="wrap center hero-copy" id="hero-copy">
+    <span class="badge reveal"><img src="/assets/icon.png" alt="">Free for Windows 10 and 11</span>
+    <h1 id="hero-title" class="split"><span>Record once.</span><br><span class="serif">Explain anything.</span></h1>
+    <p class="sub reveal" data-delay="2">A screen recorder that highlights every click, zooms in where you work, and puts your face in a bubble. Everything is recorded and processed on your PC.</p>
+    <div class="hero-actions reveal" data-delay="3">
+      <a class="btn press" href="#get"><span class="dot" aria-hidden="true"></span>Get it free</a>
+      <a class="btn light press" href="#features">See what it does</a>
+    </div>
+    <div class="trust reveal" data-delay="4">
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Free, no watermark</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Nothing uploaded</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Windows 10 and 11</span>
     </div>
   </div>
 
-  <div class="hero-demo">
-    <div class="stage" aria-label="Demo: the cursor clicks, the recording zooms in and follows it, and a face bubble sits in the corner" role="img">
+  <div class="wrap stage-wrap">
+    <div class="stage" id="stage" role="img" aria-label="Demo: the cursor clicks, the recording zooms in and follows it, and a face bubble sits in the corner">
       <div class="screen" id="screen">
         <div class="cam" id="cam">
           <div class="app">
@@ -223,84 +344,311 @@ footer{padding:40px 0 56px;color:var(--slate);font-size:14px;display:flex;gap:24
         </div>
         <div class="zoomtag" id="zoomtag">Auto-zoom 1.8×</div>
         <div class="rec"><i></i><span id="clock">00:00</span></div>
-        <div class="face" aria-hidden="true">
-          <svg viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#7E9BBB"/><ellipse cx="50" cy="104" rx="38" ry="28" fill="#2B3A4D"/><rect x="43" y="62" width="14" height="14" rx="5" fill="#C99572"/><ellipse cx="50" cy="45" rx="19" ry="22" fill="#D9A983"/><path d="M30 42c0-15 9-23 20-23s21 8 21 22c-5-6-13-9-21-9-9 0-16 4-20 10z" fill="#2A2522"/><circle cx="43" cy="47" r="2" fill="#2A2522"/><circle cx="57" cy="47" r="2" fill="#2A2522"/><path d="M44 56q6 5 12 0" stroke="#7A4A35" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        <div class="face" aria-hidden="true"><svg viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#7E9BBB"/><ellipse cx="50" cy="104" rx="38" ry="28" fill="#2B3A4D"/><rect x="43" y="62" width="14" height="14" rx="5" fill="#C99572"/><ellipse cx="50" cy="45" rx="19" ry="22" fill="#D9A983"/><path d="M30 42c0-15 9-23 20-23s21 8 21 22c-5-6-13-9-21-9-9 0-16 4-20 10z" fill="#2A2522"/><circle cx="43" cy="47" r="2" fill="#2A2522"/><circle cx="57" cy="47" r="2" fill="#2A2522"/><path d="M44 56q6 5 12 0" stroke="#7A4A35" stroke-width="2" fill="none" stroke-linecap="round"/></svg></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= INTRO ================= -->
+<section class="intro" id="features">
+  <div class="wrap center">
+    <div class="icons reveal">
+      <span class="ic" title="Cursor highlight"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8"><circle cx="12" cy="12" r="7" stroke="#E8B900"/><path d="M10 9v8l2-2 1.4 3 1.3-.6-1.4-2.9h2.7z" fill="#fff" stroke-linejoin="round"/></svg></span>
+      <span class="ic" title="Auto-zoom"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M8 10.5h5M10.5 8v5"/></svg></span>
+      <span class="ic" title="Face camera"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="10" r="3"/><path d="M6.5 18.2c1.3-2.3 3.2-3.4 5.5-3.4s4.2 1.1 5.5 3.4"/></svg></span>
+      <span class="ic" title="Microphone"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+      <span class="ic" title="Compare"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 3v18"/></svg></span>
+      <span class="ic" title="Export"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14"/></svg></span>
+      <span class="ic" title="Private"><svg viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+    </div>
+    <h2 class="reveal" data-delay="1" style="margin-top:30px">Recordings people can<br><span class="serif">actually follow.</span></h2>
+    <p class="lead reveal" data-delay="2">Viewers always know where you're pointing. The video zooms in on what matters, and your face keeps it personal.</p>
+  </div>
+  <div class="marquee reveal" data-delay="3" aria-hidden="true">
+    <div class="track">
+      <span class="pill"><i style="background:#FFD21F"></i>Cursor halo</span><span class="pill"><i style="background:#FFD21F"></i>Click ripples</span><span class="pill"><i style="background:#2F6BFF"></i>Auto-zoom</span><span class="pill"><i style="background:#2F6BFF"></i>Follows your mouse</span><span class="pill"><i style="background:#E5483B"></i>Face camera</span><span class="pill"><i style="background:#E5483B"></i>Drag the bubble</span><span class="pill"><i style="background:#5E9A34"></i>Microphone</span><span class="pill"><i style="background:#5E9A34"></i>Pause and resume</span><span class="pill"><i style="background:#0F1115"></i>MP4 export</span><span class="pill"><i style="background:#0F1115"></i>Before and after</span>
+      <span class="pill"><i style="background:#FFD21F"></i>Cursor halo</span><span class="pill"><i style="background:#FFD21F"></i>Click ripples</span><span class="pill"><i style="background:#2F6BFF"></i>Auto-zoom</span><span class="pill"><i style="background:#2F6BFF"></i>Follows your mouse</span><span class="pill"><i style="background:#E5483B"></i>Face camera</span><span class="pill"><i style="background:#E5483B"></i>Drag the bubble</span><span class="pill"><i style="background:#5E9A34"></i>Microphone</span><span class="pill"><i style="background:#5E9A34"></i>Pause and resume</span><span class="pill"><i style="background:#0F1115"></i>MP4 export</span><span class="pill"><i style="background:#0F1115"></i>Before and after</span>
+    </div>
+    <div class="track rev">
+      <span class="pill"><i style="background:#0F1115"></i>Nothing uploaded</span><span class="pill"><i style="background:#5E9A34"></i>Any area of the screen</span><span class="pill"><i style="background:#2F6BFF"></i>Adjustable zoom</span><span class="pill"><i style="background:#E5483B"></i>Circle or rounded</span><span class="pill"><i style="background:#FFD21F"></i>Keyboard shortcuts</span><span class="pill"><i style="background:#0F1115"></i>720p, 1080p or original</span><span class="pill"><i style="background:#5E9A34"></i>No watermark</span><span class="pill"><i style="background:#2F6BFF"></i>One-click installer</span>
+      <span class="pill"><i style="background:#0F1115"></i>Nothing uploaded</span><span class="pill"><i style="background:#5E9A34"></i>Any area of the screen</span><span class="pill"><i style="background:#2F6BFF"></i>Adjustable zoom</span><span class="pill"><i style="background:#E5483B"></i>Circle or rounded</span><span class="pill"><i style="background:#FFD21F"></i>Keyboard shortcuts</span><span class="pill"><i style="background:#0F1115"></i>720p, 1080p or original</span><span class="pill"><i style="background:#5E9A34"></i>No watermark</span><span class="pill"><i style="background:#2F6BFF"></i>One-click installer</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= APP PANEL ================= -->
+<section style="padding-top:40px">
+  <div class="wrap">
+    <div class="center">
+      <h2 class="reveal">Simple on the outside,<br><span class="serif">smart underneath.</span></h2>
+      <p class="lead reveal" data-delay="1">Pick a cursor style, set the zoom, then drag a box around what you want to record. That's the whole workflow.</p>
+    </div>
+    <div class="panel reveal" data-delay="2">
+      <div class="shot" id="panel-shot"><img src="/assets/app-home.png" alt="The Screen Recorder app with a Start Recording button, cursor styles and auto-zoom settings" width="1024" height="720" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FEATURES ================= -->
+<section style="padding-top:30px">
+  <div class="wrap">
+    <div class="feature">
+      <div class="ftext reveal">
+        <h3>Your cursor, impossible to miss</h3>
+        <p>A soft yellow halo follows the mouse and every click sends out a ripple, live on screen and saved in the video.</p>
+        <ul>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Halo and ripples, halo only, ripples only, or off</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Left clicks in yellow, right clicks in blue</li>
+        </ul>
+      </div>
+      <div class="demo d-cursor reveal" data-delay="1" aria-hidden="true">
+        <div class="win"><div class="bar"><i></i><i></i><i></i></div>
+          <div class="line" style="left:12%;top:24%;width:58%"></div><div class="line" style="left:12%;top:36%;width:44%"></div><div class="line" style="left:12%;top:48%;width:52%"></div>
+          <div class="target"></div>
+          <div class="c"><span class="r"></span><span class="h"></span><svg viewBox="0 0 13 20"><path d="M.5.5v16.4l4-3.9 2.8 6.4 2.7-1.2-2.7-6.1h5.4z" fill="#fff" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/></svg></div>
         </div>
       </div>
     </div>
-    <p class="caption">What viewers see: the halo follows your mouse, clicks ripple, and the video zooms in where you click.</p>
-  </div>
-</div>
 
-<section id="features">
-  <div class="wrap">
-    <div class="section-head">
-      <h2 class="big">Made for tutorials, demos and walkthroughs.</h2>
-      <p>The three things that make a screen recording easy to follow are built in, and you can switch each one off.</p>
-    </div>
-    <div class="feats">
-      <article class="feat">
-        <div class="art">
-          <svg viewBox="0 0 400 300" width="100%" height="100%" aria-hidden="true"><rect width="400" height="300" fill="#E3E6EA"/><rect x="40" y="40" width="320" height="220" rx="14" fill="#fff"/><rect x="66" y="78" width="170" height="12" rx="6" fill="#D5DAE1"/><rect x="66" y="104" width="120" height="12" rx="6" fill="#D5DAE1"/><rect x="66" y="196" width="96" height="34" rx="8" fill="#3A6FE0"/><circle cx="214" cy="190" r="58" fill="none" stroke="#FFD21F" stroke-width="5" opacity=".45"/><circle cx="214" cy="190" r="38" fill="none" stroke="#FFD21F" stroke-width="5" opacity=".8"/><circle cx="214" cy="190" r="22" fill="rgba(255,210,31,.35)" stroke="#FFD21F" stroke-width="4"/><path transform="translate(214 190) scale(2.2)" d="M0 0v16.4l4-3.9 2.8 6.4 2.7-1.2-2.7-6.1h5.4z" fill="#fff" stroke="#111" stroke-width=".9" stroke-linejoin="round"/></svg>
+    <div class="feature flip">
+      <div class="ftext reveal">
+        <h3>Auto-zoom that follows your mouse</h3>
+        <p>When you stop, the video zooms in where you clicked, pans with your cursor, and eases back out when you're done.</p>
+        <ul>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Choose how close (1.2× to 3×) and how smooth</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Compare before and after with a drag</li>
+        </ul>
+      </div>
+      <div class="demo d-zoom reveal" data-delay="1" aria-hidden="true">
+        <div class="inner">
+          <div class="win"><div class="bar"><i></i><i></i><i></i></div>
+            <div class="line" style="left:10%;top:22%;width:28%;height:16%;border-radius:8px"></div><div class="line" style="left:41%;top:22%;width:28%;height:16%;border-radius:8px"></div><div class="line" style="left:72%;top:22%;width:18%;height:16%;border-radius:8px"></div>
+            <div class="line" style="left:10%;top:48%;width:54%"></div><div class="line" style="left:10%;top:60%;width:40%"></div>
+            <div class="line" style="left:62%;top:58%;width:22%;height:12%;background:#2F6BFF;border-radius:7px"></div>
+            <div style="position:absolute;left:70%;top:62%;width:22px;height:22px;margin:-11px;border-radius:50%;background:rgba(255,210,31,.32);border:2px solid #FFD21F"></div>
+          </div>
         </div>
-        <h3>Your cursor, easy to spot</h3>
-        <p>A yellow halo follows the mouse and every click sends out a ripple. You see it while you record, and it's saved in the video.</p>
-      </article>
-      <article class="feat">
-        <div class="art">
-          <svg viewBox="0 0 400 300" width="100%" height="100%" aria-hidden="true"><rect width="400" height="300" fill="#E3E6EA"/><rect x="40" y="40" width="320" height="220" rx="14" fill="#fff"/><g opacity=".35"><rect x="66" y="70" width="80" height="44" rx="6" fill="#D5DAE1"/><rect x="160" y="70" width="80" height="44" rx="6" fill="#D5DAE1"/><rect x="254" y="70" width="80" height="44" rx="6" fill="#D5DAE1"/></g><rect x="150" y="120" width="190" height="122" rx="10" fill="#fff" stroke="#15171A" stroke-width="3"/><rect x="168" y="140" width="80" height="14" rx="7" fill="#15171A"/><rect x="168" y="166" width="140" height="10" rx="5" fill="#D5DAE1"/><rect x="168" y="200" width="88" height="26" rx="7" fill="#3A6FE0"/><path d="M128 108l18 14M128 108h14M128 108v14" stroke="#15171A" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="270" cy="212" r="15" fill="rgba(255,210,31,.35)" stroke="#FFD21F" stroke-width="3"/></svg>
-        </div>
-        <h3>Auto-zoom that follows the mouse</h3>
-        <p>When you stop, the video zooms in where you clicked, pans with your cursor, and eases back out. Set how close and how smooth.</p>
-      </article>
-      <article class="feat">
-        <div class="art">
-          <svg viewBox="0 0 400 300" width="100%" height="100%" aria-hidden="true"><rect width="400" height="300" fill="#E3E6EA"/><rect x="40" y="40" width="320" height="220" rx="14" fill="#fff"/><rect x="66" y="70" width="200" height="12" rx="6" fill="#D5DAE1"/><rect x="66" y="96" width="150" height="12" rx="6" fill="#D5DAE1"/><rect x="66" y="122" width="180" height="12" rx="6" fill="#D5DAE1"/><clipPath id="fc"><circle cx="300" cy="206" r="54"/></clipPath><g clip-path="url(#fc)"><rect x="240" y="150" width="120" height="120" fill="#7E9BBB"/><ellipse cx="300" cy="268" rx="46" ry="30" fill="#2B3A4D"/><ellipse cx="300" cy="200" rx="21" ry="24" fill="#D9A983"/><path d="M278 196c0-17 10-26 22-26s23 9 23 25c-6-7-14-10-23-10-10 0-17 4-22 11z" fill="#2A2522"/></g><circle cx="300" cy="206" r="54" fill="none" stroke="#fff" stroke-width="5"/><path d="M226 150l-16-16M226 150h-12M226 150v-12" stroke="#15171A" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
-        </div>
-        <h3>Your face in a bubble</h3>
-        <p>Turn on the camera and your webcam floats in a circle you can drag anywhere or snap to a corner. It's recorded with your screen.</p>
-      </article>
+        <span class="tag">Auto-zoom 1.8×</span>
+      </div>
     </div>
 
-    <div class="shot"><img src="/assets/app-home.png" alt="The Screen Recorder app: a Start Recording button, cursor style options, and auto-zoom settings" width="1024" height="720" loading="lazy"></div>
-    <p class="shot-note">The app on Windows. Pick a cursor style, set the zoom, then drag a box around what you want to record.</p>
+    <div class="feature">
+      <div class="ftext reveal">
+        <h3>Your face, wherever you want it</h3>
+        <p>Turn on the camera and your webcam floats in a bubble on top of everything. Drag it anywhere or snap it to a corner. It's recorded with your screen.</p>
+        <ul>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Small, medium or large; circle or rounded</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Mirrored like a selfie</li>
+        </ul>
+      </div>
+      <div class="demo d-face reveal" data-delay="1" aria-hidden="true">
+        <div class="win"><div class="bar"><i></i><i></i><i></i></div>
+          <div class="line" style="left:10%;top:22%;width:60%"></div><div class="line" style="left:10%;top:34%;width:46%"></div><div class="line" style="left:10%;top:46%;width:52%"></div>
+        </div>
+        <div class="bubble"><svg viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#7E9BBB"/><ellipse cx="50" cy="104" rx="38" ry="28" fill="#2B3A4D"/><rect x="43" y="62" width="14" height="14" rx="5" fill="#C99572"/><ellipse cx="50" cy="45" rx="19" ry="22" fill="#D9A983"/><path d="M30 42c0-15 9-23 20-23s21 8 21 22c-5-6-13-9-21-9-9 0-16 4-20 10z" fill="#2A2522"/><circle cx="43" cy="47" r="2" fill="#2A2522"/><circle cx="57" cy="47" r="2" fill="#2A2522"/><path d="M44 56q6 5 12 0" stroke="#7A4A35" stroke-width="2" fill="none" stroke-linecap="round"/></svg></div>
+        <svg class="grab" viewBox="0 0 13 20"><path d="M.5.5v16.4l4-3.9 2.8 6.4 2.7-1.2-2.7-6.1h5.4z" fill="#fff" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+
+    <div class="feature flip">
+      <div class="ftext reveal">
+        <h3>Export the way you need it</h3>
+        <p>When you press Stop, choose the resolution, quality and sound, name the file, and save. MP4 plays everywhere.</p>
+        <ul>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Original, 1080p or 720p</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Saved only to the folder you choose</li>
+        </ul>
+      </div>
+      <div class="demo d-export reveal" data-delay="1" aria-hidden="true">
+        <div class="sheet">
+          <b>Export</b>
+          <div class="seg"><span class="on">Settings</span><span>File</span><span>Privacy</span></div>
+          <div class="row">Resolution <em>Original</em></div>
+          <div class="row">Quality <em>Balanced</em></div>
+          <div class="row">Keep the sound <em>On</em></div>
+          <span class="save">Save File</span>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
-<section id="how">
+<!-- ================= USE CASES ================= -->
+<section id="uses" style="background:var(--soft)">
   <div class="wrap">
-    <div class="band">
-      <h2 class="big">How you get it</h2>
-      <ol class="steps">
-        <li><h3>Enter your email</h3><p>Fill in your name and email at the top of this page.</p></li>
-        <li><h3>Open the link we send</h3><p>The download starts straight away. The link works for 7 days.</p></li>
-        <li><h3>Run the installer</h3><p>Open <code>ScreenRecorder-Setup.exe</code>. A Screen Recorder shortcut appears on your desktop.</p></li>
-      </ol>
-      <a class="again" href="#get">Get the download link</a>
+    <div class="center">
+      <h2 class="reveal">Built for everything<br><span class="serif">you explain.</span></h2>
+    </div>
+    <div class="cases">
+      <article class="case reveal"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><path d="M4 5h16v11H4zM9 20h6"/><path d="M10 9l4 2-4 2z" fill="#0F1115"/></svg></div><h3>Tutorials</h3><p>Show each step, with the clicks people need to copy.</p></article>
+      <article class="case reveal" data-delay="1"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 13l3-3 2 2 4-4"/></svg></div><h3>Product demos</h3><p>Walk customers through a feature, face on screen.</p></article>
+      <article class="case reveal" data-delay="2"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><path d="M3 8l9-4 9 4-9 4z"/><path d="M7 10v5c3 2 7 2 10 0v-5"/></svg></div><h3>Teaching</h3><p>Record lessons students can pause and follow.</p></article>
+      <article class="case reveal"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><rect x="7" y="6" width="10" height="13" rx="5"/><path d="M12 6V3M4 13h3M17 13h3M5 7l2 2M19 7l-2 2"/></svg></div><h3>Bug reports</h3><p>Show exactly what went wrong instead of describing it.</p></article>
+      <article class="case reveal" data-delay="1"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></div><h3>Sales and support</h3><p>Answer questions with a quick, personal video.</p></article>
+      <article class="case reveal" data-delay="2"><div class="em"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="1.8" stroke-linecap="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></div><h3>Personal</h3><p>Help family with their PC, or save a moment from your screen.</p></article>
     </div>
   </div>
 </section>
 
+<!-- ================= GET IT ================= -->
+<section class="get" id="get">
+  <div class="wrap">
+    <div class="center">
+      <h2 class="reveal">One download.<br><span class="serif">Free, for good.</span></h2>
+      <p class="lead reveal" data-delay="1">Enter your name and email and we'll send you the download link.</p>
+    </div>
+    <div class="price-card reveal" data-delay="2">
+      <div class="price-top"><img src="/assets/icon.png" alt=""><div><h3>Screen Recorder for Windows</h3><p>Windows 10 (1809 or newer) and Windows 11</p></div></div>
+      <div class="price"><strong>Free</strong><span>no account, no watermark</span></div>
+      <ul class="checks">
+        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Cursor halo, auto-zoom and face camera</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>One-click installer with a desktop shortcut</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E9A34" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Everything stays on your PC</li>
+      </ul>
+      <div class="signup">
+        <form id="signup-form" novalidate>
+          <div class="fields">
+            <label class="field">Your name<input type="text" name="name" autocomplete="name" required maxlength="80"></label>
+            <label class="field">Email<input type="email" name="email" autocomplete="email" required maxlength="160"></label>
+            <div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+            <label class="check"><input type="checkbox" name="updates"> Email me when there's a new version.</label>
+            <button class="btn press" type="submit"><span class="dot" aria-hidden="true"></span><span class="label">Email me the download link</span></button>
+          </div>
+          <p class="msg" role="alert" aria-live="polite"></p>
+          <p class="fine">We use your email only to send the link and, if you tick the box, update notes.</p>
+        </form>
+        <div class="done" aria-live="polite">
+          <div class="tick" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1115" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+          <h3>Check your inbox</h3>
+          <p>We sent the download link to <strong class="sent-to"></strong>. It works for 7 days. Not there? Look in Spam or Promotions.</p>
+          <button type="button" class="reset">Use a different email</button>
+        </div>
+      </div>
+    </div>
+    <div class="suya reveal" data-delay="3">
+      <p>Enjoying the app? Buy me suya to keep it running.</p>
+      <a class="press" href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3c2 3 5 4.5 5 9a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5.5 2 1.5 3 3 3-1-2.5-1-5 0-7.5z"/></svg>Buy me suya</a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
 <section id="faq">
   <div class="wrap">
-    <h2 class="big">Questions</h2>
+    <div class="center"><h2 class="reveal">Questions,<br><span class="serif">answered.</span></h2></div>
     <div class="faq">
-      <details><summary>Is it free?</summary><p>Yes. There are no paid features, watermarks or time limits.</p></details>
-      <details><summary>Windows says "Windows protected your PC". Is that normal?</summary><p>Yes. The installer isn't code-signed yet, so Windows shows that warning for new apps. Click More info, then Run anyway.</p></details>
-      <details><summary>Does anything get uploaded?</summary><p>No. Recording, auto-zoom and saving all happen on your PC. The only thing we receive is the name and email you enter here.</p></details>
-      <details><summary>What do I need?</summary><p>Windows 10 (version 1809 or newer) or Windows 11. A webcam and microphone are optional.</p></details>
-      <details><summary>Is there a Mac version?</summary><p>Not yet. There is a Linux build for people comfortable compiling from source.</p></details>
+      <div class="qa reveal"><button type="button" aria-expanded="false">Is it really free?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>Yes. There are no paid features, watermarks or time limits. If it helps you, you can buy me suya to keep it going.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false">Windows says "Windows protected your PC". Is that normal?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>Yes. The installer isn't code-signed yet, so Windows shows that warning for new apps. Click More info, then Run anyway.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false">Does anything get uploaded?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>No. Recording, auto-zoom and saving all happen on your PC. The only thing we receive is the name and email you enter on this page.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false">How does auto-zoom know where to zoom?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>While you record, the app notes where your mouse is and where you click. When you stop, it zooms in around your clicks and follows the cursor. You can change the zoom level, how long it stays zoomed, and how smooth it moves, or switch it off.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false">Can I move the face camera?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>Yes. Drag the bubble anywhere on screen, or snap it to a corner from the Camera settings. It's recorded wherever you leave it.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false">What do I need?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>Windows 10 (version 1809 or newer) or Windows 11. A webcam and microphone are optional.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false">Is there a Mac version?<span class="plus" aria-hidden="true">+</span></button><div class="a"><div><p>Not yet. There is a Linux build for people comfortable compiling from source.</p></div></div></div>
     </div>
   </div>
 </section>
 </main>
 
-<footer class="wrap">
-  <span>Screen Recorder for Windows</span>
-  <span>Record only what you have the right to share.</span>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div>
+        <h3>Record once.<br><span class="serif">Explain anything.</span></h3>
+        <a class="btn press" href="#get"><span class="dot" aria-hidden="true"></span>Get it free</a>
+      </div>
+      <div class="foot-col"><h4>Product</h4><a href="#features">Features</a><a href="#uses">Use cases</a><a href="#get">Download</a><a href="#faq">FAQ</a></div>
+      <div class="foot-col"><h4>Support the app</h4><a href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a><a href="https://github.com/Akosempire/screen_recorder_app" target="_blank" rel="noopener">Source code</a><a href="https://github.com/Akosempire/screen_recorder_app/releases" target="_blank" rel="noopener">Release notes</a></div>
+    </div>
+    <div class="legal"><span>Screen Recorder for Windows</span><span>Record only what you have the right to share.</span></div>
+  </div>
+  <div class="wordmark" aria-hidden="true">Screen Recorder</div>
 </footer>
 
 <script>
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- headline: split into words, blur in one by one ----------
+(function(){
+  const h = document.querySelector('h1.split');
+  let i = 0;
+  h.querySelectorAll('span').forEach(part => {
+    const words = part.textContent.split(' ');
+    part.textContent = '';
+    words.forEach((w, n) => {
+      const s = document.createElement('span');
+      s.className = 'word'; s.textContent = w;
+      s.style.transitionDelay = (0.12 + i++ * 0.08) + 's';
+      part.appendChild(s);
+      if (n < words.length - 1) part.appendChild(document.createTextNode(' '));
+    });
+  });
+  requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add('ready')));
+})();
+
+// ---------- reveal on scroll ----------
+(function(){
+  const els = document.querySelectorAll('.reveal');
+  if (reduce || !('IntersectionObserver' in window)) { els.forEach(e => e.classList.add('in')); return; }
+  const io = new IntersectionObserver(entries => entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { rootMargin: '0px 0px -8% 0px', threshold: .12 });
+  els.forEach(e => io.observe(e));
+  // Above-the-fold hero items come in right away.
+  document.querySelectorAll('#hero-copy .reveal').forEach(e => setTimeout(() => e.classList.add('in'), 120));
+})();
+
+// ---------- nav, hero tilt, hills parallax, panel scale (one rAF loop) ----------
+(function(){
+  const nav = document.getElementById('nav');
+  const stage = document.getElementById('stage');
+  const shot = document.getElementById('panel-shot');
+  const layers = [...document.querySelectorAll('[data-parallax]')];
+  let ticking = false;
+  function update(){
+    ticking = false;
+    const y = window.scrollY, vh = window.innerHeight;
+    nav.classList.toggle('scrolled', y > 24);
+    if (reduce) return;
+    // Product frame starts tilted back and settles flat as you scroll.
+    const p = Math.min(1, y / (vh * 0.6));
+    stage.style.transform = `rotateX(${(1 - p) * 14}deg) scale(${0.94 + p * 0.06}) translateY(${(1 - p) * 10}px)`;
+    layers.forEach(l => l.setAttribute('transform', `translate(0 ${y * parseFloat(l.dataset.parallax)})`));
+    // App screenshot grows to full size as it scrolls into view.
+    const r = shot.getBoundingClientRect();
+    const q = Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.9)));
+    shot.style.transform = `scale(${0.9 + q * 0.1})`;
+  }
+  window.addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+  window.addEventListener('resize', update);
+  update();
+})();
+
+// ---------- magnetic buttons (small pull toward the pointer) ----------
+(function(){
+  if (reduce || window.matchMedia('(hover: none)').matches) return;
+  document.querySelectorAll('.btn').forEach(b => {
+    b.addEventListener('pointermove', e => {
+      const r = b.getBoundingClientRect();
+      const dx = (e.clientX - r.left - r.width / 2) / r.width;
+      const dy = (e.clientY - r.top - r.height / 2) / r.height;
+      b.style.transform = `translate(${dx * 6}px, ${dy * 5 - 2}px)`;
+    });
+    b.addEventListener('pointerleave', () => { b.style.transform = ''; });
+  });
+})();
+
+// ---------- FAQ accordion ----------
+document.querySelectorAll('.qa button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.parentElement;
+    const open = !item.classList.contains('open');
+    document.querySelectorAll('.qa.open').forEach(o => { o.classList.remove('open'); o.querySelector('button').setAttribute('aria-expanded', 'false'); });
+    item.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+  });
+});
+
 // ---------- sign-up form ----------
 (function(){
   const box = document.querySelector('.signup');
@@ -309,13 +657,11 @@ footer{padding:40px 0 56px;color:var(--slate);font-size:14px;display:flex;gap:24
   const btn = form.querySelector('button[type=submit]');
   const label = btn.querySelector('.label');
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
   function fail(input, text){
     msg.textContent = text; msg.className = 'msg err';
-    if (input){ input.setAttribute('aria-invalid','true'); input.focus(); }
+    if (input){ input.removeAttribute('aria-invalid'); void input.offsetWidth; input.setAttribute('aria-invalid','true'); input.focus(); }
   }
   form.addEventListener('input', e => { e.target.removeAttribute('aria-invalid'); msg.textContent=''; });
-
   form.addEventListener('submit', async e => {
     e.preventDefault();
     const name = form.name.value.trim();
@@ -324,10 +670,8 @@ footer{padding:40px 0 56px;color:var(--slate);font-size:14px;display:flex;gap:24
     if (!emailRe.test(email)) return fail(form.email, 'Enter a valid email address, like you@example.com.');
     btn.disabled = true; label.textContent = 'Sending…';
     try {
-      const res = await fetch('/api/signup', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name, email, updates: form.updates.checked, website: form.website.value })
-      });
+      const res = await fetch('/api/signup', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name, email, updates: form.updates.checked, website: form.website.value }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'The link could not be sent. Try again in a minute.');
       box.querySelector('.sent-to').textContent = email;
@@ -338,9 +682,7 @@ footer{padding:40px 0 56px;color:var(--slate);font-size:14px;display:flex;gap:24
       btn.disabled = false; label.textContent = 'Email me the download link';
     }
   });
-  box.querySelector('.reset').addEventListener('click', () => {
-    box.classList.remove('sent'); form.reset(); form.name.focus();
-  });
+  box.querySelector('.reset').addEventListener('click', () => { box.classList.remove('sent'); form.reset(); form.name.focus(); });
 })();
 
 // ---------- hero demo: cursor halo, click ripple, auto-zoom ----------
@@ -351,25 +693,19 @@ footer{padding:40px 0 56px;color:var(--slate);font-size:14px;display:flex;gap:24
   const ripple = document.getElementById('ripple');
   const tag = document.getElementById('zoomtag');
   const clock = document.getElementById('clock');
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // Targets as fractions of the screen, measured from the real elements.
   function centerOf(id){
-    const s = screen.getBoundingClientRect();
-    const r = document.getElementById(id).getBoundingClientRect();
-    // undo current camera transform: measure with camera reset
+    const s = screen.getBoundingClientRect(), r = document.getElementById(id).getBoundingClientRect();
     return { x:(r.left + r.width*0.55 - s.left)/s.width, y:(r.top + r.height*0.55 - s.top)/s.height };
   }
-  let T = null;
+  let T;
   function targets(){
-    const prev = cam.style.transform; cam.style.transform = 'none';
+    const prevCam = cam.style.transform, stage = document.getElementById('stage'), prevStage = stage.style.transform;
+    cam.style.transform = 'none'; stage.style.transform = 'none';
     T = { exp: centerOf('t-export'), ref: centerOf('t-refunds') };
-    cam.style.transform = prev;
+    cam.style.transform = prevCam; stage.style.transform = prevStage;
   }
-
-  // Timeline (seconds): position (fractions), zoom, focus point, click flag.
   const Z = 1.8;
-  function keys(){ return [
+  const keys = () => [
     { t:0.0, x:.55, y:.30, z:1, fx:.5, fy:.5 },
     { t:1.4, x:T.exp.x, y:T.exp.y, z:1, fx:.5, fy:.5 },
     { t:1.7, x:T.exp.x, y:T.exp.y, z:1, fx:.5, fy:.5, click:true },
@@ -380,19 +716,16 @@ footer{padding:40px 0 56px;color:var(--slate);font-size:14px;display:flex;gap:24
     { t:6.6, x:T.ref.x, y:T.ref.y, z:Z, fx:T.ref.x, fy:T.ref.y },
     { t:7.8, x:.70, y:.62, z:1, fx:.5, fy:.5 },
     { t:9.0, x:.55, y:.30, z:1, fx:.5, fy:.5 },
-  ];}
+  ];
   const ease = p => p<.5 ? 4*p*p*p : 1-Math.pow(-2*p+2,3)/2;
   function sample(K, t){
     let i = 0; while (i < K.length-2 && K[i+1].t <= t) i++;
-    const a = K[i], b = K[i+1];
-    const p = ease(Math.min(1, Math.max(0, (t-a.t)/(b.t-a.t))));
+    const a = K[i], b = K[i+1], p = ease(Math.min(1, Math.max(0, (t-a.t)/(b.t-a.t))));
     const m = k => a[k] + (b[k]-a[k])*p;
     return { x:m('x'), y:m('y'), z:m('z'), fx:m('fx'), fy:m('fy') };
   }
   function render(st){
-    const W = screen.clientWidth, H = screen.clientHeight;
-    // Keep the zoomed view inside the frame, centred on the focus point.
-    const z = st.z;
+    const W = screen.clientWidth, H = screen.clientHeight, z = st.z;
     let tx = W/2 - st.fx*W*z, ty = H/2 - st.fy*H*z;
     tx = Math.min(0, Math.max(W - W*z, tx)); ty = Math.min(0, Math.max(H - H*z, ty));
     cam.style.transform = `translate(${tx}px,${ty}px) scale(${z})`;
@@ -405,24 +738,17 @@ footer{padding:40px 0 56px;color:var(--slate);font-size:14px;display:flex;gap:24
     ripple.classList.remove('go'); void ripple.offsetWidth; ripple.classList.add('go');
     cursor.classList.add('down'); setTimeout(() => cursor.classList.remove('down'), 160);
   }
-
   targets();
-  if (reduce){
-    render({ x:T.exp.x, y:T.exp.y, z:Z, fx:T.exp.x, fy:T.exp.y });
-    clock.textContent = '00:04';
-    return;
-  }
+  if (reduce){ render({ x:T.exp.x, y:T.exp.y, z:Z, fx:T.exp.x, fy:T.exp.y }); clock.textContent = '00:04'; return; }
   let K = keys(), start = performance.now(), lastT = 0, total = 0;
   window.addEventListener('resize', () => { targets(); K = keys(); });
   function frame(now){
-    const span = K[K.length-1].t;
-    const t = ((now - start)/1000) % span;
+    const span = K[K.length-1].t, t = ((now - start)/1000) % span;
     if (t < lastT) total += span;
     for (const k of K) if (k.click && lastT < k.t && t >= k.t) click(sample(K, k.t));
     lastT = t;
     render(sample(K, t));
-    const secs = Math.floor(total + t);
-    clock.textContent = '00:' + String(secs % 60).padStart(2,'0');
+    clock.textContent = '00:' + String(Math.floor(total + t) % 60).padStart(2,'0');
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

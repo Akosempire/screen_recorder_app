@@ -12,6 +12,7 @@
 var SHEET_NAME = 'Sign-ups';
 var HEADERS = ['Time', 'Event', 'Name', 'Email', 'Wants updates', 'Country', 'Browser'];
 var FROM_NAME = 'Screen Recorder';
+var SUPPORT_URL = 'https://buymeamalt.com/@ibrahim_designer';
 
 function doPost(e) {
   try {
@@ -78,6 +79,9 @@ function sendLink_(name, email, link, days) {
     'Download Screen Recorder</a></p>' +
     '<p>Open <b>ScreenRecorder-Setup.exe</b> and a Screen Recorder shortcut appears on your desktop. ' +
     'If Windows says "Windows protected your PC", click <b>More info</b>, then <b>Run anyway</b>.</p>' +
+    '<div style="margin:24px 0;padding:16px 18px;border-radius:12px;background:#FFF8DC;border:1px solid #F3E2A0">' +
+    '<p style="margin:0 0 10px">Enjoying the app? Buy me suya to keep it running.</p>' +
+    '<a href="' + SUPPORT_URL + '" style="color:#15171A;font-weight:600">Buy me suya</a></div>' +
     '<p style="color:#5E6670;font-size:13px">This link works for ' + days + ' days. ' +
     'You received this because you asked for the download on our website.</p>' +
     '</div>';
@@ -86,7 +90,8 @@ function sendLink_(name, email, link, days) {
     subject: 'Your Screen Recorder download link',
     htmlBody: html,
     body: 'Hi ' + first + ',\n\nDownload Screen Recorder for Windows: ' + link +
-      '\n\nThis link works for ' + days + ' days.',
+      '\n\nThis link works for ' + days + ' days.' +
+      '\n\nEnjoying the app? Buy me suya to keep it running: ' + SUPPORT_URL,
     name: FROM_NAME,
   });
 }
