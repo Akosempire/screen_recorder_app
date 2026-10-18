@@ -64,13 +64,13 @@ class Studio {
         ),
         textStyle: TextStyle(color: onPrimary, fontSize: 12),
       ),
-      sliderTheme: const SliderThemeData(
+      sliderTheme: SliderThemeData(
         trackHeight: 3,
         activeTrackColor: primary,
         inactiveTrackColor: Color(0xFFD5D5D9),
         thumbColor: surface,
         overlayColor: Color(0x14000000),
-        thumbShape: RoundSliderThumbShape(
+        thumbShape: const RoundSliderThumbShape(
           enabledThumbRadius: 10,
           elevation: 2,
           pressedElevation: 3,

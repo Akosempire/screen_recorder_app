@@ -20,7 +20,15 @@ jobs:
           cache: true
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: flutter pub get
-      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: flutter analyze
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee analyze.txt; then
+            msg=$(grep -E "error •|error -" analyze.txt | head -40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=flutter analyze errors::${msg}"
+            exit 1
+          fi
       - name: flutter test
         shell: bash
         run: |
