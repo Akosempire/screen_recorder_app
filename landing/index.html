@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screen Recorder for Windows</title>
+<meta name="description" content="A free Windows screen recorder that highlights every click, zooms in where you work, and puts your face in a bubble. Everything stays on your PC.">
+<link rel="icon" href="/assets/icon.png">
+<link rel="preload" href="/assets/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:"Bricolage Grotesque";src:url(/assets/fonts/bricolage-grotesque.woff2) format("woff2-variations");font-weight:200 800;font-display:swap}
+@font-face{font-family:"Onest";src:url(/assets/fonts/onest-400.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Onest";src:url(/assets/fonts/onest-500.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Onest";src:url(/assets/fonts/onest-600.woff2) format("woff2");font-weight:600;font-display:swap}
+:root{
+  --paper:#EEF0F2; --paper-2:#E3E6EA; --card:#FFFFFF; --ink:#15171A; --ink-2:#3B4048;
+  --slate:#5E6670; --line:#D5D9DE; --halo:#FFD21F; --halo-soft:rgba(255,210,31,.32);
+  --rec:#E5483B; --ok:#1F8A4C; --err:#B3261E; --focus:#2F6FEB;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Onest", "Segoe UI", system-ui, sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+img{max-width:100%;display:block}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+
+/* nav */
+.nav{display:flex;align-items:center;gap:28px;height:76px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:19px;text-decoration:none}
+.brand img{width:30px;height:30px;border-radius:7px}
+.nav-links{margin-left:auto;display:flex;gap:26px;font-size:15px;color:var(--ink-2)}
+.nav-links a{text-decoration:none}
+.nav-links a:hover{color:var(--ink)}
+.nav-cta{background:var(--ink);color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:10px 16px;border-radius:10px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:56px;align-items:start;padding-top:40px;padding-bottom:84px}
+.hero-demo{padding-top:10px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(38px,4.4vw,58px);line-height:1;max-width:11.5em;letter-spacing:-.025em;font-variation-settings:"opsz" 96}
+.lede{margin-top:22px;font-size:19px;color:var(--ink-2);max-width:34em}
+
+.signup{margin-top:30px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;max-width:470px;box-shadow:0 1px 0 rgba(21,23,26,.04)}
+.signup h2{font-family:var(--display);font-size:20px;font-weight:700;letter-spacing:-.01em}
+.signup p.hint{font-size:14.5px;color:var(--slate);margin-top:4px}
+.fields{display:grid;gap:10px;margin-top:16px}
+label.field{display:grid;gap:5px;font-size:14px;font-weight:600;color:var(--ink-2)}
+input[type=text],input[type=email]{font:inherit;font-size:16px;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:#FBFBFC;color:var(--ink)}
+input[type=text]:focus,input[type=email]:focus{outline:none;border-color:var(--ink);background:#fff}
+input[aria-invalid=true]{border-color:var(--err)}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--slate);margin-top:4px}
+.check input{margin-top:3px;width:16px;height:16px;accent-color:var(--ink)}
+.btn{font:inherit;font-weight:600;font-size:16px;border:0;cursor:pointer;background:var(--ink);color:#fff;padding:14px 18px;border-radius:12px;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:10px}
+.btn:hover{background:#000}
+.btn[disabled]{opacity:.7;cursor:progress}
+.btn .dot{width:10px;height:10px;border-radius:50%;background:var(--rec);box-shadow:0 0 0 3px rgba(229,72,59,.25)}
+.fine{font-size:13px;color:var(--slate);margin-top:12px}
+.msg{font-size:14px;margin-top:10px;min-height:1px}
+.msg.err{color:var(--err)}
+.done{display:none}
+.signup.sent form{display:none}
+.signup.sent .done{display:block}
+.done h2{display:flex;gap:10px;align-items:center}
+.done .tick{width:26px;height:26px;border-radius:50%;background:var(--halo);display:grid;place-items:center;flex:none}
+.done p{margin-top:8px;color:var(--ink-2);font-size:15.5px}
+.done button{font:inherit;font-size:14px;background:none;border:0;text-decoration:underline;color:var(--slate);cursor:pointer;margin-top:12px;padding:0}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+
+/* demo stage */
+.stage{position:relative;aspect-ratio:16/10.4;border-radius:18px;background:#1D2128;padding:10px;box-shadow:0 30px 60px -28px rgba(21,23,26,.45)}
+.screen{position:relative;width:100%;height:100%;border-radius:10px;overflow:hidden;background:#F7F8FA}
+.cam{position:absolute;inset:0;transform-origin:0 0}
+.app{position:absolute;inset:0;display:grid;grid-template-columns:22% 1fr;font-family:var(--body);font-size:clamp(8px,1.05vw,12.5px);color:#2B3038}
+.app .side{background:#232A35;color:#AEB7C4;padding:6% 8%;display:grid;align-content:start;gap:.9em}
+.app .side b{color:#fff;font-weight:600;margin-bottom:.4em}
+.app .side span.on{color:#fff}
+.app .main{padding:4.5% 5%;display:grid;grid-template-rows:auto auto 1fr auto;gap:5%}
+.app h3{font-family:var(--display);font-size:1.55em;font-weight:700;color:#15171A}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:4%}
+.kpi{background:#fff;border-radius:6px;padding:7% 8%;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.kpi small{color:#7A8290}
+.kpi strong{display:block;font-family:var(--display);font-size:1.6em;margin-top:.15em}
+.chart{background:#fff;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;align-items:flex-end;gap:3%;padding:4% 5%}
+.chart i{flex:1;background:#C9D3E1;border-radius:3px 3px 0 0}
+.chart i.hi{background:#3A6FE0}
+.actions{display:flex;gap:3%}
+.actions span{background:#fff;border:1px solid #D5DAE1;border-radius:5px;padding:.55em 1em}
+.actions span.primary{background:#3A6FE0;border-color:#3A6FE0;color:#fff}
+.cursor{position:absolute;left:0;top:0;width:0;height:0;will-change:transform;z-index:3}
+.cursor .halo{position:absolute;left:-15px;top:-15px;width:30px;height:30px;border-radius:50%;background:var(--halo-soft);border:2px solid var(--halo);transition:transform .12s}
+.cursor.down .halo{transform:scale(.85)}
+.cursor svg{position:absolute;left:-1px;top:-1px;width:17px;height:25px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.ripple{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:3px solid var(--halo);opacity:0;pointer-events:none;z-index:2}
+.ripple.go{animation:ripple .55s ease-out}
+@keyframes ripple{from{opacity:.95;transform:scale(1)}to{opacity:0;transform:scale(2.7)}}
+.face{position:absolute;left:3.2%;bottom:5%;width:17%;aspect-ratio:1;border-radius:50%;border:3px solid #fff;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.28);z-index:4;background:#7E9BBB}
+.rec{position:absolute;right:3%;top:4%;z-index:4;background:rgba(21,23,26,.88);color:#fff;font-size:12px;font-weight:600;border-radius:8px;padding:6px 10px;display:flex;gap:8px;align-items:center;font-variant-numeric:tabular-nums}
+.rec i{width:8px;height:8px;border-radius:50%;background:var(--rec)}
+.zoomtag{position:absolute;left:3%;top:4%;z-index:4;background:var(--halo);color:var(--ink);font-size:12px;font-weight:600;border-radius:8px;padding:5px 9px;opacity:0;transition:opacity .25s}
+.zoomtag.on{opacity:1}
+.caption{margin-top:14px;font-size:14px;color:var(--slate)}
+
+/* features */
+section{padding:84px 0}
+.section-head{max-width:640px}
+h2.big{font-family:var(--display);font-weight:800;font-size:clamp(30px,3.6vw,44px);letter-spacing:-.02em;line-height:1.05}
+.section-head p{margin-top:14px;color:var(--ink-2);font-size:18px}
+.feats{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;margin-top:48px}
+.feat .art{aspect-ratio:4/3;border-radius:14px;background:var(--paper-2);position:relative;overflow:hidden}
+.feat h3{font-family:var(--display);font-size:22px;font-weight:700;margin-top:18px;letter-spacing:-.01em}
+.feat p{margin-top:6px;color:var(--ink-2);font-size:16px}
+
+.shot{margin-top:44px;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#fff;box-shadow:0 24px 50px -30px rgba(21,23,26,.35)}
+.shot img{width:100%;height:auto}
+.shot-note{margin-top:12px;font-size:14px;color:var(--slate)}
+
+/* steps */
+.band{background:var(--ink);color:#fff;border-radius:28px;padding:64px 56px}
+.band h2.big{color:#fff}
+.steps{list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:36px;margin-top:40px;counter-reset:s}
+.steps li{counter-increment:s;border-top:2px solid rgba(255,255,255,.18);padding-top:18px}
+.steps li::before{content:counter(s);font-family:var(--display);font-weight:800;font-size:34px;color:var(--halo);display:block;line-height:1}
+.steps h3{font-family:var(--display);font-size:21px;margin-top:12px}
+.steps p{margin-top:6px;color:#C3C8CF;font-size:15.5px}
+.steps code{background:rgba(255,255,255,.1);padding:1px 6px;border-radius:5px;font-size:14px}
+.band .again{margin-top:40px;display:inline-flex;background:var(--halo);color:var(--ink);font-weight:600;text-decoration:none;padding:13px 18px;border-radius:12px}
+
+/* faq */
+.faq{max-width:760px;margin-top:36px}
+details{border-top:1px solid var(--line);padding:18px 0}
+details:last-child{border-bottom:1px solid var(--line)}
+summary{cursor:pointer;font-family:var(--display);font-size:20px;font-weight:700;list-style:none;display:flex;justify-content:space-between;gap:16px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font-weight:500;color:var(--slate)}
+details[open] summary::after{content:"\2212"}
+details p{margin-top:10px;color:var(--ink-2);max-width:60ch}
+
+footer{padding:40px 0 56px;color:var(--slate);font-size:14px;display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;border-top:1px solid var(--line)}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr;gap:40px;padding-top:12px}
+  .hero-demo{padding-top:0}
+  .feats,.steps{grid-template-columns:1fr;gap:32px}
+  .band{padding:44px 26px;border-radius:22px}
+  .nav-links a:not(.nav-cta){display:none}
+}
+@media (max-width:520px){
+  .wrap{padding:0 16px}
+  body{font-size:16px}
+  .signup{padding:18px}
+  section{padding:60px 0}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .ripple.go{animation:none}
+}
+</style>
+</head>
+<body>
+<header class="wrap nav">
+  <a class="brand" href="/"><img src="/assets/icon.png" alt="">Screen Recorder</a>
+  <nav class="nav-links" aria-label="Main">
+    <a href="#features">Features</a>
+    <a href="#how">How to get it</a>
+    <a href="#faq">Questions</a>
+    <a class="nav-cta" href="#get">Get it free</a>
+  </nav>
+</header>
+
+<main>
+<div class="wrap hero">
+  <div>
+    <h1>Screen recordings that follow your cursor.</h1>
+    <p class="lede">A free Windows recorder that highlights every click, zooms in where you work, and puts your face in a bubble. Everything is recorded and processed on your PC.</p>
+
+    <div class="signup" id="get">
+      <form id="signup-form" novalidate>
+        <h2>Get the download link</h2>
+        <p class="hint">We'll email it to you. Works on Windows 10 and 11.</p>
+        <div class="fields">
+          <label class="field">Your name
+            <input type="text" name="name" autocomplete="name" required maxlength="80">
+          </label>
+          <label class="field">Email
+            <input type="email" name="email" autocomplete="email" required maxlength="160">
+          </label>
+          <div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+          <label class="check"><input type="checkbox" name="updates"> Send me an email when there's a new version.</label>
+          <button class="btn" type="submit"><span class="dot" aria-hidden="true"></span><span class="label">Email me the download link</span></button>
+        </div>
+        <p class="msg" role="alert" aria-live="polite"></p>
+        <p class="fine">We use your email only to send the link and, if you tick the box, update notes. We don't share it.</p>
+      </form>
+      <div class="done" aria-live="polite">
+        <h2><span class="tick" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15171A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Check your inbox</h2>
+        <p>We sent the download link to <strong class="sent-to"></strong>. It works for 7 days. If you don't see it in a minute, look in Spam or Promotions.</p>
+        <button type="button" class="reset">Use a different email</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-demo">
+    <div class="stage" aria-label="Demo: the cursor clicks, the recording zooms in and follows it, and a face bubble sits in the corner" role="img">
+      <div class="screen" id="screen">
+        <div class="cam" id="cam">
+          <div class="app">
+            <div class="side"><b>Northwind</b><span class="on">Overview</span><span>Orders</span><span>Customers</span><span>Reports</span><span>Settings</span></div>
+            <div class="main">
+              <h3>Sales overview</h3>
+              <div class="kpis">
+                <div class="kpi"><small>Revenue</small><strong>$48.2k</strong></div>
+                <div class="kpi"><small>Orders</small><strong>1,204</strong></div>
+                <div class="kpi" id="t-refunds"><small>Refunds</small><strong>18</strong></div>
+              </div>
+              <div class="chart"><i style="height:42%"></i><i style="height:60%"></i><i style="height:48%"></i><i style="height:74%"></i><i style="height:56%"></i><i class="hi" style="height:88%"></i><i style="height:66%"></i><i style="height:80%"></i></div>
+              <div class="actions"><span>Filter</span><span class="primary" id="t-export">Export report</span></div>
+            </div>
+          </div>
+          <div class="ripple" id="ripple"></div>
+          <div class="cursor" id="cursor"><div class="halo"></div><svg viewBox="0 0 13 20"><path d="M.5.5v16.4l4-3.9 2.8 6.4 2.7-1.2-2.7-6.1h5.4z" fill="#fff" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/></svg></div>
+        </div>
+        <div class="zoomtag" id="zoomtag">Auto-zoom 1.8×</div>
+        <div class="rec"><i></i><span id="clock">00:00</span></div>
+        <div class="face" aria-hidden="true">
+          <svg viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#7E9BBB"/><ellipse cx="50" cy="104" rx="38" ry="28" fill="#2B3A4D"/><rect x="43" y="62" width="14" height="14" rx="5" fill="#C99572"/><ellipse cx="50" cy="45" rx="19" ry="22" fill="#D9A983"/><path d="M30 42c0-15 9-23 20-23s21 8 21 22c-5-6-13-9-21-9-9 0-16 4-20 10z" fill="#2A2522"/><circle cx="43" cy="47" r="2" fill="#2A2522"/><circle cx="57" cy="47" r="2" fill="#2A2522"/><path d="M44 56q6 5 12 0" stroke="#7A4A35" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+    </div>
+    <p class="caption">What viewers see: the halo follows your mouse, clicks ripple, and the video zooms in where you click.</p>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 class="big">Made for tutorials, demos and walkthroughs.</h2>
+      <p>The three things that make a screen recording easy to follow are built in, and you can switch each one off.</p>
+    </div>
+    <div class="feats">
+      <article class="feat">
+        <div class="art">
+          <svg viewBox="0 0 400 300" width="100%" height="100%" aria-hidden="true"><rect width="400" height="300" fill="#E3E6EA"/><rect x="40" y="40" width="320" height="220" rx="14" fill="#fff"/><rect x="66" y="78" width="170" height="12" rx="6" fill="#D5DAE1"/><rect x="66" y="104" width="120" height="12" rx="6" fill="#D5DAE1"/><rect x="66" y="196" width="96" height="34" rx="8" fill="#3A6FE0"/><circle cx="214" cy="190" r="58" fill="none" stroke="#FFD21F" stroke-width="5" opacity=".45"/><circle cx="214" cy="190" r="38" fill="none" stroke="#FFD21F" stroke-width="5" opacity=".8"/><circle cx="214" cy="190" r="22" fill="rgba(255,210,31,.35)" stroke="#FFD21F" stroke-width="4"/><path transform="translate(214 190) scale(2.2)" d="M0 0v16.4l4-3.9 2.8 6.4 2.7-1.2-2.7-6.1h5.4z" fill="#fff" stroke="#111" stroke-width=".9" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Your cursor, easy to spot</h3>
+        <p>A yellow halo follows the mouse and every click sends out a ripple. You see it while you record, and it's saved in the video.</p>
+      </article>
+      <article class="feat">
+        <div class="art">
+          <svg viewBox="0 0 400 300" width="100%" height="100%" aria-hidden="true"><rect width="400" height="300" fill="#E3E6EA"/><rect x="40" y="40" width="320" height="220" rx="14" fill="#fff"/><g opacity=".35"><rect x="66" y="70" width="80" height="44" rx="6" fill="#D5DAE1"/><rect x="160" y="70" width="80" height="44" rx="6" fill="#D5DAE1"/><rect x="254" y="70" width="80" height="44" rx="6" fill="#D5DAE1"/></g><rect x="150" y="120" width="190" height="122" rx="10" fill="#fff" stroke="#15171A" stroke-width="3"/><rect x="168" y="140" width="80" height="14" rx="7" fill="#15171A"/><rect x="168" y="166" width="140" height="10" rx="5" fill="#D5DAE1"/><rect x="168" y="200" width="88" height="26" rx="7" fill="#3A6FE0"/><path d="M128 108l18 14M128 108h14M128 108v14" stroke="#15171A" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="270" cy="212" r="15" fill="rgba(255,210,31,.35)" stroke="#FFD21F" stroke-width="3"/></svg>
+        </div>
+        <h3>Auto-zoom that follows the mouse</h3>
+        <p>When you stop, the video zooms in where you clicked, pans with your cursor, and eases back out. Set how close and how smooth.</p>
+      </article>
+      <article class="feat">
+        <div class="art">
+          <svg viewBox="0 0 400 300" width="100%" height="100%" aria-hidden="true"><rect width="400" height="300" fill="#E3E6EA"/><rect x="40" y="40" width="320" height="220" rx="14" fill="#fff"/><rect x="66" y="70" width="200" height="12" rx="6" fill="#D5DAE1"/><rect x="66" y="96" width="150" height="12" rx="6" fill="#D5DAE1"/><rect x="66" y="122" width="180" height="12" rx="6" fill="#D5DAE1"/><clipPath id="fc"><circle cx="300" cy="206" r="54"/></clipPath><g clip-path="url(#fc)"><rect x="240" y="150" width="120" height="120" fill="#7E9BBB"/><ellipse cx="300" cy="268" rx="46" ry="30" fill="#2B3A4D"/><ellipse cx="300" cy="200" rx="21" ry="24" fill="#D9A983"/><path d="M278 196c0-17 10-26 22-26s23 9 23 25c-6-7-14-10-23-10-10 0-17 4-22 11z" fill="#2A2522"/></g><circle cx="300" cy="206" r="54" fill="none" stroke="#fff" stroke-width="5"/><path d="M226 150l-16-16M226 150h-12M226 150v-12" stroke="#15171A" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+        </div>
+        <h3>Your face in a bubble</h3>
+        <p>Turn on the camera and your webcam floats in a circle you can drag anywhere or snap to a corner. It's recorded with your screen.</p>
+      </article>
+    </div>
+
+    <div class="shot"><img src="/assets/app-home.png" alt="The Screen Recorder app: a Start Recording button, cursor style options, and auto-zoom settings" width="1024" height="720" loading="lazy"></div>
+    <p class="shot-note">The app on Windows. Pick a cursor style, set the zoom, then drag a box around what you want to record.</p>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="band">
+      <h2 class="big">How you get it</h2>
+      <ol class="steps">
+        <li><h3>Enter your email</h3><p>Fill in your name and email at the top of this page.</p></li>
+        <li><h3>Open the link we send</h3><p>The download starts straight away. The link works for 7 days.</p></li>
+        <li><h3>Run the installer</h3><p>Open <code>ScreenRecorder-Setup.exe</code>. A Screen Recorder shortcut appears on your desktop.</p></li>
+      </ol>
+      <a class="again" href="#get">Get the download link</a>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <h2 class="big">Questions</h2>
+    <div class="faq">
+      <details><summary>Is it free?</summary><p>Yes. There are no paid features, watermarks or time limits.</p></details>
+      <details><summary>Windows says "Windows protected your PC". Is that normal?</summary><p>Yes. The installer isn't code-signed yet, so Windows shows that warning for new apps. Click More info, then Run anyway.</p></details>
+      <details><summary>Does anything get uploaded?</summary><p>No. Recording, auto-zoom and saving all happen on your PC. The only thing we receive is the name and email you enter here.</p></details>
+      <details><summary>What do I need?</summary><p>Windows 10 (version 1809 or newer) or Windows 11. A webcam and microphone are optional.</p></details>
+      <details><summary>Is there a Mac version?</summary><p>Not yet. There is a Linux build for people comfortable compiling from source.</p></details>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="wrap">
+  <span>Screen Recorder for Windows</span>
+  <span>Record only what you have the right to share.</span>
+</footer>
+
+<script>
+// ---------- sign-up form ----------
+(function(){
+  const box = document.querySelector('.signup');
+  const form = document.getElementById('signup-form');
+  const msg = form.querySelector('.msg');
+  const btn = form.querySelector('button[type=submit]');
+  const label = btn.querySelector('.label');
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+  function fail(input, text){
+    msg.textContent = text; msg.className = 'msg err';
+    if (input){ input.setAttribute('aria-invalid','true'); input.focus(); }
+  }
+  form.addEventListener('input', e => { e.target.removeAttribute('aria-invalid'); msg.textContent=''; });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = form.name.value.trim();
+    const email = form.email.value.trim();
+    if (!name) return fail(form.name, 'Enter your name.');
+    if (!emailRe.test(email)) return fail(form.email, 'Enter a valid email address, like you@example.com.');
+    btn.disabled = true; label.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/signup', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name, email, updates: form.updates.checked, website: form.website.value })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'The link could not be sent. Try again in a minute.');
+      box.querySelector('.sent-to').textContent = email;
+      box.classList.add('sent');
+    } catch (err) {
+      fail(null, err.message || 'The link could not be sent. Try again in a minute.');
+    } finally {
+      btn.disabled = false; label.textContent = 'Email me the download link';
+    }
+  });
+  box.querySelector('.reset').addEventListener('click', () => {
+    box.classList.remove('sent'); form.reset(); form.name.focus();
+  });
+})();
+
+// ---------- hero demo: cursor halo, click ripple, auto-zoom ----------
+(function(){
+  const screen = document.getElementById('screen');
+  const cam = document.getElementById('cam');
+  const cursor = document.getElementById('cursor');
+  const ripple = document.getElementById('ripple');
+  const tag = document.getElementById('zoomtag');
+  const clock = document.getElementById('clock');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Targets as fractions of the screen, measured from the real elements.
+  function centerOf(id){
+    const s = screen.getBoundingClientRect();
+    const r = document.getElementById(id).getBoundingClientRect();
+    // undo current camera transform: measure with camera reset
+    return { x:(r.left + r.width*0.55 - s.left)/s.width, y:(r.top + r.height*0.55 - s.top)/s.height };
+  }
+  let T = null;
+  function targets(){
+    const prev = cam.style.transform; cam.style.transform = 'none';
+    T = { exp: centerOf('t-export'), ref: centerOf('t-refunds') };
+    cam.style.transform = prev;
+  }
+
+  // Timeline (seconds): position (fractions), zoom, focus point, click flag.
+  const Z = 1.8;
+  function keys(){ return [
+    { t:0.0, x:.55, y:.30, z:1, fx:.5, fy:.5 },
+    { t:1.4, x:T.exp.x, y:T.exp.y, z:1, fx:.5, fy:.5 },
+    { t:1.7, x:T.exp.x, y:T.exp.y, z:1, fx:.5, fy:.5, click:true },
+    { t:2.6, x:T.exp.x, y:T.exp.y, z:Z, fx:T.exp.x, fy:T.exp.y },
+    { t:3.8, x:T.exp.x+.04, y:T.exp.y-.06, z:Z, fx:T.exp.x+.04, fy:T.exp.y-.06 },
+    { t:5.0, x:T.ref.x, y:T.ref.y, z:Z, fx:T.ref.x, fy:T.ref.y },
+    { t:5.3, x:T.ref.x, y:T.ref.y, z:Z, fx:T.ref.x, fy:T.ref.y, click:true },
+    { t:6.6, x:T.ref.x, y:T.ref.y, z:Z, fx:T.ref.x, fy:T.ref.y },
+    { t:7.8, x:.70, y:.62, z:1, fx:.5, fy:.5 },
+    { t:9.0, x:.55, y:.30, z:1, fx:.5, fy:.5 },
+  ];}
+  const ease = p => p<.5 ? 4*p*p*p : 1-Math.pow(-2*p+2,3)/2;
+  function sample(K, t){
+    let i = 0; while (i < K.length-2 && K[i+1].t <= t) i++;
+    const a = K[i], b = K[i+1];
+    const p = ease(Math.min(1, Math.max(0, (t-a.t)/(b.t-a.t))));
+    const m = k => a[k] + (b[k]-a[k])*p;
+    return { x:m('x'), y:m('y'), z:m('z'), fx:m('fx'), fy:m('fy') };
+  }
+  function render(st){
+    const W = screen.clientWidth, H = screen.clientHeight;
+    // Keep the zoomed view inside the frame, centred on the focus point.
+    const z = st.z;
+    let tx = W/2 - st.fx*W*z, ty = H/2 - st.fy*H*z;
+    tx = Math.min(0, Math.max(W - W*z, tx)); ty = Math.min(0, Math.max(H - H*z, ty));
+    cam.style.transform = `translate(${tx}px,${ty}px) scale(${z})`;
+    cursor.style.transform = `translate(${st.x*W}px,${st.y*H}px) scale(${1/z})`;
+    tag.classList.toggle('on', z > 1.15);
+  }
+  function click(st){
+    const W = screen.clientWidth, H = screen.clientHeight;
+    ripple.style.left = (st.x*W)+'px'; ripple.style.top = (st.y*H)+'px';
+    ripple.classList.remove('go'); void ripple.offsetWidth; ripple.classList.add('go');
+    cursor.classList.add('down'); setTimeout(() => cursor.classList.remove('down'), 160);
+  }
+
+  targets();
+  if (reduce){
+    render({ x:T.exp.x, y:T.exp.y, z:Z, fx:T.exp.x, fy:T.exp.y });
+    clock.textContent = '00:04';
+    return;
+  }
+  let K = keys(), start = performance.now(), lastT = 0, total = 0;
+  window.addEventListener('resize', () => { targets(); K = keys(); });
+  function frame(now){
+    const span = K[K.length-1].t;
+    const t = ((now - start)/1000) % span;
+    if (t < lastT) total += span;
+    for (const k of K) if (k.click && lastT < k.t && t >= k.t) click(sample(K, k.t));
+    lastT = t;
+    render(sample(K, t));
+    const secs = Math.floor(total + t);
+    clock.textContent = '00:' + String(secs % 60).padStart(2,'0');
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

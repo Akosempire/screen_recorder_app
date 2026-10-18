@@ -3,6 +3,8 @@ name: Build Windows installer
 on:
   push:
     branches: [main, master]
+    paths-ignore:
+      - 'landing/**'
   workflow_dispatch:
 
 permissions:
