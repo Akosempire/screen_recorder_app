@@ -53,21 +53,6 @@ async function fakeSupabase(key) {
   return { signups, downloads, requests, url: `http://127.0.0.1:${server.address().port}`, close: () => server.close() };
 }
 
-async function fakeSendByte() {
-  const sent = [];
-  const server = http.createServer((req, res) => {
-    let raw = '';
-    req.on('data', (c) => (raw += c));
-    req.on('end', () => {
-      sent.push(JSON.parse(raw));
-      res.writeHead(201, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ id: `em_${sent.length}`, status: 'queued' }));
-    });
-  });
-  await new Promise((r) => server.listen(0, r));
-  return { sent, url: `http://127.0.0.1:${server.address().port}/v1`, close: () => server.close() };
-}
-
 function mockRes() {
   const res = { statusCode: 200, headers: {}, body: undefined };
   res.status = (c) => { res.statusCode = c; return res; };
@@ -77,19 +62,15 @@ function mockRes() {
   return res;
 }
 
-test('Supabase API: sign-up, repeat sign-up, email id, download and health counts', async () => {
+test('Supabase API: sign-up, repeat sign-up, download link and health counts', async () => {
   const key = 'service-role-test-key';
   const sb = await fakeSupabase(key);
-  const mail = await fakeSendByte();
   delete process.env.POSTGRES_URL;
   delete process.env.DATABASE_URL;
   Object.assign(process.env, {
     SUPABASE_URL: sb.url + '/',
     SUPABASE_SERVICE_ROLE_KEY: key,
     LINK_SECRET: 'link-secret',
-    SENDBYTE_API_URL: mail.url,
-    SENDBYTE_API_KEY: 'sk_live_test',
-    EMAIL_FROM: 'Screen Recorder <downloads@example.ng>',
   });
   const { default: signup } = await import('../api/signup.js');
   const { default: download } = await import('../api/download.js');
@@ -107,7 +88,7 @@ test('Supabase API: sign-up, repeat sign-up, email id, download and health count
       { ...sb.signups[0], updated_at: undefined, last_emailed_at: undefined },
       {
         id: 1, signup_count: 1, email: 'ada@example.com', name: 'Ada', wants_updates: true,
-        country: 'NG', user_agent: null, last_email_id: 'em_1', updated_at: undefined, last_emailed_at: undefined,
+        country: 'NG', user_agent: null, updated_at: undefined, last_emailed_at: undefined,
       },
     );
     assert.ok(sb.requests.every((r) => r.apikey === key && r.auth === `Bearer ${key}`));
@@ -119,12 +100,12 @@ test('Supabase API: sign-up, repeat sign-up, email id, download and health count
     assert.equal(sb.signups[0].signup_count, 2);
     assert.equal(sb.signups[0].name, 'Ada Lovelace');
     assert.equal(sb.signups[0].wants_updates, false);
-    assert.equal(sb.signups[0].last_email_id, 'em_2');
+    assert.match(res.body.downloadUrl, /^\/api\/download\?t=/);
 
-    // the emailed link downloads and is logged
-    const link = mail.sent[0].text.match(/https:\/\/x\.vercel\.app\/api\/download\?t=\S+/)[0];
+    // the returned link downloads and is logged
+    const link = res.body.downloadUrl;
     res = mockRes();
-    await download({ url: link.replace('https://x.vercel.app', ''), headers: {} }, res);
+    await download({ url: link, headers: {} }, res);
     assert.equal(res.statusCode, 302);
     assert.equal(sb.downloads.length, 1);
     assert.equal(sb.downloads[0].email, 'ada@example.com');
@@ -143,6 +124,50 @@ test('Supabase API: sign-up, repeat sign-up, email id, download and health count
     assert.match(res.body.error, /could not save/);
   } finally {
     sb.close();
-    mail.close();
+  }
+});
+
+test('Supabase Auth sends the magic link that redirects to the signed download link', async () => {
+  const calls = [];
+  let status = 200;
+  const server = http.createServer((req, res) => {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    req.on('end', () => {
+      calls.push({ method: req.method, url: req.url, apikey: req.headers.apikey, body: raw ? JSON.parse(raw) : null });
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(status === 200 ? '{}' : JSON.stringify({ code: 429, error_code: 'over_email_send_rate_limit', msg: 'email rate limit exceeded' }));
+    });
+  });
+  await new Promise((r) => server.listen(0, r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  delete process.env.EMAIL_PROVIDER;
+  delete process.env.SENDBYTE_API_KEY;
+  Object.assign(process.env, { SUPABASE_URL: base, SUPABASE_SERVICE_ROLE_KEY: 'svc', LINK_SECRET: 'link-secret' });
+  const email = await import('../lib/email.js');
+  try {
+    assert.equal(email.emailProvider(), 'supabase');
+    assert.equal(email.hasEmail(), true);
+    const link = 'https://x.vercel.app/api/download?t=abc.def';
+    const id = await email.sendDownloadEmail({ name: 'Ada', email: 'ada@example.com', link, days: 7 });
+    assert.equal(id, null);
+    const c = calls[0];
+    assert.equal(c.method, 'POST');
+    assert.equal(c.apikey, 'svc');
+    const url = new URL(c.url, base);
+    assert.equal(url.pathname, '/auth/v1/otp');
+    assert.equal(url.searchParams.get('redirect_to'), link);
+    assert.deepEqual(c.body, { email: 'ada@example.com', create_user: true, data: { name: 'Ada', source: 'download' } });
+
+    // Supabase's email limit surfaces as a friendly 429 from the sign-up endpoint
+    status = 429;
+    await assert.rejects(email.sendDownloadEmail({ name: 'Ada', email: 'ada@example.com', link, days: 7 }), (e) => e.code === 'rate_limited');
+
+    // EMAIL_PROVIDER=sendbyte switches back (and needs SendByte settings)
+    process.env.EMAIL_PROVIDER = 'sendbyte';
+    assert.equal(email.emailProvider(), 'sendbyte');
+    assert.equal(email.hasEmail(), false);
+  } finally {
+    server.close();
   }
 });

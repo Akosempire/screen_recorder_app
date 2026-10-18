@@ -169,6 +169,8 @@ html:has(.modal[open]){overflow:hidden}
 .done .tick{width:44px;height:44px;margin:0 auto;border-radius:50%;background:var(--halo);display:grid;place-items:center}
 .done h4{margin-top:10px;font-size:20px;letter-spacing:-.03em}
 .done p{margin-top:4px;color:var(--ink-2);font-size:14.5px}
+.done .get-file{margin-top:14px;text-decoration:none}
+.done .smart{margin-top:10px;font-size:12.5px;color:var(--mute)}
 .done button{background:none;border:0;text-decoration:underline;color:var(--mute);cursor:pointer;margin-top:8px;font-size:13.5px}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .fine{margin:20px auto 0;max-width:420px;text-align:center;font-size:12.5px;color:rgba(255,255,255,.8)}
@@ -347,7 +349,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
 <section class="get" id="get">
   <div class="wrap center">
     <h2 class="reveal">Free.<br><span class="serif">For good.</span></h2>
-    <p class="lead reveal" data-delay="1">No subscription, no watermark, no account.<br>Enter your email and we'll send you the download link.</p>
+    <p class="lead reveal" data-delay="1">No subscription, no watermark, no account.<br>Enter your name and email, and the download starts right away.</p>
   </div>
   <div class="wrap">
     <div class="card reveal" data-delay="2">
@@ -360,7 +362,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         <li><i></i>One-click installer, desktop shortcut</li>
         <li><i></i>Everything stays on your PC</li>
       </ul>
-      <button type="button" class="btn open-get" style="margin-top:20px"><span class="dot" aria-hidden="true"></span>Get the download link</button>
+      <button type="button" class="btn open-get" style="margin-top:20px"><span class="dot" aria-hidden="true"></span>Download for Windows</button>
     </div>
     <div class="suya reveal">
       <p>Enjoying the app? Buy me suya to keep it running.</p>
@@ -373,8 +375,8 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
   <div class="card">
       <div class="tab"><img src="/assets/icon.png" alt="">Screen Recorder for Windows</div>
       <button type="button" class="x" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-      <h3 id="get-title">Get the download link</h3>
-      <p class="sub">Free for Windows 10 and 11. We'll email you a link that works for 7 days.</p>
+      <h3 id="get-title">Download Screen Recorder</h3>
+      <p class="sub">Free for Windows 10 and 11. Enter your details and the download starts straight away.</p>
       <div class="signup">
         <form id="signup-form" novalidate>
           <div class="fields">
@@ -382,18 +384,20 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
             <label class="field">Email<input type="email" name="email" autocomplete="email" required maxlength="160"></label>
             <div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
             <label class="check"><input type="checkbox" name="updates"> Email me when there's a new version.</label>
-            <button class="btn" type="submit"><span class="dot" aria-hidden="true"></span><span class="label">Email me the download link</span></button>
+            <button class="btn" type="submit"><span class="dot" aria-hidden="true"></span><span class="label">Download for Windows</span></button>
           </div>
           <p class="msg" role="alert" aria-live="polite"></p>
         </form>
         <div class="done" aria-live="polite">
           <div class="tick" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-          <h4>Check your inbox</h4>
-          <p>We sent the download link to <strong class="sent-to"></strong>. It works for 7 days. Not there? Look in Spam or Promotions.</p>
-          <button type="button" class="reset">Use a different email</button>
+          <h4>Your download is starting</h4>
+          <p>If it doesn’t start, use the button below. Open <b>ScreenRecorder-Setup.exe</b> and a shortcut appears on your desktop.</p>
+          <a class="btn get-file" href="#" download><span class="dot" aria-hidden="true"></span>Download ScreenRecorder-Setup.exe</a>
+          <p class="smart">If Windows says “Windows protected your PC”, click <b>More info</b>, then <b>Run anyway</b>.</p>
+          <button type="button" class="reset">Not <span class="sent-to"></span>? Start again</button>
         </div>
       </div>
-      <p class="fine">We use your email only to send the link and, if you tick the box, update notes.</p>
+      <p class="fine">We use your email only to count downloads and, if you tick the box, to send update notes.</p>
   </div>
 </dialog>
 
@@ -476,18 +480,32 @@ document.querySelectorAll('.qa button').forEach(btn => {
     const name = form.name.value.trim(), email = form.email.value.trim();
     if (!name) return fail(form.name, 'Enter your name.');
     if (!emailRe.test(email)) return fail(form.email, 'Enter a valid email address, like you@example.com.');
-    btn.disabled = true; label.textContent = 'Sending…';
+    btn.disabled = true; label.textContent = 'Preparing your download…';
     try {
       const res = await fetch('/api/signup', { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ name, email, updates: form.updates.checked, website: form.website.value }) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'The link could not be sent. Try again in a minute.');
+      if (!res.ok) throw new Error(data.error || 'Something went wrong. Try again in a minute.');
       box.querySelector('.sent-to').textContent = email;
+      const file = box.querySelector('.get-file');
+      if (data.downloadUrl) {
+        file.href = data.downloadUrl;
+        file.hidden = false;
+        // Start the download without leaving the page (the link redirects to the installer file).
+        const go = document.createElement('a');
+        go.href = data.downloadUrl;
+        go.rel = 'noopener';
+        document.body.appendChild(go);
+        go.click();
+        go.remove();
+      } else {
+        file.hidden = true;
+      }
       box.classList.add('sent');
     } catch (err) {
-      fail(null, err.message || 'The link could not be sent. Try again in a minute.');
+      fail(null, err.message || 'Something went wrong. Try again in a minute.');
     } finally {
-      btn.disabled = false; label.textContent = 'Email me the download link';
+      btn.disabled = false; label.textContent = 'Download for Windows';
     }
   });
   box.querySelector('.reset').addEventListener('click', () => { box.classList.remove('sent'); form.reset(); form.name.focus(); });
