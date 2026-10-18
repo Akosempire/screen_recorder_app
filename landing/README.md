@@ -1,91 +1,87 @@
-# Landing page (Vercel) with emailed download links
+# Landing page (Vercel + Supabase + SendByte)
 
-Visitors enter their name and email. The site saves them to a Google Sheet and
-emails a download link from your Gmail. The link is signed and works for 7 days;
-opening it records a "downloaded" row and starts the installer download from
-GitHub Releases.
+Visitors enter their name and email in the Download pop-up. The site saves
+them to **Supabase** (Postgres) and emails a download link through
+**SendByte**. The link is signed and works for 7 days; opening it records a
+download in Supabase and starts the installer download from GitHub Releases.
 
 ```
 landing/
-  index.html                  the page
-  assets/                     screenshots, icon, self-hosted fonts
-  api/signup.js               POST: save sign-up + send link
-  api/download.js             GET:  check link, log, redirect to installer
-  lib/token.js                signed link helpers
-  google-apps-script/Code.gs  paste into your Google Sheet
-  test/flow.test.js           `npm test`
+  index.html                 the page
+  assets/                    screenshots, icon, self-hosted fonts
+  api/signup.js              POST: save sign-up to Supabase, email the link
+  api/download.js            GET:  check link, log download, redirect to installer
+  api/health.js              GET:  database connected? (counts only)
+  lib/db.js                  Postgres pool (pg + attachDatabasePool)
+  lib/email.js               SendByte download-link email
+  lib/token.js               signed link helpers
+  db/migrations/*.sql        schema; `npm run db:migrate`
+  scripts/                   build, local server, migrations
+  test/flow.test.js          `npm test`
 ```
 
-## 1. Google Sheet + Apps Script (about 5 minutes)
+## 1. Supabase (through Vercel)
 
-1. Create a new Google Sheet (any name).
-2. **Extensions → Apps Script**. Replace everything in `Code.gs` with
-   [`google-apps-script/Code.gs`](google-apps-script/Code.gs). Save.
-3. **Project Settings (gear) → Script properties → Add script property**:
-   `SECRET` = a long random string. Keep it; Vercel needs the same value.
-4. Back in the editor, pick the `authorize` function and click **Run**.
-   Approve the permissions (Sheets + send email as you).
-5. **Deploy → New deployment → type: Web app**.
-   *Execute as:* **Me**. *Who has access:* **Anyone**. Click **Deploy** and
-   copy the **Web app URL** (ends in `/exec`).
+1. Vercel project → **Storage** → **Create Database** → **Supabase**. Create a
+   project (region near your users, e.g. Frankfurt or London) and connect it
+   to this project for all environments. Vercel adds `POSTGRES_URL`,
+   `POSTGRES_URL_NON_POOLING`, `SUPABASE_URL` and the keys by itself.
+2. Create the tables, once. Either:
+   - **Supabase dashboard → SQL Editor**: run `db/migrations/001_signups.sql`,
+     then `db/migrations/002_supabase.sql`; or
+   - locally: `vercel env pull .env.local`, then `npm run db:migrate`.
 
-Rows appear in a `Sign-ups` tab: Time, Event (signed up / downloaded), Name,
-Email, Wants updates, Country, Browser.
+Row level security is on with no policies, so Supabase's public API keys
+can't read or write these tables. Only the website's server can. Browse the
+data in **Supabase → Table Editor** (`signups`, `downloads`).
 
-Gmail sending limit: about 100 emails a day on a free Google account
-(1,500 on Google Workspace).
+## 2. SendByte
 
-## 2. Vercel
+1. In the SendByte dashboard, add and verify your sending domain (publish the
+   SPF, DKIM and DMARC records it gives you; the domain must show *verified*).
+2. Create a **live** API key (`sk_live_…`). A sandbox key (`sk_test_…`)
+   never delivers to real inboxes.
 
-1. **Add New → Project → Import** `screen_recorder_app`.
-2. **Root Directory:** `landing`. Framework preset: **Other**. Vercel runs
-   `npm run build`, which only checks that the functions load.
-3. **Environment Variables**:
+## 3. Vercel environment variables
 
 | Name | Value |
 | --- | --- |
-| `APPS_SCRIPT_URL` | the Web app URL from step 1.5 |
-| `APPS_SCRIPT_SECRET` | the same `SECRET` as step 1.3 |
-| `LINK_SECRET` | a different long random string (signs download links) |
-| `DATABASE_URL` | Neon pooled connection string (see step 3) |
+| `POSTGRES_URL` | set by the Supabase integration (pooled, port 6543) |
+| `SENDBYTE_API_KEY` | your SendByte live key |
+| `EMAIL_FROM` | e.g. `Screen Recorder <downloads@yourdomain.com>` (a verified domain) |
+| `LINK_SECRET` | a long random string (signs download links) |
 | `PUBLIC_URL` | optional, e.g. `https://yourdomain.com` once you add a domain |
 | `INSTALLER_URL` | optional; defaults to the latest GitHub release |
 
-4. **Deploy.** Then sign up on your page with your own email to check the
-   whole flow.
+Project settings: **Root Directory** `landing`, framework **Other**. Vercel
+runs `npm run build`, which checks the functions load and copies the page to
+`public/`. Redeploy after changing variables, then:
 
-## 3. Neon Postgres
+- `https://<site>/api/health` → `{"ok":true,"database":{"connected":true,...}}`
+- sign up with your own email and open the link you receive.
 
-Sign-ups and downloads are stored in Postgres on Neon (project
-`muddy-glade-60136833`, branch `production`; see `neon.ts` and `.neon`). The
-Sheet still gets a copy and still sends the email.
+If anything is missing, the form answers "The site is not set up yet" and the
+function log says which setting is missing.
+
+## Local development
 
 ```bash
 cd landing
 npm install
-npm i -g neon@latest
-neon init -y --org-id org-silent-wind-63080554 --project-id muddy-glade-60136833 --branch production --services postgres
-neon deploy            # signs in, provisions, writes DATABASE_URL(_UNPOOLED) to .env.local
-npm run db:migrate     # creates the signups and downloads tables (uses the direct URL)
-npm run build
-npm start              # http://localhost:3000, uses .env.local
-curl localhost:3000/api/health
+vercel env pull .env.local   # or write POSTGRES_URL etc. by hand
+npm run db:migrate
+npm start                    # http://localhost:3000
+TEST_DATABASE_URL=postgres://... npm test   # full flow against a real Postgres
 ```
-
-Then copy `DATABASE_URL` (the pooled one, host ending in `-pooler`) into
-Vercel's environment variables and redeploy. `/api/health` returns
-`{"ok":true,"database":{"connected":true,...}}` when it's working.
-
-- Driver: `pg` with `attachDatabasePool` from `@vercel/functions`, as Neon
-  recommends for Vercel functions.
-- Schema changes go in `db/migrations/NNN_name.sql`; run `npm run db:migrate`.
-- If `DATABASE_URL` is not set, the site still works with the Sheet alone.
-- `TEST_DATABASE_URL=… npm test` also runs the database test.
 
 ## Notes
 
-- The installer itself is served from GitHub Releases, so the latest build is
-  always what people get.
-- The gate stops casual downloads. Someone who already has the link (or finds
-  the GitHub release) can still download it.
+- Driver: `pg` with `attachDatabasePool` from `@vercel/functions`, on
+  Supabase's pooled connection. Supabase uses its own TLS certificate
+  authority, so the connection is encrypted without CA verification
+  (`lib/db.js`).
+- Double clicks within a minute send one email (SendByte idempotency key).
+- The installer is served from GitHub Releases, so the latest build is always
+  what people get. Someone who finds the release page can still download it
+  directly; the gate stops casual downloads.
 - Changing `LINK_SECRET` invalidates every link already emailed.

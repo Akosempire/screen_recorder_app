@@ -1,15 +1,19 @@
-import { isEmail, makeToken, sendToSheet, LINK_DAYS } from '../lib/token.js';
-import { hasDatabase, saveSignup } from '../lib/db.js';
+import { isEmail, makeToken, LINK_DAYS } from '../lib/token.js';
+import { hasDatabase, saveSignup, markEmailSent } from '../lib/db.js';
+import { hasEmail, sendDownloadEmail } from '../lib/email.js';
 
 // POST /api/signup  { name, email, updates, website(honeypot) }
-// Saves the sign-up to Postgres, then the Google Sheet emails a signed download link.
+// Saves the sign-up to Supabase, then emails a signed download link through SendByte.
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Use POST.' });
   }
   const secret = process.env.LINK_SECRET;
-  if (!secret) return res.status(500).json({ error: 'The site is not set up yet. Try again later.' });
+  if (!secret || !hasDatabase() || !hasEmail()) {
+    console.error('signup not configured', { linkSecret: Boolean(secret), database: hasDatabase(), email: hasEmail() });
+    return res.status(500).json({ error: 'The site is not set up yet. Try again later.' });
+  }
 
   let body = req.body;
   if (typeof body === 'string') {
@@ -29,33 +33,35 @@ export default async function handler(req, res) {
   const host = process.env.PUBLIC_URL?.replace(/\/+$/, '') || `${proto}://${req.headers.host}`;
   const link = `${host}/api/download?t=${makeToken(email, secret)}`;
 
-  const country = req.headers['x-vercel-ip-country'] || '';
-  const userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
+  // Save first, so no sign-up is lost even if the email fails.
+  try {
+    await saveSignup({
+      name,
+      email,
+      updates: body.updates,
+      country: req.headers['x-vercel-ip-country'] || '',
+      userAgent: String(req.headers['user-agent'] || '').slice(0, 200),
+    });
+  } catch (error) {
+    console.error('signup save failed', error);
+    return res.status(502).json({ error: 'We could not save your details. Try again in a minute.' });
+  }
 
-  // Postgres (Neon) is the record of sign-ups; save it before sending anything.
-  if (hasDatabase()) {
-    try {
-      await saveSignup({ name, email, updates: body.updates, country, userAgent });
-    } catch (error) {
-      console.error('signup save failed', error);
-      return res.status(502).json({ error: 'We could not save your details. Try again in a minute.' });
+  let messageId;
+  try {
+    messageId = await sendDownloadEmail({ name, email, link, days: LINK_DAYS });
+  } catch (error) {
+    console.error('signup email failed', error.message, error.requestId || '');
+    if (error.code === 'suppressed_recipient') {
+      return res.status(400).json({ error: 'We can’t send email to that address. Try a different one.' });
     }
+    return res.status(502).json({ error: 'The link could not be sent. Try again in a minute.' });
   }
 
   try {
-    await sendToSheet({
-      action: 'signup',
-      name,
-      email,
-      updates: Boolean(body.updates),
-      link,
-      linkDays: LINK_DAYS,
-      country,
-      userAgent,
-    });
+    await markEmailSent(email, messageId);
   } catch (error) {
-    console.error('signup failed', error);
-    return res.status(502).json({ error: 'The link could not be sent. Try again in a minute.' });
+    console.error('could not record email id', error.message); // the email went out; don't fail the request
   }
   return res.status(200).json({ ok: true });
 }

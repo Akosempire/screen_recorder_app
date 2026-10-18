@@ -1,4 +1,4 @@
-// Loads .env.local then .env (what `neon deploy` / `neon env pull` write) for local scripts.
+// Loads .env.local then .env (e.g. from `vercel env pull .env.local`) for local scripts.
 // Real environment variables always win. Vercel sets env itself, so the API never needs this.
 import fs from 'node:fs';
 import path from 'node:path';

@@ -1,26 +1,44 @@
 import pg from 'pg';
 import { attachDatabasePool } from '@vercel/functions';
 
-// One pool per function instance, on Neon's pooled DATABASE_URL.
-// attachDatabasePool lets Vercel Fluid compute close idle clients before the
-// instance is suspended, so connections are not leaked.
+// Supabase Postgres. The Vercel ↔ Supabase integration sets POSTGRES_URL
+// (Supavisor pooler, transaction mode), which suits serverless functions.
+// DATABASE_URL is accepted too, for local Postgres or a manual setup.
 let pool;
 
+export function databaseUrl() {
+  return process.env.POSTGRES_URL || process.env.DATABASE_URL || '';
+}
+
 export function hasDatabase() {
-  return Boolean(process.env.DATABASE_URL);
+  return Boolean(databaseUrl());
+}
+
+/**
+ * Supabase serves TLS with its own certificate authority, which Node does not
+ * trust by default, and newer `pg` treats `sslmode=require` as full
+ * verification. For Supabase hosts we keep the connection encrypted but skip
+ * CA verification; local Postgres connects as configured.
+ */
+export function connectionConfig(url = databaseUrl()) {
+  const u = new URL(url);
+  if (/\.supabase\.(co|com)$/.test(u.hostname)) {
+    for (const key of ['sslmode', 'sslrootcert', 'sslcert', 'sslkey', 'supa']) u.searchParams.delete(key);
+    return { connectionString: u.toString(), ssl: { rejectUnauthorized: false } };
+  }
+  return { connectionString: url };
 }
 
 export function getPool() {
   if (!pool) {
-    if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not set.');
+    if (!hasDatabase()) throw new Error('POSTGRES_URL is not set.');
     pool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL,
+      ...connectionConfig(),
       max: 5,
       idleTimeoutMillis: 5000,
       connectionTimeoutMillis: 10000,
     });
-    // Idle connections get closed by the server (e.g. Neon scaling to zero).
-    // Without this handler that error would crash the function.
+    // Idle connections get closed by the server; without this the error would crash the function.
     pool.on('error', (error) => console.error('idle database client closed', error.message));
     attachDatabasePool(pool);
   }
@@ -43,6 +61,13 @@ export async function saveSignup({ name, email, updates, country, userAgent }) {
     [email, name, Boolean(updates), country || null, userAgent || null],
   );
   return rows[0];
+}
+
+export async function markEmailSent(email, messageId) {
+  await getPool().query(
+    'UPDATE signups SET last_email_id = $2, last_emailed_at = now() WHERE email = $1',
+    [email, messageId || null],
+  );
 }
 
 export async function logDownload({ email, country, userAgent }) {

@@ -37,21 +37,3 @@ export function readToken(token, secret, now = Date.now()) {
 export function isEmail(value) {
   return typeof value === 'string' && value.length <= 160 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
 }
-
-/** Forwards an event to the Google Apps Script web app bound to the Sheet. */
-export async function sendToSheet(body, { url = process.env.APPS_SCRIPT_URL, secret = process.env.APPS_SCRIPT_SECRET } = {}) {
-  if (!url || !secret) throw new Error('Sign-up storage is not configured.');
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, secret }),
-    redirect: 'follow',
-  });
-  const text = await res.text();
-  let data = {};
-  try { data = JSON.parse(text); } catch { /* Apps Script returned HTML */ }
-  if (!res.ok || data.ok !== true) {
-    throw new Error(data.error || `Apps Script responded ${res.status}`);
-  }
-  return data;
-}

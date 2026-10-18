@@ -5,7 +5,7 @@ import { getPool, hasDatabase } from '../lib/db.js';
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (!hasDatabase()) {
-    return res.status(503).json({ ok: false, database: { connected: false, error: 'DATABASE_URL is not set.' } });
+    return res.status(503).json({ ok: false, database: { connected: false, error: 'POSTGRES_URL is not set.' } });
   }
   try {
     const { rows } = await getPool().query(

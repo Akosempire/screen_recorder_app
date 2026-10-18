@@ -1,5 +1,5 @@
 // `npm start`: serves the site and runs api/*.js like Vercel does, for local testing.
-// Reads .env.local / .env (written by `neon deploy`).
+// Reads .env.local / .env (e.g. from `vercel env pull .env.local`).
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
