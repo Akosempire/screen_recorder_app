@@ -112,9 +112,10 @@ h2 .serif{letter-spacing:-.03em}
 .slide.is-active{visibility:visible;opacity:1;pointer-events:auto}
 .slide.is-leaving{visibility:visible;opacity:1;animation:slide-out .45s var(--ease) forwards}
 .slide-copy{padding:8px 0 8px 12px}
-.slide-num{display:inline-flex;align-items:baseline;gap:2px;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--blue);font-feature-settings:"tnum"}
-.slide-num small{font-size:12px;color:var(--faint);font-weight:600}
-.slide h3{margin-top:14px;font-size:clamp(28px,3.2vw,44px);line-height:1.02;letter-spacing:-.045em;font-weight:700}
+.slide-num{display:flex;align-items:baseline;gap:8px;font-feature-settings:"tnum";line-height:.9}
+.slide-num b{font-size:clamp(56px,6.4vw,92px);font-weight:700;letter-spacing:-.06em;color:var(--blue);background:linear-gradient(135deg,var(--navy) 0%,var(--blue) 55%,var(--sky) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.slide-num small{font-size:clamp(18px,1.8vw,24px);font-weight:700;letter-spacing:-.02em;color:var(--faint)}
+.slide h3{margin-top:18px;font-size:clamp(28px,3.2vw,44px);line-height:1.02;letter-spacing:-.045em;font-weight:700}
 .slide p{margin-top:14px;font-size:16px;line-height:1.5;color:var(--mute);max-width:26em}
 .slide-media{min-width:0}
 .slide-media .media{margin-top:0}
@@ -151,11 +152,16 @@ h2 .serif{letter-spacing:-.03em}
 .slider-arrows button:hover{transform:translateY(-1px);background:#F2F7FF}
 .slider-arrows button:active{transform:scale(.95)}
 .slider-arrows svg{width:20px;height:20px;fill:none;stroke:var(--ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.slider-arrows .toggle .i-play{display:none;fill:var(--ink);stroke-width:1.5}
+.slider.stopped .slider-arrows .toggle .i-play{display:block}
+.slider.stopped .slider-arrows .toggle .i-pause{display:none}
 
 @media (max-width:900px){
   .slider{padding:20px;border-radius:28px}
   .slide{grid-template-columns:1fr;gap:20px;align-content:start}
   .slide-copy{padding:4px 4px 0;text-align:center}
+  .slide-num{justify-content:center}
+  .slide-num b{font-size:56px}
   .slide p{margin-left:auto;margin-right:auto}
   .slider-bar{flex-direction:column-reverse;align-items:stretch;gap:12px}
   .slider-arrows{justify-content:center}
@@ -364,7 +370,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
       <div class="slides" aria-live="polite">
         <article class="slide is-active" id="slide-1" role="group" aria-roledescription="slide" aria-label="1 of 8">
           <div class="slide-copy">
-            <span class="slide-num">01<small> / 08</small></span>
+            <span class="slide-num"><b>01</b><small>/ 08</small></span>
             <h3>Auto-zoom that follows your mouse</h3>
             <p>When you stop, the video zooms in where you clicked, pans with your cursor, and eases back out. Compare it with the original side by side.</p>
           </div>
@@ -372,7 +378,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         </article>
         <article class="slide" id="slide-2" role="group" aria-roledescription="slide" aria-label="2 of 8" aria-hidden="true">
           <div class="slide-copy">
-            <span class="slide-num">02<small> / 08</small></span>
+            <span class="slide-num"><b>02</b><small>/ 08</small></span>
             <h3>Everything on one screen</h3>
             <p>Pick a cursor style, set the zoom, turn on your camera or mic, then press Start Recording and drag a box around what you want to record.</p>
           </div>
@@ -380,7 +386,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         </article>
         <article class="slide" id="slide-3" role="group" aria-roledescription="slide" aria-label="3 of 8" aria-hidden="true">
           <div class="slide-copy">
-            <span class="slide-num">03<small> / 08</small></span>
+            <span class="slide-num"><b>03</b><small>/ 08</small></span>
             <h3>A backdrop that looks finished</h3>
             <p>Put your recording on a gradient, a pattern or your own image, with rounded corners and a soft shadow. Adjust the padding until it looks right.</p>
           </div>
@@ -388,7 +394,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         </article>
         <article class="slide" id="slide-4" role="group" aria-roledescription="slide" aria-label="4 of 8" aria-hidden="true">
           <div class="slide-copy">
-            <span class="slide-num">04<small> / 08</small></span>
+            <span class="slide-num"><b>04</b><small>/ 08</small></span>
             <h3>Trim and cut before you export</h3>
             <p>Drag the ends to trim, cut out mistakes from the middle, and play it back to check. Your original file stays untouched.</p>
           </div>
@@ -396,7 +402,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         </article>
         <article class="slide" id="slide-5" role="group" aria-roledescription="slide" aria-label="5 of 8" aria-hidden="true">
           <div class="slide-copy">
-            <span class="slide-num">05<small> / 08</small></span>
+            <span class="slide-num"><b>05</b><small>/ 08</small></span>
             <h3>A cursor you can't miss</h3>
             <p>A yellow halo follows the mouse and every click ripples, live on screen and in the video.</p>
           </div>
@@ -404,7 +410,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         </article>
         <article class="slide" id="slide-6" role="group" aria-roledescription="slide" aria-label="6 of 8" aria-hidden="true">
           <div class="slide-copy">
-            <span class="slide-num">06<small> / 08</small></span>
+            <span class="slide-num"><b>06</b><small>/ 08</small></span>
             <h3>Your face in a bubble</h3>
             <p>Drag the webcam bubble anywhere or snap it to a corner. Pick the size and shape.</p>
           </div>
@@ -412,7 +418,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         </article>
         <article class="slide" id="slide-7" role="group" aria-roledescription="slide" aria-label="7 of 8" aria-hidden="true">
           <div class="slide-copy">
-            <span class="slide-num">07<small> / 08</small></span>
+            <span class="slide-num"><b>07</b><small>/ 08</small></span>
             <h3>Export the way you need it</h3>
             <p>Choose resolution, frame rate, quality and sound, name the file, and save it to the folder you choose.</p>
           </div>
@@ -420,7 +426,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         </article>
         <article class="slide" id="slide-8" role="group" aria-roledescription="slide" aria-label="8 of 8" aria-hidden="true">
           <div class="slide-copy">
-            <span class="slide-num">08<small> / 08</small></span>
+            <span class="slide-num"><b>08</b><small>/ 08</small></span>
             <h3>Start and stop from the keyboard</h3>
             <p>Start a recording and stop it without reaching for the mouse.</p>
           </div>
@@ -442,6 +448,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
           <button type="button" role="tab" aria-controls="slide-8" aria-selected="false" tabindex="-1"><span>Shortcuts</span><i></i></button>
         </div>
         <div class="slider-arrows">
+          <button type="button" class="toggle" aria-label="Pause the slideshow" aria-pressed="false"><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg></button>
           <button type="button" class="prev" aria-label="Previous feature"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
           <button type="button" class="next" aria-label="Next feature"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
         </div>
@@ -589,7 +596,7 @@ const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!root) return;
   const slides = [...root.querySelectorAll('.slide')];
   const tabs = [...root.querySelectorAll('[role=tab]')];
-  let index = 0, visible = false, hovering = false, focused = false;
+  let index = 0, visible = false, focused = false, stopped = false;
 
   function go(next, user){
     next = (next + slides.length) % slides.length;
@@ -618,11 +625,10 @@ const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // Auto-advance when the progress line under the active tab fills up.
   function update(){
-    const run = visible && !hovering && !focused && !document.hidden;
+    const run = visible && !focused && !stopped && !document.hidden;
     root.classList.toggle('paused', !run);
   }
   function restart(){
-    if (reduce) return;
     root.classList.remove('autoplay'); void root.offsetWidth; root.classList.add('autoplay');
   }
   tabs.forEach(t => t.querySelector('i').addEventListener('animationend', () => go(index + 1)));
@@ -652,10 +658,16 @@ const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   area.addEventListener('pointercancel', () => { x0 = null; });
   area.addEventListener('dragstart', e => e.preventDefault());
 
-  root.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse'){ hovering = true; update(); } });
-  root.addEventListener('pointerleave', () => { hovering = false; update(); });
+  const toggle = root.querySelector('.toggle');
+  toggle.addEventListener('click', () => {
+    stopped = !stopped;
+    root.classList.toggle('stopped', stopped);
+    toggle.setAttribute('aria-pressed', String(stopped));
+    toggle.setAttribute('aria-label', stopped ? 'Play the slideshow' : 'Pause the slideshow');
+    update();
+  });
   // Pause for keyboard users moving through the tabs, not after a mouse click.
-  root.addEventListener('focusin', e => { focused = e.target.matches(':focus-visible'); update(); });
+  root.addEventListener('focusin', e => { focused = e.target.matches('[role=tab]:focus-visible'); update(); });
   root.addEventListener('focusout', e => { if (!root.contains(e.relatedTarget)){ focused = false; update(); } });
   document.addEventListener('visibilitychange', update);
   if ('IntersectionObserver' in window){
@@ -664,7 +676,7 @@ const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       visible = e.isIntersecting;
       if (visible && !started && !reduce){ started = true; slides[index].classList.add('animate'); }
       update();
-    }, { threshold: .35 }).observe(root);
+    }, { threshold: .2 }).observe(root);
   } else { visible = true; }
   update();
   restart();
