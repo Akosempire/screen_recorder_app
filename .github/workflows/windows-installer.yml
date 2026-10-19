@@ -266,7 +266,16 @@ jobs:
           echo "$PWD" >> "$GITHUB_PATH"
       - run: flutter pub get
       - name: Unit tests on macOS
-        run: flutter test test/cross_platform_test.dart test/auto_zoom_test.dart
+        shell: bash
+        # Reported, but don't stop the .dmg build (Windows/Linux run the full suite).
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if ! flutter test --reporter expanded test/cross_platform_test.dart test/auto_zoom_test.dart 2>&1 | tee test-output.txt; then
+            msg=$(grep -nE "\[E\]|Expected:|Actual:|Which:|EXCEPTION|Error:|error:|Test failed|ProcessException|══" test-output.txt | head -60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=macOS test failures::${msg}"
+            exit 1
+          fi
       - name: List capture devices (no Screen Recording permission on CI is expected)
         continue-on-error: true
         run: ffmpeg_mac/ffmpeg -hide_banner -f avfoundation -list_devices true -i "" || true

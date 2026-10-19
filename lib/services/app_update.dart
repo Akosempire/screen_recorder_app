@@ -249,8 +249,8 @@ class AppUpdateService extends ChangeNotifier {
   Future<void> _openDownload(UpdateInfo info) async {
     final url = info.downloadFor(
           _os,
-          debInstall: Platform.resolvedExecutable.startsWith('/opt/') ||
-              Platform.resolvedExecutable.startsWith('/usr/'),
+          // The .deb installs to /opt/screen-recorder.
+          debInstall: Platform.resolvedExecutable.startsWith('/opt/screen-recorder/'),
         ) ??
         downloadPageUrl;
     try {
