@@ -99,17 +99,74 @@ h2 .serif{letter-spacing:-.03em}
 .media .overlay img{width:100%;height:auto}
 @keyframes bob{50%{transform:translateY(-8px)}}
 
-.duo{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:28px}
-.duo .panel{margin-top:0;padding:34px 28px 28px}
-.duo .panel h3{font-size:clamp(24px,2.4vw,30px)}
-.duo .panel p{font-size:15px}
-.duo .pic{margin:22px auto 0;max-width:300px;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 18px 36px -22px rgba(0,0,0,.35);transition:transform .5s var(--ease)}
-.duo .panel:hover .pic{transform:translateY(-4px)}
 
 .keys{display:flex;justify-content:center;gap:6px;margin-top:22px;flex-wrap:wrap}
 .key{min-width:40px;height:40px;padding:0 11px;display:inline-grid;place-items:center;border-radius:10px;background:#fff;box-shadow:0 2px 0 #D2D2D7,0 0 0 1px #E3E3E8;font-size:14px;font-weight:600;transition:transform .15s,box-shadow .15s}
 .keys:hover .key{transform:translateY(2px);box-shadow:0 0 0 #D2D2D7,0 0 0 1px #E3E3E8}
 .plus{color:var(--faint);align-self:center;font-weight:500}
+
+/* ---------- feature slider: each feature slides in from the left ---------- */
+.slider{--slide-time:6.5s;margin-top:40px;background:var(--panel);border-radius:32px;padding:28px;text-align:left;position:relative;overflow:hidden;outline:none}
+.slides{display:grid;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.slide{grid-area:1/1;display:grid;grid-template-columns:minmax(0,.78fr) minmax(0,1.62fr);gap:36px;align-items:center;visibility:hidden;opacity:0;pointer-events:none}
+.slide.is-active{visibility:visible;opacity:1;pointer-events:auto}
+.slide.is-leaving{visibility:visible;opacity:1;animation:slide-out .45s var(--ease) forwards}
+.slide-copy{padding:8px 0 8px 12px}
+.slide-num{display:inline-flex;align-items:baseline;gap:2px;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--blue);font-feature-settings:"tnum"}
+.slide-num small{font-size:12px;color:var(--faint);font-weight:600}
+.slide h3{margin-top:14px;font-size:clamp(28px,3.2vw,44px);line-height:1.02;letter-spacing:-.045em;font-weight:700}
+.slide p{margin-top:14px;font-size:16px;line-height:1.5;color:var(--mute);max-width:26em}
+.slide-media{min-width:0}
+.slide-media .media{margin-top:0}
+.slider:hover .slide.is-active .media>img{transform:scale(1.015)}
+.stage{aspect-ratio:1400/740;border-radius:18px;display:grid;place-items:center;background:radial-gradient(120% 90% at 20% 10%,#fff 0%,#EAF4FF 55%,#DCEBFF 100%);box-shadow:0 1px 0 rgba(0,0,0,.04),0 20px 40px -24px rgba(0,0,0,.25);overflow:hidden}
+.stage .pic{height:84%;width:auto;max-width:86%;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 24px 50px -22px rgba(0,0,0,.4),0 0 0 1px rgba(0,0,0,.05)}
+.stage .pic img{height:100%;width:auto;max-width:100%;object-fit:contain;display:block}
+.stage .keyrow{margin:0;width:min(520px,86%);text-align:center}
+
+/* the incoming slide enters from the left: copy first, then the picture wipes in */
+.slide.is-active.animate .slide-copy>*{animation:in-left .8s var(--ease) both}
+.slide.is-active.animate .slide-copy>:nth-child(2){animation-delay:.06s}
+.slide.is-active.animate .slide-copy>:nth-child(3){animation-delay:.12s}
+.slide.is-active.animate .slide-media{animation:in-left-media .95s var(--ease) .05s both}
+@keyframes in-left{from{opacity:0;transform:translateX(-48px)}to{opacity:1;transform:none}}
+@keyframes in-left-media{from{opacity:0;transform:translateX(-90px);clip-path:inset(0 100% 0 0 round 18px)}to{opacity:1;transform:none;clip-path:inset(0 0 0 0 round 18px)}}
+@keyframes slide-out{to{opacity:0;transform:translateX(60px)}}
+
+.slider-bar{display:flex;align-items:center;gap:16px;margin-top:24px}
+.slider-tabs{flex:1;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px;margin:-2px}
+.slider-tabs::-webkit-scrollbar{display:none}
+.slider-tabs button{position:relative;flex:1 0 auto;min-width:0;border:0;background:rgba(0,0,0,.045);color:var(--ink-2);font:600 13px/1 var(--sans);padding:12px 14px 14px;border-radius:12px;cursor:pointer;overflow:hidden;white-space:nowrap;transition:background .25s,color .25s}
+.slider-tabs button:hover{background:rgba(0,0,0,.08)}
+.slider-tabs button[aria-selected="true"]{background:#fff;color:var(--ink);box-shadow:0 6px 16px -10px rgba(0,0,0,.35)}
+.slider-tabs button i{position:absolute;left:10px;right:10px;bottom:6px;height:2px;border-radius:2px;background:rgba(0,0,0,.08);overflow:hidden}
+.slider-tabs button i::after{content:"";position:absolute;inset:0;background:var(--blue);transform:scaleX(0);transform-origin:left}
+.slider-tabs button[aria-selected="true"] i::after{transform:scaleX(1)}
+.slider.autoplay .slider-tabs button[aria-selected="true"] i::after{animation:fill var(--slide-time) linear both}
+.slider.paused .slider-tabs button[aria-selected="true"] i::after{animation-play-state:paused}
+@keyframes fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.slider-tabs button:focus-visible,.slider-arrows button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.slider-arrows{display:flex;gap:8px;flex:none}
+.slider-arrows button{width:44px;height:44px;border-radius:50%;border:0;background:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 16px -10px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.05);transition:transform .2s var(--ease),background .2s}
+.slider-arrows button:hover{transform:translateY(-1px);background:#F2F7FF}
+.slider-arrows button:active{transform:scale(.95)}
+.slider-arrows svg{width:20px;height:20px;fill:none;stroke:var(--ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+@media (max-width:900px){
+  .slider{padding:20px;border-radius:28px}
+  .slide{grid-template-columns:1fr;gap:20px;align-content:start}
+  .slide-copy{padding:4px 4px 0;text-align:center}
+  .slide p{margin-left:auto;margin-right:auto}
+  .slider-bar{flex-direction:column-reverse;align-items:stretch;gap:12px}
+  .slider-arrows{justify-content:center}
+  .slider-tabs button{flex:0 0 auto}
+}
+@media (max-width:540px){
+  .slider{padding:14px 12px 16px;border-radius:24px;margin-top:28px}
+  .slide h3{font-size:28px}
+  .slide p{font-size:15px}
+  .stage{aspect-ratio:4/3}
+}
 .keyrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
 .keyrow small{display:block;margin-top:10px;color:var(--mute);font-size:14px}
 
@@ -224,7 +281,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
 
 @media (max-width:860px){
   .notch nav{display:none}
-  .duo,.faq,.keyrow{grid-template-columns:1fr}
+  .faq,.keyrow{grid-template-columns:1fr}
   .cases{grid-template-columns:1fr 1fr}
   .foot{grid-template-columns:1fr 1fr}
   .foot>div:first-child{grid-column:1/-1}
@@ -244,6 +301,8 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
   html{scroll-behavior:auto}
   .reveal,.load{opacity:1;transform:none;filter:none;transition:none;animation:none}
   .media .overlay{animation:none}
+  .slide.is-leaving{animation:none;visibility:hidden}
+  .slide.is-active.animate .slide-copy>*,.slide.is-active.animate .slide-media{animation:none}
 }
 </style>
 </head>
@@ -301,43 +360,91 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
       <span class="tag"><i style="background:var(--halo)"></i>Cursor halo</span><span class="tag"><i style="background:var(--halo)"></i>Click ripples</span><span class="tag"><i style="background:var(--blue)"></i>Auto-zoom</span><span class="tag">Follows your mouse</span><span class="tag"><i style="background:var(--rec)"></i>Face camera</span><span class="tag">Microphone</span><span class="tag">Pause and resume</span><span class="tag">Before and after</span><span class="tag">MP4 export</span><span class="tag">Nothing uploaded</span><span class="tag">No watermark</span>
     </div>
 
-    <div class="panel reveal">
-      <h3>Auto-zoom that follows your mouse</h3>
-      <p>When you stop, the video zooms in where you clicked, pans with your cursor, and eases back out. Drag the split to compare it with the original.</p>
-      <div class="media"><img src="/assets/real/crop-compare.webp" width="1400" height="699" alt="The app's Before and After view: the original recording on the left, the auto-zoomed version on the right" loading="lazy"><div class="overlay"><img src="/assets/real/crop-zoom-settings.webp" width="306" height="230" alt="Auto-zoom settings: zoom level, hold on click, smoothness" loading="lazy"></div></div>
-    </div>
-
-    <div class="panel reveal">
-      <h3>Everything on one screen</h3>
-      <p>Pick a cursor style, set the zoom, turn on your camera or mic, then press Start Recording and drag a box around what you want to record.</p>
-      <div class="media"><img src="/assets/real/app-home.webp" width="1920" height="1008" alt="The Screen Recorder home screen with Start Recording, cursor styles, auto-zoom and a timeline" loading="lazy"></div>
-    </div>
-
-    <div class="duo">
-      <div class="panel reveal">
-        <h3>A cursor you can't miss</h3>
-        <p>A yellow halo follows the mouse and every click ripples, live on screen and in the video.</p>
-        <div class="pic"><img src="/assets/real/crop-cursor.webp" width="306" height="326" alt="Cursor styles: Halo + ripples, Halo only, Ripples only, Off" loading="lazy"></div>
+    <div class="slider reveal" id="feature-slider" role="region" aria-roledescription="carousel" aria-label="Features" tabindex="-1">
+      <div class="slides" aria-live="polite">
+        <article class="slide is-active" id="slide-1" role="group" aria-roledescription="slide" aria-label="1 of 8">
+          <div class="slide-copy">
+            <span class="slide-num">01<small> / 08</small></span>
+            <h3>Auto-zoom that follows your mouse</h3>
+            <p>When you stop, the video zooms in where you clicked, pans with your cursor, and eases back out. Compare it with the original side by side.</p>
+          </div>
+          <div class="slide-media"><div class="media"><img src="/assets/real/crop-compare.webp" width="1400" height="699" alt="The app's Before and After view: the original recording on the left, the auto-zoomed version on the right" loading="lazy"><div class="overlay"><img src="/assets/real/crop-zoom-settings.webp" width="306" height="230" alt="Auto-zoom settings: zoom level, hold on click, smoothness" loading="lazy"></div></div></div>
+        </article>
+        <article class="slide" id="slide-2" role="group" aria-roledescription="slide" aria-label="2 of 8" aria-hidden="true">
+          <div class="slide-copy">
+            <span class="slide-num">02<small> / 08</small></span>
+            <h3>Everything on one screen</h3>
+            <p>Pick a cursor style, set the zoom, turn on your camera or mic, then press Start Recording and drag a box around what you want to record.</p>
+          </div>
+          <div class="slide-media"><div class="media"><img src="/assets/real/app-home.webp" width="1920" height="1008" alt="The Screen Recorder home screen with Start Recording, cursor styles, auto-zoom and a timeline" loading="lazy"></div></div>
+        </article>
+        <article class="slide" id="slide-3" role="group" aria-roledescription="slide" aria-label="3 of 8" aria-hidden="true">
+          <div class="slide-copy">
+            <span class="slide-num">03<small> / 08</small></span>
+            <h3>A backdrop that looks finished</h3>
+            <p>Put your recording on a gradient, a pattern or your own image, with rounded corners and a soft shadow. Adjust the padding until it looks right.</p>
+          </div>
+          <div class="slide-media"><div class="media"><img src="/assets/real/app-background.webp" width="1920" height="1008" alt="The Backdrop panel: the recording sits on a blue gradient, with presets, padding, corners and shadow controls" loading="lazy"></div></div>
+        </article>
+        <article class="slide" id="slide-4" role="group" aria-roledescription="slide" aria-label="4 of 8" aria-hidden="true">
+          <div class="slide-copy">
+            <span class="slide-num">04<small> / 08</small></span>
+            <h3>Trim and cut before you export</h3>
+            <p>Drag the ends to trim, cut out mistakes from the middle, and play it back to check. Your original file stays untouched.</p>
+          </div>
+          <div class="slide-media"><div class="media"><img src="/assets/real/app-editor.webp" width="1920" height="1008" alt="The editor: video preview, background chips, and a timeline with yellow trim handles and a red cut" loading="lazy"></div></div>
+        </article>
+        <article class="slide" id="slide-5" role="group" aria-roledescription="slide" aria-label="5 of 8" aria-hidden="true">
+          <div class="slide-copy">
+            <span class="slide-num">05<small> / 08</small></span>
+            <h3>A cursor you can't miss</h3>
+            <p>A yellow halo follows the mouse and every click ripples, live on screen and in the video.</p>
+          </div>
+          <div class="slide-media"><div class="stage"><div class="pic"><img src="/assets/real/crop-cursor.webp" width="306" height="326" alt="Cursor styles: Halo + ripples, Halo only, Ripples only, Off" loading="lazy"></div></div></div>
+        </article>
+        <article class="slide" id="slide-6" role="group" aria-roledescription="slide" aria-label="6 of 8" aria-hidden="true">
+          <div class="slide-copy">
+            <span class="slide-num">06<small> / 08</small></span>
+            <h3>Your face in a bubble</h3>
+            <p>Drag the webcam bubble anywhere or snap it to a corner. Pick the size and shape.</p>
+          </div>
+          <div class="slide-media"><div class="stage"><div class="pic"><img src="/assets/real/crop-camera.webp" width="306" height="262" alt="Camera settings: size, shape and position" loading="lazy"></div></div></div>
+        </article>
+        <article class="slide" id="slide-7" role="group" aria-roledescription="slide" aria-label="7 of 8" aria-hidden="true">
+          <div class="slide-copy">
+            <span class="slide-num">07<small> / 08</small></span>
+            <h3>Export the way you need it</h3>
+            <p>Choose resolution, frame rate, quality and sound, name the file, and save it to the folder you choose.</p>
+          </div>
+          <div class="slide-media"><div class="media"><img src="/assets/real/app-export.webp" width="1920" height="1008" alt="The Export dialog over the app: format, resolution, frame rate, quality and keep the sound" loading="lazy"></div></div>
+        </article>
+        <article class="slide" id="slide-8" role="group" aria-roledescription="slide" aria-label="8 of 8" aria-hidden="true">
+          <div class="slide-copy">
+            <span class="slide-num">08<small> / 08</small></span>
+            <h3>Start and stop from the keyboard</h3>
+            <p>Start a recording and stop it without reaching for the mouse.</p>
+          </div>
+          <div class="slide-media"><div class="stage"><div class="keyrow">
+            <div><div class="keys"><span class="key">Ctrl</span><span class="plus">+</span><span class="key">Shift</span><span class="plus">+</span><span class="key">R</span></div><small>Start recording</small></div>
+            <div><div class="keys"><span class="key">Ctrl</span><span class="plus">+</span><span class="key">Shift</span><span class="plus">+</span><span class="key">S</span></div><small>Stop and export</small></div>
+          </div></div></div>
+        </article>
       </div>
-      <div class="panel reveal" data-delay="1">
-        <h3>Your face in a bubble</h3>
-        <p>Drag the webcam bubble anywhere or snap it to a corner. Pick the size and shape.</p>
-        <div class="pic"><img src="/assets/real/crop-camera.webp" width="306" height="262" alt="Camera settings: size, shape and position" loading="lazy"></div>
-      </div>
-    </div>
-
-    <div class="panel reveal">
-      <h3>Export the way you need it</h3>
-      <p>When you press Stop, choose resolution, frame rate, quality and sound, name the file, and save it to the folder you choose.</p>
-      <div class="media"><img src="/assets/real/app-export.webp" width="1920" height="1008" alt="The Export dialog over the app: format, resolution, frame rate, quality and keep the sound" loading="lazy"></div>
-    </div>
-
-    <div class="panel reveal">
-      <h3>Start and stop from the keyboard</h3>
-      <p>Start a recording and stop it without reaching for the mouse.</p>
-      <div class="keyrow">
-        <div><div class="keys"><span class="key">Ctrl</span><span class="plus">+</span><span class="key">Shift</span><span class="plus">+</span><span class="key">R</span></div><small>Start recording</small></div>
-        <div><div class="keys"><span class="key">Ctrl</span><span class="plus">+</span><span class="key">Shift</span><span class="plus">+</span><span class="key">S</span></div><small>Stop and export</small></div>
+      <div class="slider-bar">
+        <div class="slider-tabs" role="tablist" aria-label="Choose a feature">
+          <button type="button" role="tab" aria-controls="slide-1" aria-selected="true"><span>Auto-zoom</span><i></i></button>
+          <button type="button" role="tab" aria-controls="slide-2" aria-selected="false" tabindex="-1"><span>One screen</span><i></i></button>
+          <button type="button" role="tab" aria-controls="slide-3" aria-selected="false" tabindex="-1"><span>Backgrounds</span><i></i></button>
+          <button type="button" role="tab" aria-controls="slide-4" aria-selected="false" tabindex="-1"><span>Trim &amp; cut</span><i></i></button>
+          <button type="button" role="tab" aria-controls="slide-5" aria-selected="false" tabindex="-1"><span>Cursor</span><i></i></button>
+          <button type="button" role="tab" aria-controls="slide-6" aria-selected="false" tabindex="-1"><span>Face camera</span><i></i></button>
+          <button type="button" role="tab" aria-controls="slide-7" aria-selected="false" tabindex="-1"><span>Export</span><i></i></button>
+          <button type="button" role="tab" aria-controls="slide-8" aria-selected="false" tabindex="-1"><span>Shortcuts</span><i></i></button>
+        </div>
+        <div class="slider-arrows">
+          <button type="button" class="prev" aria-label="Previous feature"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+          <button type="button" class="next" aria-label="Next feature"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        </div>
       </div>
     </div>
   </div>
@@ -474,6 +581,93 @@ const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
   }), { rootMargin: '0px 0px -10% 0px', threshold: .1 });
   els.forEach(e => io.observe(e));
+})();
+
+// Feature slider: each feature slides in from the left.
+(function(){
+  const root = document.getElementById('feature-slider');
+  if (!root) return;
+  const slides = [...root.querySelectorAll('.slide')];
+  const tabs = [...root.querySelectorAll('[role=tab]')];
+  let index = 0, visible = false, hovering = false, focused = false;
+
+  function go(next, user){
+    next = (next + slides.length) % slides.length;
+    if (next === index) return;
+    const from = slides[index], to = slides[next];
+    from.classList.remove('is-active', 'animate');
+    from.setAttribute('aria-hidden', 'true');
+    if (!reduce){
+      from.classList.add('is-leaving');
+      setTimeout(() => from.classList.remove('is-leaving'), 460);
+    }
+    to.removeAttribute('aria-hidden');
+    to.classList.remove('is-leaving');
+    to.classList.add('is-active');
+    if (!reduce){ to.classList.remove('animate'); void to.offsetWidth; to.classList.add('animate'); }
+    tabs.forEach((t, i) => {
+      const on = i === next;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+    });
+    const tab = tabs[next], bar = tab.parentElement;
+    bar.scrollTo({ left: tab.offsetLeft - (bar.clientWidth - tab.offsetWidth) / 2, behavior: reduce ? 'auto' : 'smooth' });
+    index = next;
+    if (user) restart();
+  }
+
+  // Auto-advance when the progress line under the active tab fills up.
+  function update(){
+    const run = visible && !hovering && !focused && !document.hidden;
+    root.classList.toggle('paused', !run);
+  }
+  function restart(){
+    if (reduce) return;
+    root.classList.remove('autoplay'); void root.offsetWidth; root.classList.add('autoplay');
+  }
+  tabs.forEach(t => t.querySelector('i').addEventListener('animationend', () => go(index + 1)));
+
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => go(i, true));
+    t.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
+        e.preventDefault();
+        go(index + (e.key === 'ArrowRight' ? 1 : -1), true);
+        tabs[index].focus();
+      }
+    });
+  });
+  root.querySelector('.prev').addEventListener('click', () => go(index - 1, true));
+  root.querySelector('.next').addEventListener('click', () => go(index + 1, true));
+
+  // Swipe on touch screens and drag with a mouse.
+  const area = root.querySelector('.slides');
+  let x0 = null, y0 = 0;
+  area.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; });
+  area.addEventListener('pointerup', e => {
+    if (x0 === null) return;
+    const dx = e.clientX - x0, dy = e.clientY - y0; x0 = null;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) go(index + (dx < 0 ? 1 : -1), true);
+  });
+  area.addEventListener('pointercancel', () => { x0 = null; });
+  area.addEventListener('dragstart', e => e.preventDefault());
+
+  root.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse'){ hovering = true; update(); } });
+  root.addEventListener('pointerleave', () => { hovering = false; update(); });
+  // Pause for keyboard users moving through the tabs, not after a mouse click.
+  root.addEventListener('focusin', e => { focused = e.target.matches(':focus-visible'); update(); });
+  root.addEventListener('focusout', e => { if (!root.contains(e.relatedTarget)){ focused = false; update(); } });
+  document.addEventListener('visibilitychange', update);
+  if ('IntersectionObserver' in window){
+    let started = false;
+    new IntersectionObserver(([e]) => {
+      visible = e.isIntersecting;
+      if (visible && !started && !reduce){ started = true; slides[index].classList.add('animate'); }
+      update();
+    }, { threshold: .35 }).observe(root);
+  } else { visible = true; }
+  update();
+  restart();
 })();
 
 // FAQ: one open at a time.
