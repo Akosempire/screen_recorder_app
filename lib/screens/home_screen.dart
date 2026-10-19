@@ -1185,7 +1185,7 @@ class _StatusBar extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text('Status: ${state.label}', style: StudioText.tiny.copyWith(color: Studio.inkSoft)),
                         const _Dot(),
-                        const Text('Runs on this PC', style: StudioText.tiny),
+                        const Text('Runs on this computer', style: StudioText.tiny),
                         const _Dot(),
                         const Text('Bytes uploaded: ', style: StudioText.tiny),
                         const Text('0 B', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Studio.ink)),

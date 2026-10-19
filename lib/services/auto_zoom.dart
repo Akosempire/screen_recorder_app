@@ -346,33 +346,51 @@ Future<String> applyAutoZoom({
 
   AppLogger.info('Auto-zoom: ${keys.length} keyframes → $output');
   final reportProgress = onProgress != null && duration != null && duration > Duration.zero;
-  final args = [
-    '-y',
-    if (reportProgress) ...['-progress', 'pipe:1', '-nostats'],
-    '-i',
-    inputPath,
-    '-filter_script:v',
-    script.path,
-    '-c:v',
-    encoder,
-    if (encoder != 'mpeg4') ...['-preset', 'veryfast', '-crf', '20'],
-    '-pix_fmt',
-    'yuv420p',
-    if (hasAudio) ...['-c:a', 'copy'] else '-an',
-    '-movflags',
-    '+faststart',
-    output,
-  ];
-  final result = reportProgress
-      ? await runner.runStreaming(
+  List<String> argsWith(String scriptOption) => [
+        '-y',
+        if (reportProgress) ...['-progress', 'pipe:1', '-nostats'],
+        '-i',
+        inputPath,
+        scriptOption,
+        script.path,
+        '-c:v',
+        encoder,
+        if (encoder != 'mpeg4') ...['-preset', 'veryfast', '-crf', '20'],
+        '-pix_fmt',
+        'yuv420p',
+        if (hasAudio) ...['-c:a', 'copy'] else '-an',
+        '-movflags',
+        '+faststart',
+        output,
+      ];
+  Future<ProcessResult> render(String scriptOption) => reportProgress
+      ? runner.runStreaming(
           ffmpegExecutable,
-          args,
+          argsWith(scriptOption),
           onLine: ffmpegProgressReader(duration!, onProgress!),
         )
-      : await runner.run(ffmpegExecutable, args);
+      : runner.run(ffmpegExecutable, argsWith(scriptOption));
+
+  // FFmpeg 7+ reads a filter from a file with `-/filter:v`; FFmpeg 8 removed
+  // the older `-filter_script:v`, which is all FFmpeg 6 (Ubuntu 24.04) knows.
+  var result = await render(filterFromFileOption);
+  if (result.exitCode != 0 && isUnknownOptionError('${result.stderr}')) {
+    AppLogger.info('FFmpeg is older than 7; using -filter_script:v');
+    result = await render(legacyFilterFromFileOption);
+  }
   if (result.exitCode != 0 || !await File(output).exists()) {
     AppLogger.warn('Auto-zoom failed; keeping original. ${result.stderr}');
     return inputPath;
   }
   return output;
 }
+
+/// Reads the video filter graph from a file (FFmpeg 7 and newer).
+const filterFromFileOption = '-/filter:v';
+
+/// The same for FFmpeg 6 and older (removed in FFmpeg 8).
+const legacyFilterFromFileOption = '-filter_script:v';
+
+/// FFmpeg rejected an option it doesn't know.
+bool isUnknownOptionError(String stderr) =>
+    stderr.contains('Unrecognized option') || stderr.contains('Option not found');

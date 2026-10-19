@@ -136,7 +136,7 @@ class _ExportDialogState extends State<ExportDialog> {
                     const SizedBox(width: 6),
                     const Expanded(
                       child: Text(
-                        'On this PC, 0 bytes uploaded',
+                        'On this computer, 0 bytes uploaded',
                         style: StudioText.caption,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -393,7 +393,7 @@ class _ExportDialogState extends State<ExportDialog> {
       key: const ValueKey('privacy'),
       children: [
         line(Icons.computer_outlined,
-            'Recording, auto-zoom and export all run on this PC with the bundled FFmpeg.'),
+            'Recording, auto-zoom and export all run on this computer with FFmpeg.'),
         line(Icons.cloud_off_outlined,
             'Nothing is uploaded. No account, no analytics.'),
         line(Icons.folder_outlined,

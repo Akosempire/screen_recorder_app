@@ -1,8 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:screen_recorder_app/models/screen_region.dart';
 import 'package:screen_recorder_app/platform/macos_screen_recorder.dart';
 import 'package:screen_recorder_app/services/app_folders.dart';
 import 'package:screen_recorder_app/services/app_update.dart';
+import 'package:screen_recorder_app/services/auto_zoom.dart';
+import 'package:screen_recorder_app/services/cursor_tracker.dart';
+import 'package:screen_recorder_app/services/ffmpeg_process_manager.dart';
 import 'package:screen_recorder_app/services/ffmpeg_binary.dart';
 import 'package:screen_recorder_app/services/mac_screen_service.dart';
 
@@ -131,4 +137,48 @@ void main() {
     expect(info.downloadFor('linux', debInstall: true), 'https://x/a.deb');
     expect(info.downloads.containsKey('bad'), isFalse);
   });
+
+  test('auto-zoom falls back to -filter_script:v on FFmpeg 6', () async {
+    final dir = await Directory.systemTemp.createTemp('az_fallback_');
+    addTearDown(() => dir.delete(recursive: true));
+    final input = p.join(dir.path, 'in.mp4');
+    File(input).writeAsStringSync('x');
+    final runner = _OldFfmpeg();
+    final samples = [
+      for (var i = 0; i < 180; i++) CursorSample(i / 30, 100.0 + i, 100.0),
+    ];
+    final out = await applyAutoZoom(
+      inputPath: input,
+      log: CursorLog(samples, const [CursorClick(1.5, 200, 120)]),
+      width: 640,
+      height: 360,
+      encoder: 'libx264',
+      runner: runner,
+    );
+    expect(runner.options, [filterFromFileOption, legacyFilterFromFileOption]);
+    expect(p.basename(out), 'autozoom.mp4');
+    expect(isUnknownOptionError("Unrecognized option '/filter:v'."), isTrue);
+    expect(isUnknownOptionError('Invalid argument'), isFalse);
+  });
+}
+
+/// Behaves like FFmpeg 6: rejects `-/filter:v`, accepts `-filter_script:v`.
+class _OldFfmpeg extends ProcessRunner {
+  final options = <String>[];
+
+  @override
+  Future<ProcessResult> run(
+    String executable,
+    List<String> arguments, {
+    String? workingDirectory,
+    Duration? timeout,
+  }) async {
+    final option = arguments.firstWhere((a) => a.contains('filter'));
+    options.add(option);
+    if (option == filterFromFileOption) {
+      return ProcessResult(1, 1, '', "Unrecognized option '/filter:v'.\nError splitting the argument list: Option not found");
+    }
+    File(arguments.last).writeAsStringSync('video');
+    return ProcessResult(1, 0, '', '');
+  }
 }

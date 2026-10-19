@@ -267,8 +267,6 @@ jobs:
       - run: flutter pub get
       - name: Unit tests on macOS
         shell: bash
-        # Reported, but don't stop the .dmg build (Windows/Linux run the full suite).
-        continue-on-error: true
         run: |
           set -o pipefail
           if ! flutter test --reporter expanded test/cross_platform_test.dart test/auto_zoom_test.dart 2>&1 | tee test-output.txt; then
