@@ -497,6 +497,9 @@ gboolean camera_raise(gpointer) {
   return G_SOURCE_CONTINUE;
 }
 
+std::string camera_show_device(int diameter, bool circle, bool flip, const std::string& path,
+                               int corner);
+
 std::string camera_show(int diameter, bool circle, bool flip, const std::string& device,
                         int corner) {
   if (!is_x11()) return "The face camera needs an X11 session on Linux.";
@@ -509,7 +512,12 @@ std::string camera_show(int diameter, bool circle, bool flip, const std::string&
       break;
     }
   }
+  return camera_show_device(diameter, circle, flip, path, corner);
+}
 
+// Shows the bubble for the V4L2 device at [path].
+std::string camera_show_device(int diameter, bool circle, bool flip, const std::string& path,
+                               int corner) {
   const bool restart = g_camera.window == nullptr || g_camera.pid == 0 ||
                        diameter != g_camera.diameter || flip != g_camera.flip ||
                        path != g_camera.device;
