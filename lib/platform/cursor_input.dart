@@ -30,6 +30,11 @@ CursorInput? platformCursorInput({double macScale = 1}) {
   return null;
 }
 
+/// Live on-screen effects (cursor halo, face bubble): Windows, macOS and
+/// Linux on X11. Wayland doesn't let apps place windows over other apps.
+bool get liveEffectsSupported =>
+    Platform.isWindows || Platform.isMacOS || platformCanTrackCursor;
+
 /// Linux on X11 can read the global mouse position (Wayland can't).
 bool get platformCanTrackCursor => Platform.isLinux && _isX11Session();
 

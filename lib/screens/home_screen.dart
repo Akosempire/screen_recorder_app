@@ -1371,7 +1371,7 @@ class _CameraSection extends StatelessWidget {
               (enabled
                   ? 'Your face floats in a bubble on top of everything. '
                       'Keep it inside the area you record.'
-                  : 'The face camera bubble is coming to Mac and Linux soon.'),
+                  : 'The face camera needs an X11 session on Linux (Wayland doesn\'t let apps float over other apps).'),
           style: StudioText.caption.copyWith(
             height: 1.45,
             color: error != null ? Studio.danger : null,
@@ -1735,13 +1735,9 @@ class _UpdateDialog extends StatelessWidget {
 
 /// Caption under the cursor styles, per platform.
 String cursorEffectsCaption(CursorStyle style) {
-  if (Platform.isMacOS) {
-    return style.drawsRipples
-        ? 'macOS highlights every click in the video. The yellow halo is coming to Mac soon.'
-        : 'Click highlights are off. The yellow halo is coming to Mac soon.';
-  }
   if (!RecordingOptions.cursorEffectsSupported) {
-    return 'The cursor halo and click ripples are coming to Linux soon.';
+    return 'The cursor halo and click ripples need an X11 session on Linux '
+        '(Wayland doesn\'t let apps draw over other apps).';
   }
   return style.description;
 }

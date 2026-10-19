@@ -8,4 +8,4 @@ Icon=screen-recorder
 Terminal=false
 Categories=AudioVideo;Video;Recorder;
 Keywords=screen;record;capture;video;screencast;
-StartupWMClass=screen_recorder_app
+StartupWMClass=app.screenrecorder.ScreenRecorder

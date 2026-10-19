@@ -10,6 +10,7 @@
 #include <gdk/gdkwayland.h>
 #endif
 
+#include "effects.h"
 #include "flutter/generated_plugin_registrant.h"
 
 static const gchar kNativeChannel[] = "screen_recorder_app/native_window";
@@ -335,6 +336,8 @@ static void setup_method_channel(MyApplication* self, FlView* view) {
                                         FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(self->channel, method_call_cb, self,
                                             nullptr);
+  // Cursor halo and face-camera bubble.
+  effects_register(messenger);
 }
 
 // Called when first Flutter frame received.

@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/services.dart';
 
+import '../platform/cursor_input.dart' show liveEffectsSupported;
 import 'app_logger.dart';
 
-/// Native click-through overlay (Windows runner) that draws a halo around
+/// Native click-through overlay (Windows, macOS and Linux runners) that draws a halo around
 /// the cursor and a ripple on each click. Because it is a real on-screen
 /// layered window, gdigrab captures it, so the effect is both live and in
 /// the recorded video.
@@ -17,7 +16,8 @@ class CursorOverlay {
   final MethodChannel _channel;
   bool _visible = false;
 
-  bool get isSupported => Platform.isWindows;
+  /// Windows, macOS and Linux on X11 (Wayland can't place windows over others).
+  bool get isSupported => liveEffectsSupported;
 
   Future<void> show({bool halo = true, bool ripples = true}) async {
     if (!isSupported || _visible || (!halo && !ripples)) return;

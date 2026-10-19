@@ -1,13 +1,12 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../platform/cursor_input.dart' show liveEffectsSupported;
 import 'app_logger.dart';
 import 'cursor_overlay.dart';
 import 'recording_options.dart';
 
-/// Drives the native face-camera bubble (Windows runner): a draggable,
+/// Drives the native face-camera bubble (Windows, macOS and Linux X11 runners): a draggable,
 /// always-on-top webcam circle that is recorded along with the screen.
 ///
 /// Follows [RecordingOptions]: turning the camera on shows the bubble right
@@ -29,7 +28,7 @@ class CameraBubbleService extends ChangeNotifier {
   bool _busy = false;
   _Applied? _applied;
 
-  bool get isSupported => Platform.isWindows;
+  bool get isSupported => liveEffectsSupported;
   List<String> get devices => _devices;
   String? get error => _error;
   bool get visible => _visible;

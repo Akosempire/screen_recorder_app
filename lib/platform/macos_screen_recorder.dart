@@ -10,9 +10,9 @@ import '../services/recording_options.dart';
 import 'cursor_input.dart';
 
 /// macOS backend: FFmpeg `avfoundation` captures the main display (and the
-/// default microphone), cropped to the selected region. macOS draws its own
-/// click highlight (`-capture_mouse_clicks`), and CoreGraphics cursor
-/// tracking drives auto-zoom.
+/// default microphone), cropped to the selected region. The cursor halo and
+/// face bubble are on-screen windows (macos/Runner), so they're recorded as
+/// seen; CoreGraphics cursor tracking drives auto-zoom.
 class MacScreenRecorder extends EnhancedScreenRecorder {
   MacScreenRecorder({
     required super.encoder,
@@ -39,9 +39,8 @@ class MacScreenRecorder extends EnhancedScreenRecorder {
               encoder: encoder,
               screenIndex: screenIndex,
               microphoneIndex: recordMicrophone ? microphoneIndex : null,
-              clicks: (options ?? RecordingOptions.instance)
-                  .cursorStyle
-                  .drawsRipples,
+              // The app's own halo and ripples are drawn live on screen.
+              clicks: false,
             ),
           ),
         );

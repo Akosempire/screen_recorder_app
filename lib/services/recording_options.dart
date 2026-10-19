@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-import '../platform/cursor_input.dart' show platformCanTrackCursor;
+import '../platform/cursor_input.dart' show liveEffectsSupported, platformCanTrackCursor;
 import 'app_folders.dart';
 import 'recording_background.dart';
 
@@ -197,9 +197,8 @@ class RecordingOptions extends ChangeNotifier {
     _changed();
   }
 
-  /// The live cursor halo and click ripples overlay (Windows only for now;
-  /// macOS draws its own click highlight, toggled by the ripples setting).
-  static bool get cursorEffectsSupported => Platform.isWindows || Platform.isMacOS;
+  /// The live cursor halo and click ripples (Windows, macOS, Linux on X11).
+  static bool get cursorEffectsSupported => liveEffectsSupported;
 
   /// Auto-zoom needs the mouse position: Windows, macOS and Linux on X11.
   static bool get autoZoomSupported =>
