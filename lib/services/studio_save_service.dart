@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../controllers/recording_controller.dart';
 import '../screens/editor_screen.dart';
 import '../screens/export_dialog.dart';
+import 'app_folders.dart';
 import 'app_logger.dart';
 import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
@@ -267,16 +268,7 @@ String uniqueDestination(String folder, String fileName) {
   return candidate;
 }
 
-String defaultVideosFolder() {
-  final home = Platform.isWindows
-      ? Platform.environment['USERPROFILE']
-      : Platform.environment['HOME'];
-  if (home == null || home.isEmpty) {
-    return Directory.systemTemp.path;
-  }
-  final videos = p.join(home, 'Videos');
-  return Directory(videos).existsSync() ? videos : home;
-}
+String defaultVideosFolder() => defaultVideosFolderFor();
 
 /// Save flow for the studio UI: shows the in-app Export dialog, applies the
 /// chosen settings with FFmpeg, and returns the destination path.

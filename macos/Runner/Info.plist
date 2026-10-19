@@ -28,5 +28,13 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>CFBundleDisplayName</key>
+	<string>Screen Recorder</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.video</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Screen Recorder shows your camera in a bubble while you record.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Screen Recorder records your voice with the video when the microphone is on.</string>
 </dict>
 </plist>

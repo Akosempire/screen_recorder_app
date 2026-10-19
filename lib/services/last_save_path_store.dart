@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'app_folders.dart';
+
 /// Remembers the folder the user last saved a recording into.
 abstract class LastSavePathStore {
   Future<String?> lastDirectory();
@@ -39,18 +41,8 @@ class FileLastSavePathStore implements LastSavePathStore {
     if (_configDir != null) {
       return _configDir;
     }
-    final appData = Platform.environment['APPDATA'];
-    if (Platform.isWindows && appData != null && appData.isNotEmpty) {
-      return Directory(p.join(appData, 'screen_recorder_app'));
-    }
-    final configHome = Platform.environment['XDG_CONFIG_HOME'];
-    final base = (configHome != null && configHome.isNotEmpty)
-        ? configHome
-        : p.join(
-            Platform.environment['HOME'] ?? Directory.systemTemp.path,
-            '.config',
-          );
-    return Directory(p.join(base, 'screen_recorder_app'));
+    return appSettingsFolder() ??
+        Directory(p.join(Directory.systemTemp.path, 'screen_recorder_app'));
   }
 
   File get _file => File(p.join(_dir.path, 'last_save_directory'));

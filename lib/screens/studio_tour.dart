@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/recording_options.dart';
+import '../services/shortcut_intents.dart';
 import '../ui/studio_painters.dart';
 import '../ui/studio_theme.dart';
 import '../ui/studio_widgets.dart';
@@ -23,13 +24,13 @@ class TourStep {
 }
 
 final tourSteps = <TourStep>[
-  const TourStep(
+  TourStep(
     railIndex: 0,
     title: 'Start a recording',
     body: 'Drag a box around any window or area. Press Stop when you are done. '
-        'Everything stays on this PC.',
-    art: EmptyStagePainter(),
-    chip: 'Ctrl+Shift+R',
+        'Everything stays on this computer.',
+    art: const EmptyStagePainter(),
+    chip: shortcutLabel('R'),
   ),
   const TourStep(
     railIndex: 1,

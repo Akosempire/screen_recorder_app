@@ -7,6 +7,8 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
+import '../cursor_input.dart' show CursorInput;
+
 final class _Point extends Struct {
   @Int32()
   external int x;
@@ -44,7 +46,7 @@ class CursorState {
 }
 
 /// Thin wrapper over user32.dll. Only constructed on Windows.
-class Win32Input {
+class Win32Input implements CursorInput {
   Win32Input._(DynamicLibrary user32)
       : _getSystemMetrics = user32.lookupFunction<_GetSystemMetricsC,
             _GetSystemMetricsDart>('GetSystemMetrics'),
@@ -92,6 +94,7 @@ class Win32Input {
   (int, int) primarySize() =>
       (_getSystemMetrics(_smCxScreen), _getSystemMetrics(_smCyScreen));
 
+  @override
   CursorState cursor() {
     _getCursorPos(_point);
     // GetAsyncKeyState reports physical buttons; honour swapped buttons.

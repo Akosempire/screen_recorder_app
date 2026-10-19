@@ -1,4 +1,4 @@
-name: Build Windows installer
+name: Build apps (Windows, macOS, Linux)
 
 on:
   push:
@@ -187,37 +187,154 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-ChildItem dist
 
-      - name: Write update manifest (version.json)
-        shell: pwsh
-        run: |
-          # Installed apps read this to know a newer build exists.
-          $manifest = [ordered]@{
-            build     = [int]"${{ github.run_number }}"
-            version   = "1.0.${{ github.run_number }}"
-            installer = "https://github.com/${{ github.repository }}/releases/download/windows-latest/ScreenRecorder-Setup.exe"
-            commit    = "${{ github.sha }}"
-          }
-          $manifest | ConvertTo-Json | Set-Content -Encoding utf8NoBOM dist/version.json
-          Get-Content dist/version.json
-
       - uses: actions/upload-artifact@v4
         with:
           name: ScreenRecorder-Setup
           path: dist/ScreenRecorder-Setup.exe
           if-no-files-found: error
 
+  linux:
+    name: Build Linux .deb and .tar.gz
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install build tools and libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev \
+            libstdc++-12-dev libmpv-dev mpv ffmpeg xvfb x11-utils imagemagick dpkg-dev
+      - run: flutter pub get
+      - name: Build Flutter app
+        run: flutter build linux --release --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }} --dart-define=APP_BUILD=${{ github.run_number }} --dart-define=APP_VERSION=1.0.${{ github.run_number }}
+      - name: Package .deb and .tar.gz
+        run: packaging/linux/package.sh 1.0.${{ github.run_number }} dist
+      - name: Install the .deb and start the app (smoke test)
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y ./dist/ScreenRecorder-Linux-x64.deb
+          mkdir -p screenshots
+          export XDG_SESSION_TYPE=x11
+          xvfb-run -a -s "-screen 0 1600x1000x24" bash -c '
+            /opt/screen-recorder/screen_recorder_app --demo=home --demo-assets="$PWD/tool/demo" > app.log 2>&1 &
+            sleep 15
+            import -window root screenshots/linux-home.png
+            kill %1 || true
+            # x11grab smoke capture of the virtual screen
+            ffmpeg -hide_banner -y -f x11grab -framerate 30 -video_size 640x360 -i "$DISPLAY+0,0" -t 2 -c:v libx264 -preset ultrafast -pix_fmt yuv420p x11grab_smoke.mp4
+          '
+          tail -n 40 app.log || true
+          ls -la screenshots x11grab_smoke.mp4 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/ScreenRecorder-Linux-x64.deb
+            dist/ScreenRecorder-Linux-x64.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-screenshots
+          path: screenshots/
+          if-no-files-found: ignore
+
+  macos:
+    name: Build macOS .dmg
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Download FFmpeg (static, Apple Silicon + Intel)
+        run: |
+          set -euo pipefail
+          mkdir -p ffmpeg_mac && cd ffmpeg_mac
+          for arch in arm64 amd64; do
+            curl -fsSL -o "ffmpeg-$arch.zip" "https://ffmpeg.martin-riedl.de/redirect/latest/macos/$arch/release/ffmpeg.zip"
+            mkdir -p "$arch" && unzip -o -q "ffmpeg-$arch.zip" -d "$arch"
+          done
+          lipo -create arm64/ffmpeg amd64/ffmpeg -output ffmpeg
+          chmod 755 ffmpeg
+          lipo -info ffmpeg
+          ./ffmpeg -hide_banner -version | head -1
+          ./ffmpeg -hide_banner -encoders 2>/dev/null | grep -E "libx264|h264_videotoolbox" || true
+          echo "$PWD" >> "$GITHUB_PATH"
+      - run: flutter pub get
+      - name: Unit tests on macOS
+        run: flutter test test/cross_platform_test.dart test/auto_zoom_test.dart
+      - name: List capture devices (no Screen Recording permission on CI is expected)
+        continue-on-error: true
+        run: ffmpeg_mac/ffmpeg -hide_banner -f avfoundation -list_devices true -i "" || true
+      - name: Build Flutter app
+        run: flutter build macos --release --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }} --dart-define=APP_BUILD=${{ github.run_number }} --dart-define=APP_VERSION=1.0.${{ github.run_number }}
+      - name: Add FFmpeg, sign (ad-hoc) and make the .dmg
+        run: packaging/macos/package.sh ffmpeg_mac/ffmpeg dist
+      - name: Start the app (smoke test)
+        continue-on-error: true
+        run: |
+          mkdir -p screenshots
+          "build/macos/Build/Products/Release/Screen Recorder.app/Contents/MacOS/Screen Recorder" \
+            --demo=home --demo-assets="$PWD/tool/demo" > app.log 2>&1 &
+          sleep 20
+          screencapture -x screenshots/macos-home.png || true
+          kill %1 || true
+          tail -n 40 app.log || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: dist/ScreenRecorder-macOS.dmg
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-screenshots
+          path: screenshots/
+          if-no-files-found: ignore
+
+  publish:
+    name: Publish downloads
+    needs: [checks, windows, linux, macos]
+    # Windows must succeed; Mac/Linux are added when their builds succeed.
+    if: always() && needs.windows.result == 'success' && needs.checks.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Collect files and write the update manifest
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.deb' -o -name '*.tar.gz' -o -name '*.png' \) -exec cp {} dist/ \;
+          base="https://github.com/${{ github.repository }}/releases/download/windows-latest"
+          dl() { [ -f "dist/$2" ] && printf '"%s": "%s/%s"' "$1" "$base" "$2"; }
+          downloads=$(for pair in "macos ScreenRecorder-macOS.dmg" "linux_deb ScreenRecorder-Linux-x64.deb" "linux_tar ScreenRecorder-Linux-x64.tar.gz"; do set -- $pair; dl "$1" "$2" || true; echo; done | sed '/^$/d' | paste -sd, -)
+          cat > dist/version.json <<JSON
+          {
+            "build": ${{ github.run_number }},
+            "version": "1.0.${{ github.run_number }}",
+            "installer": "$base/ScreenRecorder-Setup.exe",
+            "downloads": { $downloads },
+            "commit": "${{ github.sha }}"
+          }
+          JSON
+          python3 -m json.tool dist/version.json
+          ls -la dist
       - name: Publish to the "windows-latest" release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: windows-latest
-          name: Screen Recorder for Windows (latest build)
+          name: Screen Recorder (latest build)
           body: |
-            One-click installer. Download **ScreenRecorder-Setup.exe**, run it, and a
-            **Screen Recorder** shortcut appears on your desktop.
+            **Windows:** ScreenRecorder-Setup.exe. Run it; a Screen Recorder shortcut appears on your desktop.
+            **macOS (Apple Silicon and Intel):** ScreenRecorder-macOS.dmg. Drag the app to Applications. First open: System Settings → Privacy & Security → Open Anyway.
+            **Linux (Ubuntu 24.04+ / Debian 13+):** ScreenRecorder-Linux-x64.deb, or the .tar.gz for other distros (needs ffmpeg and libmpv).
 
             Build ${{ github.run_number }} from ${{ github.sha }}.
           files: |
-            dist/ScreenRecorder-Setup.exe
-            dist/version.json
-            screenshots/*.png
+            dist/*
           make_latest: true

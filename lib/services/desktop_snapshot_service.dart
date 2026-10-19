@@ -82,6 +82,10 @@ class DesktopSnapshotService {
       return _tryFfmpegGdigrab(file, geometry);
     }
 
+    if (geometry.displayServer == DisplayServer.macos) {
+      return _tryMacScreencapture(file);
+    }
+
     if (geometry.displayServer == DisplayServer.wayland) {
       // x11grab on Wayland captures the XWayland root, which is typically
       // a black screen. Never use it for the overlay on Wayland.
@@ -188,7 +192,7 @@ class DesktopSnapshotService {
     }
     try {
       final result = await _runner.run(
-        'ffmpeg',
+        ffmpegExecutable,
         [
           '-y',
           '-f',
@@ -250,6 +254,27 @@ class DesktopSnapshotService {
       AppLogger.debug('ffmpeg snapshot unavailable: $error');
     } on TimeoutException catch (error) {
       AppLogger.debug('ffmpeg snapshot timed out: $error');
+    }
+    return null;
+  }
+
+  /// macOS built-in `screencapture`: main display, no sound, full pixels.
+  Future<File?> _tryMacScreencapture(File file) async {
+    try {
+      final result = await _runner.run(
+        '/usr/sbin/screencapture',
+        ['-x', '-m', '-t', 'png', file.path],
+        timeout: const Duration(seconds: 8),
+      );
+      if (result.exitCode == 0 && await _usable(file)) {
+        AppLogger.info('Snapshot via screencapture: ${file.path}');
+        return file;
+      }
+      AppLogger.warn('screencapture failed: ${result.stderr}');
+    } on ProcessException catch (error) {
+      AppLogger.debug('screencapture unavailable: $error');
+    } on TimeoutException catch (error) {
+      AppLogger.debug('screencapture timed out: $error');
     }
     return null;
   }

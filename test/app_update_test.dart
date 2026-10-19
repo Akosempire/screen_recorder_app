@@ -41,6 +41,12 @@ void main() {
             'build': manifestBuild,
             'version': '1.0.$manifestBuild',
             'installer': '$base/setup.exe',
+            'downloads': {
+              'macos': '$base/ScreenRecorder-macOS.dmg',
+              'linux_deb': '$base/ScreenRecorder-Linux-x64.deb',
+              'linux_tar': '$base/ScreenRecorder-Linux-x64.tar.gz',
+              'evil': 'http://evil.example/x',
+            },
           }));
         } else if (req.uri.path == '/setup.exe') {
           req.response.contentLength = installerBytes.length;
@@ -60,6 +66,7 @@ void main() {
         currentBuild: 57,
         manifestUrl: '$base/version.json',
         launchInstaller: (path) async => launched = path,
+        installsInPlace: true,
       );
       final info = await service.check();
       expect(info!.build, 60);
@@ -87,6 +94,7 @@ void main() {
         currentBuild: 1,
         manifestUrl: '$base/version.json',
         launchInstaller: (_) async => launched = true,
+        installsInPlace: true,
       );
       await service.check();
       await service.install();
@@ -100,6 +108,27 @@ void main() {
       final service = AppUpdateService(currentBuild: 1, manifestUrl: 'http://127.0.0.1:1/version.json');
       expect(await service.check(), isNull);
       expect(service.updateAvailable, isFalse);
+    });
+
+    test('macOS and Linux open the right download in the browser', () async {
+      for (final (os, expected) in [
+        ('macos', 'ScreenRecorder-macOS.dmg'),
+        ('linux', 'ScreenRecorder-Linux-x64.tar.gz'),
+      ]) {
+        String? opened;
+        final service = AppUpdateService(
+          currentBuild: 57,
+          manifestUrl: '$base/version.json',
+          installsInPlace: false,
+          os: os,
+          openUrl: (url) async => opened = url,
+        );
+        await service.check();
+        await service.install();
+        expect(opened, endsWith(expected), reason: os);
+        expect(service.openedDownload, isTrue);
+        expect(service.status, UpdateStatus.available);
+      }
     });
 
     test('dev builds (APP_BUILD 0) never look for updates', () {

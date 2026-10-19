@@ -6,6 +6,9 @@ enum DisplayServer {
 
   /// Windows desktop (GDI capture via FFmpeg gdigrab).
   windows,
+
+  /// macOS main display (FFmpeg avfoundation).
+  macos,
   unknown,
 }
 

@@ -6,12 +6,14 @@ import 'package:path/path.dart' as p;
 
 import '../controllers/recording_controller.dart';
 import '../models/recording_state.dart';
+import '../services/app_folders.dart';
 import '../services/app_update.dart';
 import '../services/camera_bubble.dart';
 import '../services/demo_mode.dart';
 import '../services/recording_background.dart';
 import '../services/recording_library.dart';
 import '../services/recording_options.dart';
+import '../services/shortcut_intents.dart';
 import '../services/support_link.dart';
 import '../ui/background_widgets.dart';
 import '../ui/studio_painters.dart';
@@ -86,13 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _showInFolder() async {
     final saved = _library.last?.savedPath;
     if (saved == null) return;
-    try {
-      if (Platform.isWindows) {
-        await Process.start('explorer.exe', ['/select,', saved]);
-      } else {
-        await Process.start('xdg-open', [p.dirname(saved)]);
-      }
-    } catch (_) {}
+    await revealInFileManager(saved);
   }
 
   @override
@@ -749,15 +745,17 @@ class _Transport extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = RecordingOptions.instance;
-    final effects = RecordingOptions.effectsSupported;
+    final cursorFx = RecordingOptions.cursorEffectsSupported;
+    final zoomFx = RecordingOptions.autoZoomSupported;
+    final cameraFx = CameraBubbleService.instance.isSupported;
     final length = recording?.duration;
     return SizedBox(
       height: 48,
       child: LayoutBuilder(builder: (context, box) {
       // Drop the least important pills first so nothing gets clipped.
-      final showCursorPill = effects && box.maxWidth >= 900;
-      final showZoomPill = effects && box.maxWidth >= 600;
-      final showCameraPill = effects && box.maxWidth >= 720;
+      final showCursorPill = cursorFx && box.maxWidth >= 900;
+      final showZoomPill = zoomFx && box.maxWidth >= 600;
+      final showCameraPill = cameraFx && box.maxWidth >= 720;
       return Row(
         children: [
           FilledButton(
@@ -922,7 +920,8 @@ class _Inspector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = RecordingOptions.instance;
-    final effects = RecordingOptions.effectsSupported;
+    final cursorFx = RecordingOptions.cursorEffectsSupported;
+    final zoomFx = RecordingOptions.autoZoomSupported;
     final editable = controller.canBeginSelection && !controller.state.isBusy;
 
     return Column(
@@ -950,13 +949,13 @@ class _Inspector extends StatelessWidget {
                         label: style.label,
                         selected: options.cursorStyle == style,
                         preview: CustomPaint(painter: CursorStylePainter(style)),
-                        onTap: effects && editable ? () => options.cursorStyle = style : null,
+                        onTap: cursorFx && editable ? () => options.cursorStyle = style : null,
                       ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  effects ? options.cursorStyle.description : 'Cursor effects are available on Windows.',
+                  cursorEffectsCaption(options.cursorStyle),
                   style: StudioText.caption.copyWith(height: 1.45),
                 ),
                 const _InspectorDivider(),
@@ -967,8 +966,8 @@ class _Inspector extends StatelessWidget {
                   children: [
                     const Expanded(child: Text('Auto-zoom', style: StudioText.section)),
                     Switch(
-                      value: effects && options.autoZoom,
-                      onChanged: effects && editable ? (v) => options.autoZoom = v : null,
+                      value: zoomFx && options.autoZoom,
+                      onChanged: zoomFx && editable ? (v) => options.autoZoom = v : null,
                     ),
                   ],
                 ),
@@ -980,7 +979,7 @@ class _Inspector extends StatelessWidget {
                   max: 3.0,
                   divisions: 18,
                   display: '${options.zoomLevel.toStringAsFixed(1)}×',
-                  onChanged: effects && editable && options.autoZoom
+                  onChanged: zoomFx && editable && options.autoZoom
                       ? (v) => options.zoomLevel = v
                       : null,
                 ),
@@ -991,7 +990,7 @@ class _Inspector extends StatelessWidget {
                   max: 5,
                   divisions: 16,
                   display: '${options.holdSeconds.toStringAsFixed(1)} s',
-                  onChanged: effects && editable && options.autoZoom
+                  onChanged: zoomFx && editable && options.autoZoom
                       ? (v) => options.holdSeconds = v
                       : null,
                 ),
@@ -1002,15 +1001,15 @@ class _Inspector extends StatelessWidget {
                   max: 10,
                   divisions: 9,
                   display: options.smoothness.round().toString(),
-                  onChanged: effects && editable && options.autoZoom
+                  onChanged: zoomFx && editable && options.autoZoom
                       ? (v) => options.smoothness = v
                       : null,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  effects
+                  zoomFx
                       ? 'After you stop, the video zooms in where you click and follows your mouse, then eases back out.'
-                      : 'Auto-zoom is available on Windows.',
+                      : 'Auto-zoom needs an X11 session on Linux (Wayland hides the mouse position from apps).',
                   style: StudioText.caption.copyWith(height: 1.45),
                 ),
                 const _InspectorDivider(),
@@ -1018,7 +1017,7 @@ class _Inspector extends StatelessWidget {
                 // Camera
                 _CameraSection(
                   sectionKey: sectionKeys[_Section.camera]!,
-                  enabled: effects,
+                  enabled: CameraBubbleService.instance.isSupported,
                 ),
                 const _InspectorDivider(),
 
@@ -1199,12 +1198,12 @@ class _StatusBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const StudioKbd('Ctrl+Shift+R'),
+                StudioKbd(shortcutLabel('R')),
                 const SizedBox(width: 6),
                 const Text('start', style: StudioText.tiny),
                 if (box.maxWidth > 860) ...[
                   const SizedBox(width: 12),
-                  const StudioKbd('Ctrl+Shift+S'),
+                  StudioKbd(shortcutLabel('S')),
                   const SizedBox(width: 6),
                   const Text('stop', style: StudioText.tiny),
                 ],
@@ -1372,7 +1371,7 @@ class _CameraSection extends StatelessWidget {
               (enabled
                   ? 'Your face floats in a bubble on top of everything. '
                       'Keep it inside the area you record.'
-                  : 'The face camera is available on Windows.'),
+                  : 'The face camera bubble is coming to Mac and Linux soon.'),
           style: StudioText.caption.copyWith(
             height: 1.45,
             color: error != null ? Studio.danger : null,
@@ -1674,11 +1673,22 @@ class _UpdateDialog extends StatelessWidget {
                     style: StudioText.body,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Updating closes the app, installs the new version, and opens it again. '
-                    'Your settings stay as they are. It takes about a minute.',
+                  Text(
+                    update.installsInPlace
+                        ? 'Updating closes the app, installs the new version, and opens it again. '
+                            'Your settings stay as they are. It takes about a minute.'
+                        : Platform.isMacOS
+                            ? 'Download opens the new version in your browser. Open the .dmg, drag '
+                                'Screen Recorder into Applications and choose Replace. Your settings stay as they are.'
+                            : 'Download opens the new version in your browser. Install it the same way as before; '
+                                'your settings stay as they are.',
                     style: StudioText.caption,
                   ),
+                  if (update.openedDownload) ...[
+                    const SizedBox(height: 12),
+                    Text('The download started in your browser.',
+                        style: StudioText.caption.copyWith(color: Studio.ok)),
+                  ],
                   if (update.status == UpdateStatus.downloading) ...[
                     const SizedBox(height: 16),
                     LinearProgressIndicator(value: update.progress > 0 ? update.progress : null),
@@ -1709,7 +1719,11 @@ class _UpdateDialog extends StatelessWidget {
               ),
               FilledButton(
                 onPressed: busy || recording ? null : update.install,
-                child: Text(update.status == UpdateStatus.failed ? 'Try again' : 'Update now'),
+                child: Text(update.status == UpdateStatus.failed
+                    ? 'Try again'
+                    : update.installsInPlace
+                        ? 'Update now'
+                        : 'Download'),
               ),
             ],
           );
@@ -1717,4 +1731,17 @@ class _UpdateDialog extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Caption under the cursor styles, per platform.
+String cursorEffectsCaption(CursorStyle style) {
+  if (Platform.isMacOS) {
+    return style.drawsRipples
+        ? 'macOS highlights every click in the video. The yellow halo is coming to Mac soon.'
+        : 'Click highlights are off. The yellow halo is coming to Mac soon.';
+  }
+  if (!RecordingOptions.cursorEffectsSupported) {
+    return 'The cursor halo and click ripples are coming to Linux soon.';
+  }
+  return style.description;
 }

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import '../models/screen_region.dart';
-import '../platform/windows/win32_input.dart';
+import '../platform/cursor_input.dart';
 
 /// One cursor sample on the video timeline (seconds since recording start,
 /// excluding paused time). Coordinates are relative to the capture region.
@@ -38,11 +38,11 @@ class CursorLog {
 /// video after pauses are cut out.
 class CursorTracker {
   CursorTracker({
-    Win32Input? input,
+    CursorInput? input,
     this.interval = const Duration(milliseconds: 33),
-  }) : _input = input ?? Win32Input.instance;
+  }) : _input = input ?? platformCursorInput();
 
-  final Win32Input? _input;
+  final CursorInput? _input;
   final Duration interval;
 
   final List<CursorSample> _samples = [];

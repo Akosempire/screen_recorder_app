@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../platform/cursor_input.dart' show platformCanTrackCursor;
+import 'app_folders.dart';
 import 'recording_background.dart';
 
 /// How the live cursor overlay draws.
@@ -195,8 +197,16 @@ class RecordingOptions extends ChangeNotifier {
     _changed();
   }
 
-  /// Effects are implemented for the Windows backend.
-  static bool get effectsSupported => Platform.isWindows;
+  /// The live cursor halo and click ripples overlay (Windows only for now;
+  /// macOS draws its own click highlight, toggled by the ripples setting).
+  static bool get cursorEffectsSupported => Platform.isWindows || Platform.isMacOS;
+
+  /// Auto-zoom needs the mouse position: Windows, macOS and Linux on X11.
+  static bool get autoZoomSupported =>
+      Platform.isWindows || Platform.isMacOS || platformCanTrackCursor;
+
+  /// Kept for older call sites: any recording effect is available.
+  static bool get effectsSupported => cursorEffectsSupported || autoZoomSupported;
 
   set cursorStyle(CursorStyle value) {
     if (_cursorStyle == value) return;
@@ -246,17 +256,8 @@ class RecordingOptions extends ChangeNotifier {
     _save();
   }
 
-  /// %APPDATA%\screen_recorder_app on Windows, ~/.config/screen_recorder_app on Linux.
-  static Directory? get settingsFolder {
-    final base = Platform.isWindows
-        ? Platform.environment['APPDATA']
-        : (Platform.environment['XDG_CONFIG_HOME'] ??
-            (Platform.environment['HOME'] == null
-                ? null
-                : p.join(Platform.environment['HOME']!, '.config')));
-    if (base == null || base.isEmpty) return null;
-    return Directory(p.join(base, 'screen_recorder_app'));
-  }
+  /// See [appSettingsFolder].
+  static Directory? get settingsFolder => appSettingsFolder();
 
   static File? get _file {
     final folder = settingsFolder;

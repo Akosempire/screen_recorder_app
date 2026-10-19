@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Screen Recorder
+GenericName=Screen Recorder
+Comment=Record your screen with click highlights, auto-zoom and quick edits
+Exec=/opt/screen-recorder/screen_recorder_app %U
+Icon=screen-recorder
+Terminal=false
+Categories=AudioVideo;Video;Recorder;
+Keywords=screen;record;capture;video;screencast;
+StartupWMClass=screen_recorder_app

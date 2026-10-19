@@ -11,6 +11,7 @@ import '../models/screen_region.dart';
 import 'app_logger.dart';
 import 'desktop_snapshot_service.dart';
 import 'linux_desktop.dart';
+import 'mac_window.dart';
 import 'native_window.dart';
 import 'selector_backdrop.dart';
 
@@ -57,6 +58,7 @@ class WindowCoordinator {
 
   Future<void> showHome() async {
     await _nativeWindow.clearFixedBounds();
+    await MacWindow.exitOverlay();
     await _setOpaqueChrome();
     await _call('setFullScreen(false)', () => windowManager.setFullScreen(false));
     await _call('unmaximize', () => windowManager.unmaximize());
@@ -260,6 +262,10 @@ class WindowCoordinator {
       await _applyWindowsSelectorChrome();
       return;
     }
+    if (Platform.isMacOS) {
+      await _applyMacSelectorChrome();
+      return;
+    }
     await _call('setAsFrameless', () => windowManager.setAsFrameless());
     await _call(
       'setTitleBarStyle(hidden)',
@@ -312,8 +318,32 @@ class WindowCoordinator {
     await _call('setFullScreen(true)', () => windowManager.setFullScreen(true));
   }
 
+  /// macOS: no fullscreen (it opens a new Space and hides the desktop
+  /// behind it). The native side lifts the window above the menu bar and
+  /// sizes it to the main display.
+  Future<void> _applyMacSelectorChrome() async {
+    await _call(
+      'setTitleBarStyle(hidden)',
+      () => windowManager.setTitleBarStyle(
+        TitleBarStyle.hidden,
+        windowButtonVisibility: false,
+      ),
+    );
+    await _call('setSkipTaskbar(true)', () => windowManager.setSkipTaskbar(true));
+    await _call('setResizable(true)', () => windowManager.setResizable(true));
+    await _call(
+      'clearMaximumSize',
+      () => windowManager.setMaximumSize(const Size(10000, 10000)),
+    );
+    await _call(
+      'setMinimumSize(overlay)',
+      () => windowManager.setMinimumSize(const Size(1, 1)),
+    );
+    await MacWindow.enterOverlay();
+  }
+
   Future<void> _frameless() async {
-    if (Platform.isWindows) {
+    if (Platform.isWindows || Platform.isMacOS) {
       return;
     }
     await _call('setAsFrameless', () => windowManager.setAsFrameless());
@@ -376,6 +406,7 @@ class WindowCoordinator {
   }
 
   Future<void> _leaveFullscreen() async {
+    await MacWindow.exitOverlay();
     await _call('setFullScreen(false)', () => windowManager.setFullScreen(false));
     await _call('unmaximize', () => windowManager.unmaximize());
     for (var i = 0; i < 8; i++) {

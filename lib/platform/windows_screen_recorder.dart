@@ -3,34 +3,23 @@ import 'dart:io';
 import '../models/recorder_exception.dart';
 import '../models/screen_region.dart';
 import '../services/app_logger.dart';
-import '../services/auto_zoom.dart';
-import '../services/camera_bubble.dart';
-import '../services/cursor_overlay.dart';
-import '../services/cursor_tracker.dart';
+import '../services/enhanced_recorder.dart';
 import '../services/ffmpeg_binary.dart';
 import '../services/ffmpeg_process_manager.dart';
 import '../services/ffmpeg_recorder.dart';
-import '../services/processing_status.dart';
-import '../services/recording_library.dart';
-import '../services/recording_options.dart';
 
 /// Windows backend: FFmpeg `gdigrab` for video, DirectShow for the mic,
 /// plus the live cursor highlight overlay and post-recording auto-zoom.
-class WindowsScreenRecorder extends SegmentingScreenRecorder {
+class WindowsScreenRecorder extends EnhancedScreenRecorder {
   WindowsScreenRecorder({
     required super.encoder,
     this.microphoneDevice,
     super.processManager,
-    ProcessRunner runner = const ProcessRunner(),
-    CursorTracker? tracker,
-    CursorOverlay? overlay,
-    RecordingOptions? options,
-  })  : _zoomRunner = runner,
-        _tracker = tracker ?? CursorTracker(),
-        _overlay = overlay ?? CursorOverlay(),
-        _options = options ?? RecordingOptions.instance,
-        super(
-          runner: runner,
+    super.runner,
+    super.tracker,
+    super.overlay,
+    super.options,
+  }) : super(
           backendName: 'Windows / FFmpeg gdigrab',
           stopStyle: StopStyle.ffmpegQuit,
           commandBuilder: (region, outputPath, recordMicrophone) =>
@@ -47,15 +36,6 @@ class WindowsScreenRecorder extends SegmentingScreenRecorder {
 
   /// DirectShow audio device name, or null if none was found.
   final String? microphoneDevice;
-
-  final ProcessRunner _zoomRunner;
-  final CursorTracker _tracker;
-  final CursorOverlay _overlay;
-  final RecordingOptions _options;
-
-  ScreenRegion? _activeRegion;
-  bool _activeMic = false;
-  bool _zoomThisSession = false;
 
   static Future<WindowsScreenRecorder> create({
     required String encoder,
@@ -81,117 +61,7 @@ class WindowsScreenRecorder extends SegmentingScreenRecorder {
             'No microphone was found. Plug one in or turn the microphone switch off.',
       );
     }
-    _activeRegion = region.evenAligned();
-    _activeMic = recordMicrophone;
-    _zoomThisSession = _options.autoZoom;
-
-    final style = _options.cursorStyle;
-    if (style != CursorStyle.off) {
-      await _overlay.show(halo: style.drawsHalo, ripples: style.drawsRipples);
-    }
-    // Keep the face bubble above the recording chip and other windows.
-    await CameraBubbleService.instance.bringToFront();
-    // Start sampling just before FFmpeg so the log lines up with frame 0.
-    _tracker.start(_activeRegion!);
-    try {
-      await super.start(region, recordMicrophone: recordMicrophone);
-    } catch (_) {
-      _tracker.stop();
-      await _overlay.hide();
-      _activeRegion = null;
-      rethrow;
-    }
-  }
-
-  @override
-  Future<void> pause() async {
-    await super.pause();
-    _tracker.pause();
-  }
-
-  @override
-  Future<void> resume() async {
-    _tracker.resume();
-    try {
-      await super.resume();
-    } catch (_) {
-      _tracker.pause();
-      rethrow;
-    }
-  }
-
-  @override
-  Future<String?> stop() async {
-    final log = _tracker.stop();
-    final region = _activeRegion;
-    final hasAudio = _activeMic;
-    final zoom = _zoomThisSession;
-    _activeRegion = null;
-    await _overlay.hide();
-
-    // The floating bar turns into a progress pill from here until the user
-    // opens the finished video; nothing else pops up over their work.
-    ProcessingStatus.instance.begin('Saving');
-    final String? produced;
-    try {
-      produced = await super.stop();
-    } catch (_) {
-      ProcessingStatus.instance.end();
-      rethrow;
-    }
-    if (produced == null || region == null) {
-      ProcessingStatus.instance.end();
-      return produced;
-    }
-    final duration = Duration(
-      milliseconds: log.samples.isEmpty ? 0 : (log.samples.last.t * 1000).round(),
-    );
-    final focus = log.clicks.isEmpty ? null : log.clicks.first.t + 1.2;
-
-    var result = produced;
-    if (zoom) {
-      AppLogger.info(
-        'Cursor log: ${log.samples.length} samples, ${log.clicks.length} clicks',
-      );
-      ProcessingStatus.instance.begin('Auto-zoom');
-      try {
-        final pan = _options.panTau;
-        result = await applyAutoZoom(
-          inputPath: produced,
-          log: log,
-          width: region.width,
-          height: region.height,
-          encoder: encoder,
-          hasAudio: hasAudio,
-          settings: AutoZoomSettings(
-            maxZoom: _options.zoomLevel,
-            hold: _options.holdSeconds,
-            panTau: pan,
-            zoomTau: pan + 0.04,
-          ),
-          runner: _zoomRunner,
-          duration: duration,
-          onProgress: ProcessingStatus.instance.report,
-        );
-      } catch (error, stack) {
-        AppLogger.error('Auto-zoom crashed; keeping original', error, stack);
-        result = produced;
-      }
-    }
-
-    ProcessingStatus.instance.begin('Preparing');
-    RecordingLibrary.instance.register(
-      LastRecording(
-        finalPath: result,
-        originalPath: result == produced ? null : produced,
-        focusSeconds: focus,
-        width: region.width,
-        height: region.height,
-        duration: duration,
-        hasAudio: hasAudio,
-      ),
-    );
-    return result;
+    await super.start(region, recordMicrophone: recordMicrophone);
   }
 }
 
