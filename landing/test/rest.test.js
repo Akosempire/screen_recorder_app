@@ -171,3 +171,13 @@ test('Supabase Auth sends the magic link that redirects to the signed download l
     server.close();
   }
 });
+
+test('download links point at the right file for each computer', async () => {
+  const { fileUrl, FILES } = await import('../api/download.js');
+  assert.match(fileUrl('mac'), /\/releases\/latest\/download\/ScreenRecorder-macOS\.dmg$/);
+  assert.match(fileUrl('linux'), /ScreenRecorder-Linux-x64\.deb$/);
+  assert.match(fileUrl('linux-tar'), /ScreenRecorder-Linux-x64\.tar\.gz$/);
+  assert.match(fileUrl('windows'), /ScreenRecorder-Setup\.exe$/);
+  assert.match(fileUrl('nonsense'), /ScreenRecorder-Setup\.exe$/);
+  assert.equal(Object.keys(FILES).length, 4);
+});

@@ -1,11 +1,23 @@
 import { readToken } from '../lib/token.js';
 import { hasDatabase, logDownload } from '../lib/db.js';
 
-const INSTALLER_URL =
-  process.env.INSTALLER_URL ||
-  'https://github.com/Akosempire/screen_recorder_app/releases/latest/download/ScreenRecorder-Setup.exe';
+const RELEASE = 'https://github.com/Akosempire/screen_recorder_app/releases/latest/download';
 
-// GET /api/download?t=<signed token from the email>
+// One file per platform, from the latest GitHub release.
+export const FILES = {
+  windows: 'ScreenRecorder-Setup.exe',
+  mac: 'ScreenRecorder-macOS.dmg',
+  linux: 'ScreenRecorder-Linux-x64.deb',
+  'linux-tar': 'ScreenRecorder-Linux-x64.tar.gz',
+};
+
+export function fileUrl(os) {
+  const name = FILES[os] || FILES.windows;
+  if (name === FILES.windows && process.env.INSTALLER_URL) return process.env.INSTALLER_URL;
+  return `${RELEASE}/${name}`;
+}
+
+// GET /api/download?t=<signed token>&os=windows|mac|linux|linux-tar
 export default async function handler(req, res) {
   const secret = process.env.LINK_SECRET;
   const url = new URL(req.url, 'http://local');
@@ -28,7 +40,7 @@ export default async function handler(req, res) {
   }
 
   res.statusCode = 302;
-  res.setHeader('Location', INSTALLER_URL);
+  res.setHeader('Location', fileUrl(url.searchParams.get('os') || 'windows'));
   res.setHeader('Cache-Control', 'no-store');
   return res.end();
 }
