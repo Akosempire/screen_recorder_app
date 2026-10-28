@@ -8,6 +8,13 @@
 //   cmake --build build/linux/x64/debug --target alpha_probe
 //   ./build/linux/x64/debug/alpha_probe
 
+/* G_APPLICATION_DEFAULT_FLAGS needs GLib 2.74 (Ubuntu 22.04 has 2.72). */
+#include <glib.h>
+#if GLIB_CHECK_VERSION(2, 74, 0)
+#define PROBE_APP_FLAGS G_APPLICATION_DEFAULT_FLAGS
+#else
+#define PROBE_APP_FLAGS G_APPLICATION_FLAGS_NONE
+#endif
 #include <gtk/gtk.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
@@ -108,7 +115,7 @@ static void on_activate(GtkApplication* app, gpointer user_data) {
 int main(int argc, char** argv) {
   GtkApplication* app = gtk_application_new(
       "com.example.screen_recorder_app.alpha_probe",
-      G_APPLICATION_DEFAULT_FLAGS);
+      PROBE_APP_FLAGS);
   g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
   const int status = g_application_run(G_APPLICATION(app), argc, argv);
   g_object_unref(app);
