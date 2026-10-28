@@ -5,6 +5,8 @@ on:
     branches: [main, master]
     paths-ignore:
       - 'landing/**'
+      - 'tool/probe/**'
+      - '.github/workflows/mac-probe.yml'
   workflow_dispatch:
 
 permissions:

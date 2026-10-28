@@ -1,0 +1,38 @@
+name: macOS capture probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: FFmpeg
+        run: |
+          curl -fsSL -o ff.zip "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip"
+          unzip -q ff.zip && chmod +x ffmpeg
+          echo "::notice title=${{ matrix.os }} system::$(sw_vers -productVersion) $(uname -m) / $(./ffmpeg -hide_banner -version | head -1)"
+      - name: avfoundation devices and 3 s capture
+        run: |
+          ./ffmpeg -hide_banner -f avfoundation -list_devices true -i "" 2> devices.txt || true
+          screens=$(grep -c "Capture screen" devices.txt || true)
+          echo "::notice title=${{ matrix.os }} avfoundation devices::$(grep -E '\] \[[0-9]+\]' devices.txt | sed 's/.*\] \[/[/' | tr '\n' ';')"
+          idx=$(grep -E "Capture screen 0" devices.txt | sed -E 's/.*\[([0-9]+)\] Capture screen 0.*/\1/' | head -1)
+          if [ -n "$idx" ]; then
+            ./ffmpeg -hide_banner -y -f avfoundation -framerate 30 -capture_cursor 1 -i "$idx:none" -t 3 -vf "crop=640:360:0:0" -c:v libx264 -preset ultrafast -pix_fmt yuv420p cap.mp4 2> cap.log || true
+            frames=$(./ffmpeg -hide_banner -i cap.mp4 -map 0:v -f null - 2>&1 | grep -oE "frame= *[0-9]+" | tail -1)
+            echo "::notice title=${{ matrix.os }} avfoundation capture::size=$(stat -f%z cap.mp4 2>/dev/null || echo none) $frames | $(grep -iE 'error|deprecated|fail|warn' cap.log | head -3 | tr '\n' ' ')"
+          fi
+      - name: ScreenCaptureKit
+        run: |
+          swift tool/probe/sck_probe.swift > sck.txt 2>&1 || true
+          echo "::notice title=${{ matrix.os }} ScreenCaptureKit::$(tr '\n' ' ' < sck.txt | cut -c1-600)"
+      - name: screencapture
+        run: |
+          screencapture -x -m shot.png 2> sc.err || true
+          echo "::notice title=${{ matrix.os }} screencapture::$(stat -f%z shot.png 2>/dev/null || echo none) $(cat sc.err)"
