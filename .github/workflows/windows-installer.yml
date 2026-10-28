@@ -314,6 +314,9 @@ jobs:
           chmod +x dist/ScreenRecorder-Linux-x64.AppImage
           cd dist && ./ScreenRecorder-Linux-x64.AppImage --appimage-extract >/dev/null && cd ..
           app=dist/squashfs-root/AppRun
+          root=dist/squashfs-root
+          missing=$(find "$root/usr" -name '*.so*' -o -name 'AppRun.wrapped' -o -name screen_recorder_app | LD_LIBRARY_PATH="$root/usr/lib:$root/usr/bin/lib" xargs -r ldd 2>/dev/null | grep "not found" | awk '{print $1}' | sort -u | tr '\n' ' ')
+          echo "::notice title=Missing libraries on ${{ matrix.distro }}::${missing:-none}"
           name=$(echo "${{ matrix.distro }}" | tr ':.' '--')
           mkdir -p screenshots
           export XDG_SESSION_TYPE=x11 APPIMAGE_EXTRACT_AND_RUN=1
