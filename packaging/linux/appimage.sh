@@ -58,9 +58,9 @@ for so in "$APPDIR"/usr/bin/lib/*.so; do
   patchelf --set-rpath '$ORIGIN:$ORIGIN/../../lib' "$so"
 done
 # linuxdeploy leaves out libraries it expects every system to have. JACK
-# (needed by the bundled FFmpeg libraries) isn't on every desktop, so it
-# travels with the app, along with the Berkeley DB library it uses.
-for soname in libjack.so.0 libdb-5.3.so; do
+# and libusb (needed by the bundled FFmpeg libraries) aren't on every
+# desktop, so they travel with the app, with the Berkeley DB library JACK uses.
+for soname in libjack.so.0 libdb-5.3.so libusb-1.0.so.0; do
   path=$(ldconfig -p | awk -v s="$soname" '$1 == s {print $NF; exit}')
   if [ -n "$path" ]; then
     cp -L "$path" "$APPDIR/usr/lib/$soname"
