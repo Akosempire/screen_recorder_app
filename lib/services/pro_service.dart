@@ -177,10 +177,19 @@ class ProService extends ChangeNotifier {
     _refresh ??= Timer.periodic(const Duration(hours: 6), (_) => refresh());
   }
 
+  bool _disposed = false;
+
   @override
   void dispose() {
+    _disposed = true;
     _refresh?.cancel();
     super.dispose();
+  }
+
+  /// Background checks can finish after the service is gone.
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
   }
 
   /// Asks the server for plan settings and the licence's current state.
