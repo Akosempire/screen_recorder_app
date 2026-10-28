@@ -10,6 +10,8 @@ export const FILES = {
   linux: 'ScreenRecorder-Linux-x64.deb',
   'linux-tar': 'ScreenRecorder-Linux-x64.tar.gz',
   'linux-appimage': 'ScreenRecorder-Linux-x64.AppImage',
+  android: 'ScreenRecorder-Android.apk',
+  'android-32': 'ScreenRecorder-Android-32bit.apk',
 };
 
 export function fileUrl(os) {
@@ -34,6 +36,7 @@ export default async function handler(req, res) {
   if (hasDatabase()) {
     const log = logDownload({
       email,
+      os: FILES[url.searchParams.get('os')] ? url.searchParams.get('os') : 'windows',
       country: req.headers['x-vercel-ip-country'] || '',
       userAgent: String(req.headers['user-agent'] || '').slice(0, 200),
     }).catch((error) => console.error('download log failed', error.message));

@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /admin
+Disallow: /pro.html
 
 Sitemap: https://www.screenrecorderapp.cv/sitemap.xml

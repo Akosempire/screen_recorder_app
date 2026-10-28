@@ -15,7 +15,6 @@ import '../services/recording_library.dart';
 import '../services/pro_service.dart';
 import '../services/recording_options.dart';
 import '../services/shortcut_intents.dart';
-import '../services/support_link.dart';
 import '../ui/background_widgets.dart';
 import '../ui/studio_painters.dart';
 import '../ui/studio_theme.dart';
@@ -295,15 +294,6 @@ class _TopBar extends StatelessWidget {
             ],
             const _ProPill(),
             const SizedBox(width: 6),
-            if (MediaQuery.sizeOf(context).width >= 900) ...[
-              const StudioPill(
-                icon: Icons.local_fire_department_outlined,
-                label: 'Buy me suya',
-                tooltip: 'Enjoying the app? Buy me suya to keep it running.',
-                onTap: openSupportPage,
-              ),
-              const SizedBox(width: 4),
-            ],
             IconButton(
               tooltip: 'Show the tour',
               onPressed: onHelp,

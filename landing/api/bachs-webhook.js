@@ -1,6 +1,6 @@
 import { webhooks, BachsWebhookError } from '@bachs/sdk';
 import { handleEvent } from '../lib/billing.js';
-import { supabaseStore } from '../lib/billing-store.js';
+import { currentConfig, supabaseStore } from '../lib/billing-store.js';
 import { readRaw } from '../lib/http.js';
 
 // POST /api/bachs-webhook  (register this URL in the Bachs dashboard)
@@ -10,7 +10,8 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).end();
   }
-  const secret = process.env.BACHS_WEBHOOK_SECRET;
+  const config = await currentConfig();
+  const secret = config.BACHS_WEBHOOK_SECRET;
   if (!secret) return res.status(500).send('Webhook secret is not configured');
 
   let event;
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await handleEvent(event, { store: supabaseStore });
+    const result = await handleEvent(event, { store: supabaseStore, env: config });
     console.log('bachs webhook', event.type, event.id, result);
     return res.status(200).send('OK');
   } catch (error) {

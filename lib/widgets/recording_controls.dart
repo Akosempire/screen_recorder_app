@@ -336,7 +336,7 @@ class _ElapsedText extends StatelessWidget {
     }
     final shown = left.isNegative ? Duration.zero : left + const Duration(milliseconds: 999);
     return Tooltip(
-      message: 'Free recordings stop at ${formatElapsed(limit!)}. Go Pro for unlimited length.',
+      message: 'Trial recordings stop at ${formatElapsed(limit!)}. Go Pro for unlimited length.',
       child: Text(
         '-${formatElapsed(Duration(seconds: shown.inSeconds))}',
         style: _style.copyWith(color: const Color(0xFFFFB020)),

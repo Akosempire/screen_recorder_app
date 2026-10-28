@@ -4,12 +4,6 @@ import 'package:flutter/services.dart';
 
 import 'app_logger.dart';
 
-/// Where "Buy me suya" sends people.
-const supportUrl = 'https://buymeamalt.com/@ibrahim_designer';
-
-/// Opens [supportUrl] in the default browser.
-Future<void> openSupportPage() => openUrl(supportUrl);
-
 /// Opens [url] in the default browser. Only http(s) links are opened.
 Future<bool> openUrl(String url) async {
   final uri = Uri.tryParse(url);

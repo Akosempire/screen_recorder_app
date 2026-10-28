@@ -764,7 +764,7 @@ class _LimitBanner extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Free recordings stop at ${pro.freeLimit.inMinutes} minutes, so this one stopped there. '
+                  'Trial recordings stop at ${pro.freeLimit.inMinutes} minutes, so this one stopped there. '
                   'It\'s saved: edit and export it as usual. Go Pro to record as long as you like.',
                   style: StudioText.body,
                 ),

@@ -208,6 +208,19 @@ export async function handleEvent(event, { store, env = process.env }) {
       const checkout = await store.getCheckout(m.activation);
       const plan = PLANS[m.plan] ? m.plan : checkout?.plan;
       if (plan) {
+        const key = licenseKeyFor(m.activation, env.LICENSE_SECRET);
+        if (store.recordPayment) {
+          const amount = Number(data.settlement_amount ?? data.amount ?? data.amount_paid);
+          await store.recordPayment({
+            id: String(data.charge_id || data.payment_id || data.id || event.id),
+            license_key: key,
+            email: m.email || checkout?.email || null,
+            plan,
+            currency: data.settlement_currency || data.currency || checkout?.currency || null,
+            amount: Number.isFinite(amount) ? amount : null,
+            created_at: event.created_at,
+          });
+        }
         await grant({
           store, env, activation: m.activation, plan,
           email: m.email || checkout?.email, name: checkout?.name,
@@ -260,9 +273,11 @@ async function grant({ store, env, activation, plan, email, name, currency, stat
     const later = existing?.current_period_end && Date.parse(existing.current_period_end) > Date.parse(periodEnd);
     if (!(keepLaterPeriod && later)) fields.current_period_end = periodEnd;
   }
-  // A payment never downgrades a lifetime licence, and a late "active" can't
-  // revive a cancelled subscription from an older event.
-  if (existing?.plan === 'lifetime') {
+  // An admin's revoke sticks; payments for a revoked licence don't revive it.
+  if (existing?.status === 'revoked') {
+    fields.status = 'revoked';
+  } else if (existing?.plan === 'lifetime') {
+    // A payment never downgrades a lifetime licence.
     fields.plan = 'lifetime';
     fields.status = 'active';
     delete fields.current_period_end;

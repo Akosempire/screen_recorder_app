@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin · Screen Recorder</title>
+<link rel="icon" href="/assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#111114;--ink-2:#3C3C43;--mute:#6E6E73;--faint:#A1A1A6;--line:#E6E6EA;--panel:#F5F5F7;--card:#fff;--blue:#0067D6;--halo:#FFD21F;--ok:#1E7F3B;--ok-bg:#E8F5EC;--warn-bg:#FFF6DB;--warn:#7A5600;--err:#B3261E;--err-bg:#FDECEA;--sans:"Inter Tight","Segoe UI",system-ui,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--ink:#F2F2F5;--ink-2:#CFCFD6;--mute:#9A9AA3;--faint:#6B6B73;--line:#2A2A31;--panel:#0E0E11;--card:#17171B;--blue:#5AA9FF;--ok:#6CCB8A;--ok-bg:#16301F;--warn-bg:#33290F;--warn:#F2CD6B;--err:#FF8A80;--err-bg:#3A1714}}
+*{box-sizing:border-box;margin:0}
+body{font-family:var(--sans);background:var(--panel);color:var(--ink);font-size:14.5px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--blue)}
+[hidden]{display:none!important}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header .wrap{display:flex;align-items:center;gap:12px;height:58px}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:-.02em}
+.logo img{width:24px;height:24px;border-radius:6px}
+.logo small{font-weight:600;color:var(--mute);font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.spacer{flex:1}
+.who{font-size:13px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40vw;min-width:0}
+@media (max-width:520px){.who{display:none}.logo small{display:none}}
+.btn{border:0;cursor:pointer;background:var(--ink);color:var(--card);font-weight:600;padding:10px 14px;border-radius:10px;white-space:nowrap}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn.danger{background:var(--err);color:#fff}
+.btn.small{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn[disabled]{opacity:.55;cursor:default}
+.btn:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;padding:12px 0 0;scrollbar-width:none}
+.tab{border:0;background:transparent;padding:9px 14px;border-radius:10px;font-weight:600;color:var(--mute);cursor:pointer;white-space:nowrap}
+.tab[aria-selected=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 0 var(--line),0 4px 14px -10px rgba(0,0,0,.4)}
+main{padding:16px 0 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+.card+.card{margin-top:14px}
+.two>.card{margin-top:0}
+.fields>*,.two>*,.grid>*,.card{min-width:0}
+code,.mono{overflow-wrap:anywhere}
+h1{font-size:22px;letter-spacing:-.03em}
+h2{font-size:16px;letter-spacing:-.01em;margin-bottom:10px}
+.muted{color:var(--mute)}
+.small{font-size:13px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(4,1fr)}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.stat b{display:block;font-size:26px;letter-spacing:-.03em;margin-top:2px;font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--mute)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+input[type=text],input[type=email],input[type=password],input[type=number],select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--card)}
+label.f{display:grid;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.fields{display:grid;gap:12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:12px;color:var(--mute);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.scroll{overflow-x:auto;margin:0 -18px;padding:0 18px}
+code,.mono{font-family:var(--mono);font-size:12.5px}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--panel);color:var(--ink-2);white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.bad{background:var(--err-bg);color:var(--err)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.note{border-radius:12px;padding:12px 14px;font-size:13.5px}
+.note.warn{background:var(--warn-bg);color:var(--warn)}
+.note.ok{background:var(--ok-bg);color:var(--ok)}
+.note.err{background:var(--err-bg);color:var(--err)}
+.msg{font-size:13.5px;min-height:1.2em;margin-top:8px}
+.msg.err{color:var(--err)}.msg.ok{color:var(--ok)}
+.switch{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600}
+.switch input{width:18px;height:18px;accent-color:var(--ink)}
+.login{max-width:400px;margin:12vh auto 0;padding:0 16px}
+.login .card{padding:26px}
+.empty{padding:20px;text-align:center;color:var(--mute)}
+.bar{height:8px;border-radius:999px;background:var(--panel);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--blue)}
+.osrow{display:grid;grid-template-columns:110px 1fr 40px;gap:10px;align-items:center;font-size:13px;margin-top:8px}
+@media (max-width:820px){.grid{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- Sign in -->
+<section class="login" id="login" hidden>
+  <div class="card">
+    <div class="logo"><img src="/assets/icon.png" alt="">Screen Recorder <small>Admin</small></div>
+    <h1 style="margin-top:18px">Sign in</h1>
+    <p class="muted small" id="login-help">Enter your admin email. We'll email you a 6-digit code.</p>
+    <form id="email-form" class="fields" style="margin-top:16px">
+      <label class="f">Email<input type="email" name="email" autocomplete="email" required></label>
+      <button class="btn" type="submit">Email me a code</button>
+    </form>
+    <form id="code-form" class="fields" style="margin-top:16px" hidden>
+      <label class="f">6-digit code<input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required></label>
+      <button class="btn" type="submit">Sign in</button>
+      <button class="btn ghost" type="button" id="other-email">Use a different email</button>
+    </form>
+    <p class="msg" id="login-msg" role="alert"></p>
+  </div>
+</section>
+
+<!-- Dashboard -->
+<div id="app" hidden>
+  <header>
+    <div class="wrap">
+      <div class="logo"><img src="/assets/icon.png" alt="">Screen Recorder <small>Admin</small></div>
+      <span class="spacer"></span>
+      <span class="who" id="who"></span>
+      <button class="btn ghost small" id="logout">Sign out</button>
+    </div>
+  </header>
+  <div class="wrap">
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" data-view="overview" aria-selected="true">Overview</button>
+      <button class="tab" role="tab" data-view="licenses" aria-selected="false">Sales &amp; licences</button>
+      <button class="tab" role="tab" data-view="people" aria-selected="false">Downloads &amp; sign-ups</button>
+      <button class="tab" role="tab" data-view="settings" aria-selected="false">Payments settings</button>
+      <button class="tab" role="tab" data-view="log" aria-selected="false">Activity</button>
+    </nav>
+    <main>
+      <!-- Overview -->
+      <section data-panel="overview">
+        <div id="setup-note"></div>
+        <div class="grid" id="stats" style="margin-top:12px"></div>
+        <div class="two" style="margin-top:14px">
+          <div class="card"><h2>Recent sales</h2><div class="scroll"><table id="recent"></table></div></div>
+          <div class="card"><h2>Downloads by system</h2><div id="byos"></div></div>
+        </div>
+      </section>
+
+      <!-- Licences -->
+      <section data-panel="licenses" hidden>
+        <div class="card">
+          <div class="row">
+            <input type="text" id="lic-q" placeholder="Search email or licence key" style="flex:1;min-width:200px">
+            <button class="btn ghost" id="lic-search">Search</button>
+            <button class="btn" id="lic-new">Give a licence</button>
+          </div>
+          <form id="grant-form" class="fields" style="margin-top:14px" hidden>
+            <div class="two">
+              <label class="f">Email<input type="email" name="email" required></label>
+              <label class="f">Plan<select name="plan"><option value="lifetime">Lifetime</option><option value="monthly">Monthly</option></select></label>
+            </div>
+            <div class="two">
+              <label class="f">Months (monthly only)<input type="number" name="months" min="1" max="36" value="1"></label>
+              <label class="f">Note (why)<input type="text" name="note" maxlength="200" placeholder="e.g. Giveaway, refund replacement"></label>
+            </div>
+            <div class="row"><button class="btn" type="submit">Create licence</button><button class="btn ghost" type="button" id="grant-cancel">Cancel</button></div>
+            <p class="msg" id="grant-msg" role="alert"></p>
+          </form>
+        </div>
+        <div class="card"><div class="scroll"><table id="lic-table"></table></div></div>
+      </section>
+
+      <!-- People -->
+      <section data-panel="people" hidden>
+        <div class="card">
+          <div class="row">
+            <select id="people-kind" style="width:auto"><option value="downloads">Downloads</option><option value="signups">Sign-ups</option></select>
+            <input type="text" id="people-q" placeholder="Search email" style="flex:1;min-width:200px">
+            <button class="btn ghost" id="people-search">Search</button>
+            <a class="btn ghost" id="people-csv" href="#" download>Export CSV</a>
+          </div>
+        </div>
+        <div class="card"><div class="scroll"><table id="people-table"></table></div></div>
+      </section>
+
+      <!-- Settings -->
+      <section data-panel="settings" hidden>
+        <div class="card">
+          <h2>Bachs payments</h2>
+          <p class="muted small">Keys are encrypted before they're stored and never shown in full again. Leave a key field empty to keep the saved one.</p>
+          <form id="settings-form" class="fields" style="margin-top:14px">
+            <label class="f">Mode
+              <select name="bachs_environment"><option value="sandbox">Sandbox (test payments)</option><option value="production">Live (real money)</option></select>
+            </label>
+            <label class="f">Bachs API key <span class="muted" id="cur-key"></span>
+              <input type="password" name="bachs_api_key" autocomplete="off" placeholder="sk_sandbox_… or sk_live_…">
+            </label>
+            <label class="f">Webhook signing secret <span class="muted" id="cur-wh"></span>
+              <input type="password" name="bachs_webhook_secret" autocomplete="off" placeholder="whsec_…">
+            </label>
+            <div class="note" style="background:var(--panel);color:var(--ink-2)">
+              In Bachs → Webhooks, add this URL: <code id="wh-url"></code><br>
+              Events: <code>collection.succeeded</code>, <code>customer.subscription.created</code>, <code>customer.subscription.updated</code>, <code>customer.subscription.deleted</code>.
+            </div>
+            <label class="switch"><input type="checkbox" name="payments_enabled"> Sell Pro (turns on checkout and the 3-minute trial limit)</label>
+            <label class="f">Admin emails (comma separated)<input type="text" name="admin_emails" autocomplete="off"></label>
+            <div class="row">
+              <button class="btn" type="submit">Save settings</button>
+              <button class="btn ghost" type="button" id="test-bachs">Test the Bachs connection</button>
+            </div>
+            <p class="msg" id="settings-msg" role="alert"></p>
+          </form>
+        </div>
+      </section>
+
+      <!-- Activity -->
+      <section data-panel="log" hidden>
+        <div class="card"><h2>Admin activity</h2><div class="scroll"><table id="log-table"></table></div></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (tag, props = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === 'class') n.className = v; else if (k === 'text') n.textContent = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v);
+    }
+    for (const k of kids.flat()) if (k !== null && k !== undefined && k !== false) n.append(k instanceof Node ? k : String(k));
+    return n;
+  };
+  const date = (s) => s ? new Date(s).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+  const money = (cur, n) => (cur === 'NGN' ? '₦' : cur === 'USD' ? '$' : cur + ' ') + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const msg = (node, text, kind = 'err') => { node.textContent = text || ''; node.className = 'msg ' + (text ? kind : ''); };
+
+  async function api(action, { method = 'GET', body, query = '' } = {}) {
+    const res = await fetch(`/api/admin?action=${action}${query}`, {
+      method, credentials: 'same-origin',
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401 && !['login', 'verify'].includes(action)) { showLogin(); throw new Error('Please sign in.'); }
+    if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+    return data;
+  }
+
+  // ---- sign in ----
+  let loginEmail = '';
+  function showLogin(){ $('#app').hidden = true; $('#login').hidden = false; }
+  $('#email-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const b = e.target.querySelector('button'); b.disabled = true;
+    loginEmail = e.target.email.value.trim().toLowerCase();
+    try {
+      const r = await api('login', { method: 'POST', body: { email: loginEmail } });
+      $('#email-form').hidden = true; $('#code-form').hidden = false;
+      $('#login-help').textContent = r.message + ' Check your inbox (and spam).';
+      msg($('#login-msg'), '');
+      $('#code-form').code.focus();
+    } catch (err) { msg($('#login-msg'), err.message); }
+    b.disabled = false;
+  });
+  $('#code-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const b = e.target.querySelector('button[type=submit]'); b.disabled = true;
+    try {
+      await api('verify', { method: 'POST', body: { email: loginEmail, code: e.target.code.value.trim() } });
+      e.target.code.value = '';
+      start();
+    } catch (err) { msg($('#login-msg'), err.message); }
+    b.disabled = false;
+  });
+  $('#other-email').addEventListener('click', () => {
+    $('#code-form').hidden = true; $('#email-form').hidden = false;
+    $('#login-help').textContent = "Enter your admin email. We'll email you a 6-digit code.";
+    msg($('#login-msg'), '');
+  });
+  $('#logout').addEventListener('click', async () => { await api('logout', { method: 'POST', body: {} }).catch(() => {}); location.reload(); });
+
+  // ---- tabs ----
+  const loaders = { overview: loadOverview, licenses: loadLicenses, people: loadPeople, settings: loadSettings, log: loadLog };
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => show(t.dataset.view)));
+  function show(view){
+    document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === view)));
+    document.querySelectorAll('[data-panel]').forEach(p => { p.hidden = p.dataset.panel !== view; });
+    history.replaceState(null, '', '#' + view);
+    loaders[view]().catch(err => console.error(err));
+  }
+
+  async function start(){
+    try {
+      const me = await api('me');
+      $('#who').textContent = me.email;
+      $('#login').hidden = true; $('#app').hidden = false;
+      const view = location.hash.slice(1);
+      show(loaders[view] ? view : 'overview');
+    } catch (_) { showLogin(); }
+  }
+
+  // ---- overview ----
+  async function loadOverview(){
+    const o = await api('overview');
+    const s = o.settings;
+    const note = $('#setup-note'); note.replaceChildren();
+    if (!s.payments_live) {
+      note.append(el('div', { class: 'note warn' },
+        s.payments_enabled ? 'Payments are not connected yet. ' : 'Selling Pro is switched off. ',
+        'Open ', el('a', { href: '#settings', onclick: (e) => { e.preventDefault(); show('settings'); } }, 'Payments settings'),
+        s.payments_enabled ? ' to add your Bachs keys.' : ' to turn it on.'));
+    } else {
+      note.append(el('div', { class: 'note ok' }, `Selling Pro (${s.bachs_environment === 'production' ? 'live payments' : 'sandbox: test payments only'}).`));
+    }
+    const rev = (r) => Object.keys(r).length ? Object.entries(r).map(([c, n]) => money(c, n)).join(' + ') : '—';
+    const stats = [
+      ['Active Pro', o.pro.active, `${o.pro.lifetime} lifetime · ${o.pro.monthly} monthly`],
+      ['Revenue (all time)', rev(o.revenue), `${o.sales} payments`],
+      ['Revenue (30 days)', rev(o.revenue30), `${o.sales30} payments`],
+      ['Downloads', o.downloads, `${o.downloads7} this week · ${o.signups} sign-ups`],
+    ];
+    $('#stats').replaceChildren(...stats.map(([label, value, sub]) =>
+      el('div', { class: 'stat' }, el('span', { text: label }), el('b', { text: String(value) }), el('span', { text: sub }))));
+    const t = $('#recent');
+    t.replaceChildren(el('tr', {}, el('th', { text: 'When' }), el('th', { text: 'Email' }), el('th', { text: 'Plan' }), el('th', { text: 'Amount' })));
+    if (!o.recentPayments.length) t.append(el('tr', {}, el('td', { colspan: 4, class: 'empty', text: 'No sales yet.' })));
+    for (const p of o.recentPayments) {
+      t.append(el('tr', {}, el('td', { text: date(p.created_at) }), el('td', { text: p.email || '—' }),
+        el('td', { text: p.plan || '—' }), el('td', { text: p.amount === null ? '—' : money(p.currency, p.amount) })));
+    }
+    const total = Object.values(o.downloadsByOs).reduce((a, b) => a + b, 0) || 1;
+    const names = { windows: 'Windows', mac: 'Mac', linux: 'Linux .deb', 'linux-appimage': 'Linux AppImage', 'linux-tar': 'Linux .tar.gz', android: 'Android', 'android-32': 'Android 32-bit' };
+    const rows = Object.entries(o.downloadsByOs).sort((a, b) => b[1] - a[1]);
+    $('#byos').replaceChildren(...(rows.length ? rows.map(([os, n]) =>
+      el('div', { class: 'osrow' }, el('span', { text: names[os] || os }),
+        el('div', { class: 'bar' }, el('i', { style: `width:${Math.round(n / total * 100)}%` })), el('span', { text: String(n) })))
+      : [el('p', { class: 'empty', text: 'No downloads yet.' })]));
+  }
+
+  // ---- licences ----
+  async function loadLicenses(){
+    const q = $('#lic-q').value.trim();
+    const { items } = await api('licenses', { query: q ? '&q=' + encodeURIComponent(q) : '' });
+    const t = $('#lic-table');
+    t.replaceChildren(el('tr', {}, ...['Email', 'Licence key', 'Plan', 'Status', 'Renews / ends', 'Created', ''].map(h => el('th', { text: h }))));
+    if (!items.length) t.append(el('tr', {}, el('td', { colspan: 7, class: 'empty', text: q ? 'No matches.' : 'No licences yet.' })));
+    for (const l of items) {
+      const status = l.status === 'revoked' ? el('span', { class: 'pill bad', text: 'Revoked' })
+        : l.active ? el('span', { class: 'pill ok', text: l.status === 'past_due' ? 'Active (payment retrying)' : 'Active' })
+        : el('span', { class: 'pill warn', text: l.status === 'canceled' ? 'Ended' : l.status });
+      const action = l.status === 'revoked'
+        ? el('button', { class: 'btn ghost small', text: 'Restore', onclick: () => change('restore', l.license_key) })
+        : el('button', { class: 'btn ghost small', text: 'Revoke', onclick: () => {
+            if (confirm(`Revoke ${l.license_key} (${l.email})? Pro stops for them at the next check.`)) change('revoke', l.license_key);
+          } });
+      t.append(el('tr', {},
+        el('td', {}, l.email, l.note ? el('div', { class: 'muted small', text: l.note }) : null),
+        el('td', { class: 'mono', text: l.license_key }),
+        el('td', { text: l.plan }),
+        el('td', {}, status),
+        el('td', { text: l.plan === 'lifetime' ? 'Never' : date(l.current_period_end) }),
+        el('td', { text: date(l.created_at) }),
+        el('td', {}, action)));
+    }
+  }
+  async function change(action, key){
+    try { await api(action, { method: 'POST', body: { key } }); await loadLicenses(); }
+    catch (err) { alert(err.message); }
+  }
+  $('#lic-search').addEventListener('click', loadLicenses);
+  $('#lic-q').addEventListener('keydown', e => { if (e.key === 'Enter') loadLicenses(); });
+  $('#lic-new').addEventListener('click', () => { $('#grant-form').hidden = false; $('#grant-form').email.focus(); });
+  $('#grant-cancel').addEventListener('click', () => { $('#grant-form').hidden = true; });
+  $('#grant-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      const row = await api('grant', { method: 'POST', body: { email: f.email.value, plan: f.plan.value, months: f.months.value, note: f.note.value } });
+      msg($('#grant-msg'), `Created ${row.license_key} for ${row.email}. Send them this key: in the app, Upgrade → I have a licence key.`, 'ok');
+      f.reset();
+      await loadLicenses();
+    } catch (err) { msg($('#grant-msg'), err.message); }
+  });
+
+  // ---- people ----
+  async function loadPeople(){
+    const kind = $('#people-kind').value;
+    const q = $('#people-q').value.trim();
+    const query = q ? '&q=' + encodeURIComponent(q) : '';
+    $('#people-csv').href = `/api/admin?action=${kind}&format=csv${query}`;
+    const { items } = await api(kind, { query });
+    const cols = kind === 'downloads'
+      ? [['created_at', 'When', date], ['email', 'Email'], ['os', 'System'], ['country', 'Country'], ['user_agent', 'Browser']]
+      : [['created_at', 'When', date], ['name', 'Name'], ['email', 'Email'], ['country', 'Country'], ['signup_count', 'Times'], ['wants_updates', 'Wants updates', v => v ? 'Yes' : 'No']];
+    const t = $('#people-table');
+    t.replaceChildren(el('tr', {}, ...cols.map(([, h]) => el('th', { text: h }))));
+    if (!items.length) t.append(el('tr', {}, el('td', { colspan: cols.length, class: 'empty', text: 'Nothing here yet.' })));
+    for (const r of items) {
+      t.append(el('tr', {}, ...cols.map(([k, , fmt]) => el('td', { text: fmt ? fmt(r[k]) : (r[k] ?? '—'), class: k === 'user_agent' ? 'muted small' : '' }))));
+    }
+  }
+  $('#people-search').addEventListener('click', loadPeople);
+  $('#people-kind').addEventListener('change', loadPeople);
+  $('#people-q').addEventListener('keydown', e => { if (e.key === 'Enter') loadPeople(); });
+
+  // ---- settings ----
+  async function loadSettings(){
+    const s = await api('settings');
+    const f = $('#settings-form');
+    f.bachs_environment.value = s.bachs_environment;
+    f.payments_enabled.checked = s.payments_enabled;
+    f.admin_emails.value = s.admin_emails.join(', ');
+    f.bachs_api_key.value = ''; f.bachs_webhook_secret.value = '';
+    $('#cur-key').textContent = s.bachs_api_key ? `(saved: ${s.bachs_api_key})` : '(not set)';
+    $('#cur-wh').textContent = s.bachs_webhook_secret ? `(saved: ${s.bachs_webhook_secret})` : '(not set)';
+    $('#wh-url').textContent = s.webhook_url;
+    if (!s.key_matches_environment) msg($('#settings-msg'), 'The saved API key doesn\'t match the mode: live needs an sk_live_ key, sandbox an sk_sandbox_ key.');
+  }
+  $('#settings-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const goingLive = f.bachs_environment.value === 'production';
+    if (goingLive && !confirm('Switch to LIVE payments? Customers will be charged real money.')) return;
+    try {
+      const s = await api('settings', { method: 'POST', body: {
+        bachs_environment: f.bachs_environment.value,
+        bachs_api_key: f.bachs_api_key.value,
+        bachs_webhook_secret: f.bachs_webhook_secret.value,
+        payments_enabled: f.payments_enabled.checked,
+        admin_emails: f.admin_emails.value,
+      } });
+      await loadSettings();
+      msg($('#settings-msg'), s.payments_live ? 'Saved. Pro is on sale.' : 'Saved. Pro goes on sale once the API key and webhook secret are set and selling is on.', s.payments_live ? 'ok' : 'err');
+    } catch (err) { msg($('#settings-msg'), err.message); }
+  });
+  $('#test-bachs').addEventListener('click', async () => {
+    try { const r = await api('test-bachs', { method: 'POST', body: {} }); msg($('#settings-msg'), r.message, r.ok ? 'ok' : 'err'); }
+    catch (err) { msg($('#settings-msg'), err.message); }
+  });
+
+  // ---- activity ----
+  async function loadLog(){
+    const { items } = await api('log');
+    const t = $('#log-table');
+    t.replaceChildren(el('tr', {}, ...['When', 'Admin', 'What', 'Details'].map(h => el('th', { text: h }))));
+    if (!items.length) t.append(el('tr', {}, el('td', { colspan: 4, class: 'empty', text: 'No activity yet.' })));
+    const words = { login: 'Signed in', login_failed: 'Wrong code', settings: 'Changed settings', grant: 'Gave a licence', revoke: 'Revoked a licence', restore: 'Restored a licence' };
+    for (const r of items) t.append(el('tr', {}, el('td', { text: date(r.created_at) }), el('td', { text: r.email }), el('td', { text: words[r.action] || r.action }), el('td', { class: 'mono', text: r.detail || '' })));
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>

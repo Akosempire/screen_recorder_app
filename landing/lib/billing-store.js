@@ -1,5 +1,6 @@
 // Supabase storage for payments (see db/migrations/003_payments.sql).
 import { Bachs } from '@bachs/sdk';
+import { loadConfig, paymentsOn } from './config.js';
 import * as db from './supabase-rest.js';
 
 export const supabaseStore = {
@@ -33,7 +34,18 @@ export const supabaseStore = {
   async markEvent(id, type) {
     await db.insert('webhook_events', { id, type }, { ignoreDuplicate: true });
   },
+  async recordPayment(row) {
+    try {
+      await db.insert('payments', row, { ignoreDuplicate: true });
+    } catch (error) {
+      // Before 004_admin.sql has been run the table doesn't exist; never lose a licence over it.
+      console.error('payment not recorded', error.message);
+    }
+  },
 };
+
+/** Settings from the dashboard, with Vercel variables as fallback. */
+export const currentConfig = () => loadConfig(supabaseStore);
 
 /** Bachs API client. Sandbox unless BACHS_ENVIRONMENT=production. */
 export function bachsClient(env = process.env) {
@@ -46,6 +58,6 @@ export function bachsClient(env = process.env) {
   return new Bachs({ apiKey: env.BACHS_API_KEY, environment });
 }
 
-export function paymentsConfigured(env = process.env) {
-  return Boolean(env.BACHS_API_KEY && env.LICENSE_SECRET && db.configured());
+export function paymentsConfigured(config) {
+  return db.configured() && paymentsOn(config);
 }

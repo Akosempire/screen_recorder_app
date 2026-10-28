@@ -84,8 +84,8 @@ export async function markEmailSent(email, messageId) {
   );
 }
 
-export async function logDownload({ email, country, userAgent }) {
-  if (rest.configured()) return rest.logDownload({ email, country, userAgent });
+export async function logDownload({ email, country, userAgent, os }) {
+  if (rest.configured()) return rest.logDownload({ email, country, userAgent, os });
   await getPool().query(
     'INSERT INTO downloads (email, country, user_agent) VALUES ($1, $2, $3)',
     [email, country || null, userAgent || null],

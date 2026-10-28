@@ -150,13 +150,13 @@ class _UpgradeDialogState extends State<UpgradeDialog> {
   Widget _buyView() {
     final limit = _pro.freeLimit.inMinutes;
     final reason = widget.reason ?? (_pro.stoppedAtLimit
-        ? 'Your recording stopped at $limit minutes, the free limit, and it has been kept. Go Pro to record as long as you like.'
+        ? 'Your recording stopped at $limit minutes, the trial limit, and it has been kept. Go Pro to record as long as you like.'
         : null);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _header('Go Pro', subtitle: 'Every feature is free for recordings up to $limit minutes. Pro removes the limit.'),
+        _header('Go Pro', subtitle: 'Try every feature on recordings up to $limit minutes. Pro removes the limit.'),
         if (reason != null) ...[
           const SizedBox(height: 12),
           Container(

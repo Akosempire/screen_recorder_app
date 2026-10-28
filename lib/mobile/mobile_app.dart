@@ -255,7 +255,7 @@ class _MobileHomeState extends State<MobileHome> with WidgetsBindingObserver {
                 style: const TextStyle(
                     fontSize: 48, fontWeight: FontWeight.w700, fontFeatures: [FontFeature.tabularFigures()])),
             if (limit != null)
-              Text('Free recordings stop at ${_fmt(limit)}',
+              Text('Trial recordings stop at ${_fmt(limit)}',
                   style: StudioText.caption.copyWith(color: const Color(0xFF8A6100))),
             const SizedBox(height: 16),
             Row(
@@ -286,7 +286,7 @@ class _MobileHomeState extends State<MobileHome> with WidgetsBindingObserver {
                 const Icon(Icons.timer_outlined, size: 18, color: Studio.muted),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('Free: up to ${limit.inMinutes} minutes per recording.', style: StudioText.body),
+                  child: Text('Trial: up to ${limit.inMinutes} minutes per recording.', style: StudioText.body),
                 ),
                 TextButton(onPressed: () => showUpgradeDialog(context), child: const Text('Go Pro')),
               ],

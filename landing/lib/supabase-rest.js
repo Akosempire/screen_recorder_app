@@ -74,11 +74,15 @@ export async function markEmailSent(email, messageId) {
   });
 }
 
-export async function logDownload({ email, country, userAgent }) {
-  await call('POST', 'downloads', {
-    body: { email, country: country || null, user_agent: userAgent || null },
-    prefer: 'return=minimal',
-  });
+export async function logDownload({ email, country, userAgent, os }) {
+  const body = { email, country: country || null, user_agent: userAgent || null };
+  try {
+    await call('POST', 'downloads', { body: { ...body, os: os || null }, prefer: 'return=minimal' });
+  } catch (error) {
+    // Before 004_admin.sql adds the os column: log without it.
+    if (error.status !== 400 && error.code !== 'PGRST204') throw error;
+    await call('POST', 'downloads', { body, prefer: 'return=minimal' });
+  }
 }
 
 async function count(table) {
