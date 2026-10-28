@@ -52,6 +52,16 @@ DEPLOY_GTK_VERSION=3 linuxdeploy --appdir "$APPDIR" \
 # The Flutter binary looks for lib/ and data/ next to itself; make sure its
 # own libraries win over any copies linuxdeploy made.
 patchelf --set-rpath '$ORIGIN/lib:$ORIGIN/../lib' "$APPDIR/usr/bin/screen_recorder_app"
+# Plugins (media_kit, window_manager...) must also find the libraries
+# linuxdeploy bundled in usr/lib (libmpv and its codecs).
+for so in "$APPDIR"/usr/bin/lib/*.so; do
+  patchelf --set-rpath '$ORIGIN:$ORIGIN/../../lib' "$so"
+done
+# Fail the build if anything the app needs is still missing (ignoring the
+# few system libraries every desktop has, which AppImages never bundle).
+missing=$(LD_LIBRARY_PATH="$APPDIR/usr/lib" ldd "$APPDIR/usr/bin/screen_recorder_app" "$APPDIR"/usr/bin/lib/*.so | grep "not found" | sort -u || true)
+if [ -n "$missing" ]; then echo "Missing libraries:"; echo "$missing"; exit 1; fi
+ls "$APPDIR/usr/lib" | grep -E "mpv|avcodec" || { echo "libmpv was not bundled"; exit 1; }
 
 ARCH=x86_64 appimagetool --no-appstream "$APPDIR" "$OUT/ScreenRecorder-Linux-x64.AppImage"
 chmod +x "$OUT/ScreenRecorder-Linux-x64.AppImage"

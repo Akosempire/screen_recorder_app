@@ -14,7 +14,7 @@ do {
       let config = SCStreamConfiguration()
       config.width = display.width
       config.height = display.height
-      let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+      let image: CGImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
       print("screenshot=\(image.width)x\(image.height)")
     }
   }
