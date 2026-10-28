@@ -228,12 +228,16 @@ class _MobileHomeState extends State<MobileHome> with WidgetsBindingObserver {
               style: StudioText.body,
             ),
             const SizedBox(height: 14),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              value: _mic,
-              onChanged: (v) => setState(() => _mic = v),
-              title: const Text('Record sound from the microphone'),
-              secondary: Icon(_mic ? Icons.mic : Icons.mic_off_outlined),
+            // Its own Material so the tile's ink shows on the card.
+            Material(
+              type: MaterialType.transparency,
+              child: SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _mic,
+                onChanged: (v) => setState(() => _mic = v),
+                title: const Text('Record sound from the microphone'),
+                secondary: Icon(_mic ? Icons.mic : Icons.mic_off_outlined),
+              ),
             ),
           ] else ...[
             Row(

@@ -38,7 +38,7 @@ jobs:
         run: |
           set -o pipefail
           if ! flutter test --reporter expanded 2>&1 | tee test-output.txt; then
-            msg=$( { grep -nE "\[E\]|Expected:|Actual:|Which:|overflowed|Error:|error:|Test failed" test-output.txt; grep -nE -A3 "EXCEPTION CAUGHT" test-output.txt | grep -v "EXCEPTION CAUGHT\|^--$"; } | sort -n -t: -k1 | head -80 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            msg=$( { grep -nE "\[E\]|Expected:|Actual:|Which:|overflowed|Error:|error:|Test failed" test-output.txt; grep -nE -A3 "EXCEPTION CAUGHT" test-output.txt | grep -v "EXCEPTION CAUGHT\|^--$"; grep -nE -A8 "\[E\]$" test-output.txt | grep -v "^--$"; } | sort -n -t: -k1 | head -80 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::error title=flutter test failures::${msg}"
             exit 1
           fi
