@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Screen Recorder Pro</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#000;--ink-2:#3C3C43;--mute:#6E6E73;--line:#E8E8ED;--panel:#F6F6F6;--blue:#0080FF;--navy:#190096;--sky:#78D2FF;--halo:#FFD21F;--ok:#1E8E3E;--err:#B3261E;--sans:"Inter Tight","Segoe UI",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0}
+body{font-family:var(--sans);color:var(--ink);background:linear-gradient(180deg,var(--navy) 0%,var(--blue) 30%,var(--sky) 60%,#fff 100%);min-height:100vh;display:grid;place-items:center;padding:24px 16px}
+main{background:#F6F6F6;border-radius:32px;max-width:460px;width:100%;padding:36px 24px 26px;text-align:center;box-shadow:0 40px 80px -30px rgba(10,0,80,.5)}
+.logo{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.logo img{width:22px;height:22px;border-radius:6px}
+h1{font-size:30px;letter-spacing:-.04em;line-height:1.05;margin-top:18px}
+p{color:var(--ink-2);font-size:15px;line-height:1.5;margin-top:10px}
+.spin{width:34px;height:34px;border-radius:50%;border:3px solid #D9DCE3;border-top-color:#000;margin:22px auto 0;animation:r 1s linear infinite}
+@keyframes r{to{transform:rotate(1turn)}}
+.tick{width:46px;height:46px;border-radius:50%;background:var(--halo);display:grid;place-items:center;margin:20px auto 0}
+.key{margin-top:18px;background:#fff;border:1.5px dashed #C8CCD4;border-radius:16px;padding:14px;font:600 20px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.04em;word-break:break-all}
+button,.btn{display:inline-flex;justify-content:center;align-items:center;gap:8px;border:0;cursor:pointer;background:#000;color:#fff;font:600 15px var(--sans);padding:13px 18px;border-radius:14px;text-decoration:none;margin-top:14px;width:100%}
+.ghost{background:#fff;color:#000;box-shadow:inset 0 0 0 1.5px var(--line)}
+ol{text-align:left;margin:16px 0 0;padding-left:20px;color:var(--ink-2);font-size:14.5px;line-height:1.55}
+.err{color:var(--err)}
+.small{font-size:13px;color:var(--mute)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <span class="logo"><img src="/assets/icon.png" alt="">Screen Recorder Pro</span>
+
+  <section id="waiting">
+    <div class="spin" aria-hidden="true"></div>
+    <h1>Confirming your payment</h1>
+    <p>This usually takes a few seconds. Keep this page open.</p>
+  </section>
+
+  <section id="done" hidden>
+    <div class="tick" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    <h1>You're Pro. Thank you!</h1>
+    <p id="plan-line"></p>
+    <div class="key" id="key"></div>
+    <button type="button" id="copy">Copy licence key</button>
+    <ol>
+      <li>Open Screen Recorder. If you clicked <b>Upgrade</b> in the app, it has already unlocked.</li>
+      <li>Otherwise click <b>Upgrade → I have a licence key</b> and paste the key.</li>
+      <li>Keep the key somewhere safe; it works on your other computers too.</li>
+    </ol>
+    <a class="btn ghost" href="/#get">Download Screen Recorder</a>
+  </section>
+
+  <section id="slow" hidden>
+    <h1>Still confirming…</h1>
+    <p>Your payment is taking longer than usual to confirm. If you were charged, your licence will appear here and in the app shortly. You can safely refresh this page.</p>
+    <button type="button" onclick="location.reload()">Check again</button>
+  </section>
+
+  <section id="bad" hidden>
+    <h1>We couldn't find this purchase</h1>
+    <p class="err" id="bad-msg"></p>
+    <a class="btn" href="/#pricing">Back to pricing</a>
+  </section>
+</main>
+<script>
+(function(){
+  const a = new URLSearchParams(location.search).get('a') || '';
+  const show = id => ['waiting','done','slow','bad'].forEach(s => { document.getElementById(s).hidden = s !== id; });
+  if (!/^[A-Za-z0-9_-]{24,100}$/.test(a)) { document.getElementById('bad-msg').textContent = 'This link is incomplete.'; return show('bad'); }
+  const started = Date.now();
+  async function poll(){
+    try {
+      const res = await fetch('/api/license?activation=' + encodeURIComponent(a), { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 404 || res.status === 400) { document.getElementById('bad-msg').textContent = data.error || ''; return show('bad'); }
+      if (res.ok && !data.pending && data.key) {
+        document.getElementById('key').textContent = data.key;
+        document.getElementById('plan-line').textContent = data.plan === 'lifetime'
+          ? 'Lifetime access: unlimited recording length, forever.'
+          : 'Pro Monthly: unlimited recording length. Manage or cancel it any time from the app.';
+        return show('done');
+      }
+    } catch (_) {}
+    if (Date.now() - started > 3 * 60 * 1000) show('slow');
+    setTimeout(poll, 3000);
+  }
+  poll();
+  document.getElementById('copy').addEventListener('click', async e => {
+    try { await navigator.clipboard.writeText(document.getElementById('key').textContent); e.target.textContent = 'Copied'; } catch (_) {}
+  });
+})();
+</script>
+</body>
+</html>

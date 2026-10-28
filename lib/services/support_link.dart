@@ -6,17 +6,24 @@ import 'app_logger.dart';
 const supportUrl = 'https://buymeamalt.com/@ibrahim_designer';
 
 /// Opens [supportUrl] in the default browser.
-Future<void> openSupportPage() async {
+Future<void> openSupportPage() => openUrl(supportUrl);
+
+/// Opens [url] in the default browser. Only http(s) links are opened.
+Future<bool> openUrl(String url) async {
+  final uri = Uri.tryParse(url);
+  if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http')) return false;
   try {
     if (Platform.isWindows) {
-      // `start` via cmd opens the URL with the default browser.
-      await Process.start('cmd', ['/c', 'start', '', supportUrl]);
+      // Not `cmd /c start`: cmd treats & in query strings as a command separator.
+      await Process.start('rundll32', ['url.dll,FileProtocolHandler', url]);
     } else if (Platform.isMacOS) {
-      await Process.start('open', [supportUrl]);
+      await Process.start('open', [url]);
     } else {
-      await Process.start('xdg-open', [supportUrl]);
+      await Process.start('xdg-open', [url]);
     }
+    return true;
   } catch (error) {
-    AppLogger.warn('Could not open $supportUrl: $error');
+    AppLogger.warn('Could not open $url: $error');
+    return false;
   }
 }

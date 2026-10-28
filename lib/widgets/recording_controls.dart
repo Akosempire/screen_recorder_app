@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/recording_controller.dart';
 import '../models/recording_state.dart';
+import '../services/pro_service.dart';
 import '../services/processing_status.dart';
 import '../services/window_coordinator.dart';
 
@@ -54,16 +55,7 @@ class RecordingControls extends StatelessWidget {
           children: [
             _RecordingDot(active: recording),
             const SizedBox(width: 5),
-            Text(
-              formatElapsed(controller.elapsed),
-              style: const TextStyle(
-                color: Colors.white,
-                fontFeatures: [FontFeature.tabularFigures()],
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                height: 1.1,
-              ),
-            ),
+            _ElapsedText(elapsed: controller.elapsed),
             if (controller.recordMicrophone) ...[
               const SizedBox(width: 6),
               const Icon(
@@ -316,6 +308,39 @@ class ProcessingPill extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Elapsed time; on a free plan, the last 30 seconds count down in amber to
+/// the limit ("-0:25").
+class _ElapsedText extends StatelessWidget {
+  const _ElapsedText({required this.elapsed});
+
+  final Duration elapsed;
+
+  static const _style = TextStyle(
+    color: Colors.white,
+    fontFeatures: [FontFeature.tabularFigures()],
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    height: 1.1,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final limit = ProService.instance.recordingLimit;
+    final left = limit == null ? null : limit - elapsed;
+    if (left == null || left > const Duration(seconds: 30)) {
+      return Text(formatElapsed(elapsed), style: _style);
+    }
+    final shown = left.isNegative ? Duration.zero : left + const Duration(milliseconds: 999);
+    return Tooltip(
+      message: 'Free recordings stop at ${formatElapsed(limit!)}. Go Pro for unlimited length.',
+      child: Text(
+        '-${formatElapsed(Duration(seconds: shown.inSeconds))}',
+        style: _style.copyWith(color: const Color(0xFFFFB020)),
+      ),
     );
   }
 }

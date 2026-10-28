@@ -12,6 +12,7 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@bachs/sdk": "2.0.0",
     "@vercel/functions": "^3.10.1",
     "pg": "^8.23.1"
   }

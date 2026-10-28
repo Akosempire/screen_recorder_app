@@ -217,6 +217,36 @@ input[aria-invalid=true]{border-color:var(--err);animation:shake .35s}
 /* Download pop-up */
 .modal{border:0;padding:0;background:transparent;width:min(420px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:visible;margin:auto;color:inherit}
 .modal::backdrop{background:rgba(5,0,40,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+/* pricing */
+.pricing{padding:90px 0 30px}
+.cur{display:inline-grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--panel);border-radius:14px;margin-top:22px}
+.cur label{position:relative;cursor:pointer}
+.cur input{position:absolute;opacity:0;pointer-events:none}
+.cur span{display:block;padding:9px 18px;border-radius:10px;font-size:14px;font-weight:600;color:var(--mute);transition:background .2s,color .2s}
+.cur input:checked+span{background:#fff;color:var(--ink);box-shadow:0 4px 12px -8px rgba(0,0,0,.4)}
+.cur input:focus-visible+span{outline:2px solid var(--focus);outline-offset:2px}
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:36px;align-items:stretch}
+.plan{position:relative;background:var(--panel);border-radius:28px;padding:28px 24px 24px;display:flex;flex-direction:column;text-align:left}
+.plan.best{background:#0B0B12;color:#fff;box-shadow:0 30px 60px -30px rgba(25,0,150,.6)}
+.plan h3{font-size:20px;letter-spacing:-.02em}
+.plan .amount{margin-top:10px;display:flex;align-items:baseline;gap:8px}
+.plan .amount strong{font-size:44px;letter-spacing:-.05em;line-height:1}
+.plan .amount span{font-size:14px;color:var(--mute)}
+.plan.best .amount span{color:#A1A1AA}
+.plan ul{list-style:none;margin:18px 0 22px;padding:0;display:grid;gap:9px;flex:1}
+.plan li{font-size:14.5px;line-height:1.4;padding-left:24px;position:relative;color:var(--ink-2)}
+.plan.best li{color:#E4E4E7}
+.plan li::before{content:"";position:absolute;left:3px;top:4px;width:5px;height:10px;border:solid var(--blue);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.plan.best li::before{border-color:var(--halo)}
+.plan .badge{position:absolute;top:18px;right:18px;background:var(--halo);color:#000;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
+.plan-btn{border:0;cursor:pointer;font:600 15px/1 var(--sans);padding:14px;border-radius:14px;background:#000;color:#fff;transition:transform .2s var(--ease)}
+.plan-btn:hover{transform:translateY(-1px)}
+.plan-btn.ghost{background:#fff;color:#000;box-shadow:inset 0 0 0 1.5px var(--line)}
+.plan.best .plan-btn{background:var(--halo);color:#000}
+.plan-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.plan-btn[disabled]{opacity:.55;cursor:default;transform:none}
+.pay-note{margin-top:16px;text-align:center;font-size:13px;color:var(--mute)}
+@media (max-width:900px){.plans{grid-template-columns:1fr;max-width:460px;margin-left:auto;margin-right:auto}}
 /* system requirements */
 .reqs{padding:90px 0 40px}
 .req-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:40px}
@@ -352,6 +382,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
   <nav aria-label="Main">
     <a href="#features">Features</a>
     <a href="#uses">Use cases</a>
+    <a href="#pricing">Pricing</a>
     <a href="#faq">FAQ</a>
     <a href="#get">Download</a>
   </nav>
@@ -365,7 +396,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
     <h1 class="load" style="animation-delay:.08s">Record once.<span class="serif">Explain anything.</span></h1>
     <p class="sub load" style="animation-delay:.16s">Screen Recorder highlights every click, zooms in where you work, and puts your face in a bubble, so anyone can follow along. Everything stays on your computer.</p>
     <a class="cta load" style="animation-delay:.24s" href="#get"><span class="dot" aria-hidden="true"></span><span>Download</span></a>
-    <div class="trust load" style="animation-delay:.3s"><span>Free, no watermark</span><span>Nothing uploaded</span><span>Windows, Mac, Linux</span></div>
+    <div class="trust load" style="animation-delay:.3s"><span>Free to try, no watermark</span><span>Nothing uploaded</span><span>Windows, Mac, Linux</span></div>
   </div>
   <div class="wrap">
     <div class="device load" style="animation-delay:.38s">
@@ -493,13 +524,13 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
 
 <section class="get" id="get">
   <div class="wrap center">
-    <h2 class="reveal">Free.<br><span class="serif">For good.</span></h2>
-    <p class="lead reveal" data-delay="1">No subscription, no watermark, no account.<br>Enter your name and email, and the download starts right away.</p>
+    <h2 class="reveal">Free to start.<br><span class="serif">Pro when you need it.</span></h2>
+    <p class="lead reveal" data-delay="1">Every feature is free for recordings up to 3 minutes. No watermark, no account.<br>Enter your name and email, and the download starts right away.</p>
   </div>
   <div class="wrap">
     <div class="card reveal" data-delay="2">
       <div class="tab"><img src="/assets/icon.png" alt="">Screen Recorder</div>
-      <div class="price"><strong>Free</strong><span>Windows 10 and 11, macOS, Linux</span></div>
+      <div class="price"><strong>Free</strong><span>Recordings up to 3 minutes · Windows, Mac, Linux</span></div>
       <ul class="checks">
         <li><i></i>Cursor halo and click ripples</li>
         <li><i></i>Auto-zoom that follows your mouse</li>
@@ -515,6 +546,74 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
     </div>
   </div>
 </section>
+
+<section class="pricing" id="pricing">
+  <div class="wrap center">
+    <h2 class="reveal">Go Pro.<br><span class="serif">Record without limits.</span></h2>
+    <p class="lead reveal" data-delay="1">Every feature is free for recordings up to 3 minutes. Pro removes the limit.</p>
+    <div class="cur reveal" data-delay="1" role="radiogroup" aria-label="Currency">
+      <label><input type="radio" name="cur" value="NGN"><span>₦ Naira</span></label>
+      <label><input type="radio" name="cur" value="USD" checked><span>$ Dollars</span></label>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="plans">
+      <article class="plan reveal">
+        <h3>Free</h3>
+        <p class="amount"><strong data-ngn="₦0" data-usd="$0">$0</strong></p>
+        <ul>
+          <li>Recordings up to 3 minutes</li>
+          <li>Cursor halo, auto-zoom, face camera</li>
+          <li>Backgrounds, trim and cut</li>
+          <li>No watermark</li>
+        </ul>
+        <button type="button" class="plan-btn ghost open-get">Download free</button>
+      </article>
+      <article class="plan reveal" data-delay="1">
+        <h3>Pro Monthly</h3>
+        <p class="amount"><strong data-ngn="₦2,000" data-usd="$5">$5</strong><span>/ month</span></p>
+        <ul>
+          <li><b>Unlimited</b> recording length</li>
+          <li>Everything in Free</li>
+          <li>Cancel any time from the app</li>
+          <li>All updates</li>
+        </ul>
+        <button type="button" class="plan-btn buy" data-plan="monthly">Get Monthly</button>
+      </article>
+      <article class="plan best reveal" data-delay="2">
+        <span class="badge">Best value</span>
+        <h3>Pro Lifetime</h3>
+        <p class="amount"><strong data-ngn="₦50,000" data-usd="$100">$100</strong><span>once</span></p>
+        <ul>
+          <li><b>Unlimited</b> recording length, forever</li>
+          <li>Everything in Free</li>
+          <li>One payment, no renewals</li>
+          <li>All updates</li>
+        </ul>
+        <button type="button" class="plan-btn buy" data-plan="lifetime">Get Lifetime</button>
+      </article>
+    </div>
+    <p class="pay-note reveal">Payments are handled securely by Bachs: cards, bank transfer and more. You get a licence key right after paying.</p>
+  </div>
+</section>
+
+<dialog class="modal" id="buy-dialog" aria-labelledby="buy-title">
+  <div class="card">
+    <div class="tab"><img src="/assets/icon.png" alt="">Screen Recorder Pro</div>
+    <button type="button" class="x" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h3 id="buy-title">Get Pro</h3>
+    <p class="sub buy-price"></p>
+    <form id="buy-form" class="buy-form" novalidate>
+      <div class="fields">
+        <label class="field">Your name<input type="text" name="name" autocomplete="name" required maxlength="80"></label>
+        <label class="field">Email (for your receipt and licence)<input type="email" name="email" autocomplete="email" required maxlength="160"></label>
+        <button class="btn" type="submit"><span class="label">Continue to payment</span></button>
+      </div>
+      <p class="msg" role="alert" aria-live="polite"></p>
+    </form>
+    <p class="fine">You'll pay on Bachs's secure checkout, then come back here for your licence key.</p>
+  </div>
+</dialog>
 
 <section class="reqs" id="requirements">
   <div class="wrap center">
@@ -643,8 +742,9 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
   </div>
   <div class="wrap">
     <div class="faq">
-      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Is it really free?</button><div class="a"><div><p>Yes. There are no paid features, watermarks or time limits. If it helps you, you can buy me suya to keep it going.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>What's free, and what's Pro?</button><div class="a"><div><p>Everything is free for recordings up to 3 minutes: cursor halo, auto-zoom, face camera, backgrounds and the editor, with no watermark. Pro removes the 3-minute limit: ₦2,000 or $5 a month, or ₦50,000 or $100 once for lifetime access. <a href="#pricing">See pricing</a>.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Windows says "Windows protected your PC"</button><div class="a"><div><p>That's normal for new apps that aren't code-signed yet. Click More info, then Run anyway.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>How do I unlock Pro in the app?</button><div class="a"><div><p>Click <b>Upgrade</b> in the app and pay; the app unlocks by itself. If you paid on this website, you get a licence key (SR-XXXX-XXXX-XXXX-XXXX): in the app, click Upgrade → <b>I have a licence key</b>. Monthly plans can be cancelled any time from the app.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>My Mac says it can't check the app</button><div class="a"><div><p>The app isn't notarized by Apple yet. Open it once and click Done, then go to System Settings → Privacy &amp; Security, scroll down and click Open Anyway. The first time you record, allow Screen Recording there too, then reopen the app.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Does anything get uploaded?</button><div class="a"><div><p>No. Recording, auto-zoom and saving all happen on your computer. We only receive the name and email you enter on this page.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>How does auto-zoom know where to zoom?</button><div class="a"><div><p>While you record, the app notes where your mouse is and where you click. When you stop, it zooms in around your clicks and follows the cursor. You can change how close, how long and how smooth, or turn it off.</p></div></div></div>
@@ -667,7 +767,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         <p>A free screen recorder with click highlights, auto-zoom and quick edits. Everything stays on your computer.</p>
         <a class="dlw" href="#get"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Download for <span class="os-name">Windows</span></span></a>
       </div>
-      <div><h4>Menu</h4><a class="l" href="#top">Home</a><a class="l" href="#features">Features</a><a class="l" href="#uses">Use cases</a><a class="l" href="#requirements">Requirements</a><a class="l" href="#faq">FAQ</a><a class="l" href="#get">Download</a></div>
+      <div><h4>Menu</h4><a class="l" href="#top">Home</a><a class="l" href="#features">Features</a><a class="l" href="#uses">Use cases</a><a class="l" href="#pricing">Pricing</a><a class="l" href="#requirements">Requirements</a><a class="l" href="#faq">FAQ</a><a class="l" href="#get">Download</a></div>
       <div><h4>More</h4><a class="l" href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app" target="_blank" rel="noopener">Source code</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app/releases" target="_blank" rel="noopener">Release notes</a></div>
     </div>
     <div class="legal"><span>Screen Recorder for Windows, Mac and Linux</span><span>Record only what you have the right to share.</span></div>
@@ -867,6 +967,68 @@ document.querySelectorAll('.req-link').forEach(a => a.addEventListener('click', 
   const dlg = document.getElementById('get-dialog');
   if (dlg && dlg.open) dlg.close();
 }));
+
+// Pricing: naira or dollars, then checkout on Bachs.
+(function(){
+  const radios = document.querySelectorAll('.cur input');
+  if (!radios.length) return;
+  let currency = 'USD';
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (tz === 'Africa/Lagos' || /-NG$/i.test(navigator.language || '')) currency = 'NGN';
+  } catch (_) {}
+  const PRICES = { monthly: { NGN: '₦2,000 a month', USD: '$5 a month' }, lifetime: { NGN: '₦50,000, one payment', USD: '$100, one payment' } };
+  const NAMES = { monthly: 'Pro Monthly', lifetime: 'Pro Lifetime' };
+  function setCurrency(c){
+    currency = c;
+    document.querySelectorAll('.plan .amount strong').forEach(el => { el.textContent = c === 'NGN' ? el.dataset.ngn : el.dataset.usd; });
+    radios.forEach(r => { r.checked = r.value === c; });
+  }
+  radios.forEach(r => r.addEventListener('change', () => setCurrency(r.value)));
+  setCurrency(currency);
+
+  // Until payments are switched on, Pro buttons say so instead of failing.
+  fetch('/api/plans').then(r => r.json()).then(info => {
+    if (info && info.enabled) return;
+    document.querySelectorAll('.plan-btn.buy').forEach(b => { b.disabled = true; b.textContent = 'Coming soon'; });
+  }).catch(() => {});
+
+  const dlg = document.getElementById('buy-dialog');
+  const form = document.getElementById('buy-form');
+  const msg = form.querySelector('.msg');
+  const btn = form.querySelector('button[type=submit]');
+  const label = btn.querySelector('.label');
+  let plan = 'lifetime';
+  document.querySelectorAll('.plan-btn.buy').forEach(b => b.addEventListener('click', () => {
+    plan = b.dataset.plan;
+    dlg.querySelector('#buy-title').textContent = 'Get ' + NAMES[plan];
+    dlg.querySelector('.buy-price').textContent = PRICES[plan][currency] + '. Unlimited recording length.';
+    msg.textContent = ''; msg.className = 'msg';
+    if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+    form.name.focus();
+  }));
+  const close = () => dlg.close ? dlg.close() : dlg.removeAttribute('open');
+  dlg.querySelector('.x').addEventListener('click', close);
+  dlg.addEventListener('click', e => { if (e.target === dlg) close(); });
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = form.name.value.trim(), email = form.email.value.trim();
+    if (!name) { msg.textContent = 'Enter your name.'; msg.className = 'msg err'; return form.name.focus(); }
+    if (!emailRe.test(email)) { msg.textContent = 'Enter a valid email address, like you@example.com.'; msg.className = 'msg err'; return form.email.focus(); }
+    btn.disabled = true; label.textContent = 'Opening secure checkout…';
+    try {
+      const res = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, currency, name, email }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Something went wrong. Try again in a minute.');
+      location.href = data.checkoutUrl;
+    } catch (err) {
+      msg.textContent = err.message; msg.className = 'msg err';
+      btn.disabled = false; label.textContent = 'Continue to payment';
+    }
+  });
+})();
 
 // Download pop-up: every "Download" link opens it instead of scrolling.
 (function(){

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ import 'services/native_window.dart';
 import 'services/app_update.dart';
 import 'services/camera_bubble.dart';
 import 'services/demo_mode.dart';
+import 'services/pro_service.dart';
 import 'services/processing_status.dart';
 import 'services/recording_options.dart';
 import 'services/screen_recorder.dart';
@@ -119,7 +121,12 @@ class _AppBootstrapState extends State<AppBootstrap> {
     final save = StudioSaveService(navigatorKey: appNavigatorKey);
     await RecordingOptions.instance.load();
     DemoMode.prepare();
-    if (!DemoMode.active) AppUpdateService.instance.start();
+    if (!DemoMode.active) {
+      AppUpdateService.instance.start();
+      // Release builds only (like updates): dev builds and tests stay offline
+      // and unlimited.
+      if (appBuild > 0) unawaited(ProService.instance.start());
+    }
     await CameraBubbleService.instance.refreshDevices();
     final lastSavePath = FileLastSavePathStore();
     try {
@@ -205,6 +212,7 @@ class _AppShellState extends State<AppShell> {
   bool _busyWindow = false;
   bool _startingCapture = false;
   bool _restoringHome = false;
+  bool _limitStopping = false;
   final RegionSelectionController _selection = RegionSelectionController();
   late final NativeWindowService _nativeWindow;
   late final Future<AlphaProbe> _probeFuture;
@@ -258,6 +266,19 @@ class _AppShellState extends State<AppShell> {
     // Safety net: if stopping failed or the save finished some other way,
     // drop the progress pill.
     final state = _controller.state;
+    // Free recordings stop at the limit (Pro has none). The recording is
+    // kept and opens in the editor as usual.
+    final limit = ProService.instance.recordingLimit;
+    if (limit != null &&
+        !_limitStopping &&
+        state == RecordingState.recording &&
+        _controller.elapsed >= limit) {
+      _limitStopping = true;
+      ProService.instance.stoppedAtLimit = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _stop().whenComplete(() => _limitStopping = false);
+      });
+    }
     if (ProcessingStatus.instance.active &&
         state != RecordingState.stopping &&
         state != RecordingState.saving) {
@@ -424,6 +445,8 @@ class _AppShellState extends State<AppShell> {
     if (!_controller.canStop) {
       return;
     }
+    // A stop the user chose (not the free limit) clears the limit notice.
+    if (!_limitStopping) ProService.instance.stoppedAtLimit = false;
     if (mounted) {
       setState(() => _restoringHome = true);
     }

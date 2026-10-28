@@ -40,9 +40,10 @@ const out = path.join(root, 'public');
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out);
 fs.copyFileSync(path.join(root, 'index.html'), path.join(out, 'index.html'));
+fs.copyFileSync(path.join(root, 'pro.html'), path.join(out, 'pro.html'));
 fs.cpSync(path.join(root, 'assets'), path.join(out, 'assets'), { recursive: true });
 for (const name of ['robots.txt', 'sitemap.xml']) {
   if (fs.existsSync(path.join(root, name))) fs.copyFileSync(path.join(root, name), path.join(out, name));
 }
-console.log('✓ copied index.html, assets/, robots.txt and sitemap.xml to public/');
+console.log('✓ copied index.html, pro.html, assets/, robots.txt and sitemap.xml to public/');
 console.log('build ok');

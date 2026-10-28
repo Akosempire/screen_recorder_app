@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../services/pro_service.dart';
 import '../services/recording_background.dart';
 import '../services/recording_edit.dart';
 import '../services/recording_library.dart';
@@ -14,6 +15,7 @@ import '../services/recording_options.dart';
 import '../ui/background_widgets.dart';
 import '../ui/studio_theme.dart';
 import '../ui/studio_widgets.dart';
+import 'upgrade_dialog.dart';
 
 /// Shown right after a recording stops: trim the ends, cut out sections,
 /// pick a background, then export. Nothing changes until export.
@@ -224,6 +226,7 @@ class _EditorScreenState extends State<EditorScreen> {
               children: [
                 _header(),
                 const Divider(height: 1, color: Studio.divider),
+                const _LimitBanner(),
                 Expanded(child: _preview()),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
@@ -737,6 +740,41 @@ class _CutBox extends StatelessWidget {
         Align(alignment: Alignment.centerLeft, child: edge(onStart)),
         Align(alignment: Alignment.centerRight, child: edge(onEnd)),
       ],
+    );
+  }
+}
+
+/// Shown when a free recording was stopped by the time limit.
+class _LimitBanner extends StatelessWidget {
+  const _LimitBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final pro = ProService.instance;
+    return ListenableBuilder(
+      listenable: pro,
+      builder: (context, _) {
+        if (!pro.stoppedAtLimit || pro.isPro) return const SizedBox.shrink();
+        return Container(
+          color: const Color(0xFFFFF6DB),
+          padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+          child: Row(
+            children: [
+              const Icon(Icons.timer_outlined, size: 18, color: Color(0xFF8A6100)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Free recordings stop at ${pro.freeLimit.inMinutes} minutes, so this one stopped there. '
+                  'It\'s saved: edit and export it as usual. Go Pro to record as long as you like.',
+                  style: StudioText.body,
+                ),
+              ),
+              const SizedBox(width: 10),
+              StudioPrimaryButton(label: 'Upgrade', onPressed: () => showUpgradeDialog(context)),
+            ],
+          ),
+        );
+      },
     );
   }
 }

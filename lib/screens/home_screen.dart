@@ -12,6 +12,7 @@ import '../services/camera_bubble.dart';
 import '../services/demo_mode.dart';
 import '../services/recording_background.dart';
 import '../services/recording_library.dart';
+import '../services/pro_service.dart';
 import '../services/recording_options.dart';
 import '../services/shortcut_intents.dart';
 import '../services/support_link.dart';
@@ -20,6 +21,7 @@ import '../ui/studio_painters.dart';
 import '../ui/studio_theme.dart';
 import '../ui/studio_widgets.dart';
 import 'studio_tour.dart';
+import 'upgrade_dialog.dart';
 
 enum _ViewMode { before, compare, after }
 
@@ -109,6 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _library,
               CameraBubbleService.instance,
               AppUpdateService.instance,
+              ProService.instance,
             ]),
             builder: (context, _) => _studio(context, constraints),
           ),
@@ -290,6 +293,8 @@ class _TopBar extends StatelessWidget {
               _UpdatePill(recording: recording),
               const SizedBox(width: 6),
             ],
+            const _ProPill(),
+            const SizedBox(width: 6),
             if (MediaQuery.sizeOf(context).width >= 900) ...[
               const StudioPill(
                 icon: Icons.local_fire_department_outlined,
@@ -1740,4 +1745,45 @@ String cursorEffectsCaption(CursorStyle style) {
         '(Wayland doesn\'t let apps draw over other apps).';
   }
   return style.description;
+}
+
+/// "Upgrade" for free users (once Pro can be bought), "Pro" for paid ones.
+class _ProPill extends StatelessWidget {
+  const _ProPill();
+
+  @override
+  Widget build(BuildContext context) {
+    final pro = ProService.instance;
+    if (pro.isPro) {
+      return StudioPill(
+        icon: Icons.workspace_premium_outlined,
+        label: 'Pro',
+        tooltip: 'Your Pro licence',
+        onTap: () => showUpgradeDialog(context),
+      );
+    }
+    if (!pro.paymentsEnabled && pro.license == null) return const SizedBox.shrink();
+    return Material(
+      color: Studio.highlight,
+      borderRadius: BorderRadius.circular(Studio.radius - 2),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(Studio.radius - 2),
+        onTap: () => showUpgradeDialog(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.bolt, size: 16, color: Studio.ink),
+              const SizedBox(width: 6),
+              Text(
+                pro.waitingForPayment ? 'Finishing payment…' : 'Upgrade',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Studio.ink),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

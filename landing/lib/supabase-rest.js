@@ -91,3 +91,43 @@ export async function counts() {
   const [signups, downloads] = await Promise.all([count('signups'), count('downloads')]);
   return { signups, downloads };
 }
+
+// ---- generic table access (payments) -------------------------------------
+
+/** Rows matching a PostgREST filter, e.g. `license_key=eq.SR-…`. */
+export async function select(table, filter = '', columns = '*') {
+  const q = [filter, `select=${columns}`].filter(Boolean).join('&');
+  const { data } = await call('GET', `${table}?${q}`);
+  return data || [];
+}
+
+/** Inserts a row. With `ignoreDuplicate`, an existing key is left alone and null is returned. */
+export async function insert(table, row, { ignoreDuplicate = false } = {}) {
+  try {
+    const { data } = await call('POST', `${table}?select=*`, { body: row, prefer: 'return=representation' });
+    return data?.[0] ?? null;
+  } catch (error) {
+    if (ignoreDuplicate && error.code === '23505') return null;
+    throw error;
+  }
+}
+
+/** Inserts or merges on the unique column `onConflict`. */
+export async function upsert(table, row, onConflict) {
+  const { data } = await call('POST', `${table}?on_conflict=${enc(onConflict)}&select=*`, {
+    body: row,
+    prefer: 'return=representation,resolution=merge-duplicates',
+  });
+  return data?.[0] ?? null;
+}
+
+/** Updates rows matching `filter`; returns them. */
+export async function update(table, filter, fields) {
+  const { data } = await call('PATCH', `${table}?${filter}&select=*`, {
+    body: { ...fields, updated_at: new Date().toISOString() },
+    prefer: 'return=representation',
+  });
+  return data || [];
+}
+
+export const eq = (column, value) => `${column}=eq.${enc(value)}`;
