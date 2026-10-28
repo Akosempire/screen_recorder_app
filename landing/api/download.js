@@ -9,6 +9,7 @@ export const FILES = {
   mac: 'ScreenRecorder-macOS.dmg',
   linux: 'ScreenRecorder-Linux-x64.deb',
   'linux-tar': 'ScreenRecorder-Linux-x64.tar.gz',
+  'linux-appimage': 'ScreenRecorder-Linux-x64.AppImage',
 };
 
 export function fileUrl(os) {
@@ -17,7 +18,7 @@ export function fileUrl(os) {
   return `${RELEASE}/${name}`;
 }
 
-// GET /api/download?t=<signed token>&os=windows|mac|linux|linux-tar
+// GET /api/download?t=<signed token>&os=windows|mac|linux|linux-tar|linux-appimage
 export default async function handler(req, res) {
   const secret = process.env.LINK_SECRET;
   const url = new URL(req.url, 'http://local');

@@ -217,6 +217,25 @@ input[aria-invalid=true]{border-color:var(--err);animation:shake .35s}
 /* Download pop-up */
 .modal{border:0;padding:0;background:transparent;width:min(420px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:visible;margin:auto;color:inherit}
 .modal::backdrop{background:rgba(5,0,40,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+/* system requirements */
+.reqs{padding:90px 0 40px}
+.req-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:40px}
+.req{background:var(--panel);border-radius:24px;padding:24px 22px;text-align:left}
+.req h3{font-size:22px;letter-spacing:-.03em}
+.req ul{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:9px}
+.req li{font-size:14.5px;line-height:1.45;color:var(--ink-2);padding-left:22px;position:relative}
+.req li::before{content:"";position:absolute;left:2px;top:4px;width:5px;height:10px;border:solid #1E8E3E;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.req code,.nope code{font-size:12.5px;background:#fff;padding:1px 6px;border-radius:6px;border:1px solid var(--line)}
+.nope{margin-top:14px;background:#FDF1F0;border:1px solid #F4C7C3;border-radius:24px;padding:22px 24px;text-align:left}
+.nope-head{display:flex;align-items:center;gap:10px;font-size:18px;color:#8C1D18;letter-spacing:-.02em}
+.nope ul{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 24px}
+.nope li{font-size:14.5px;line-height:1.45;color:#5F1A15;padding-left:22px;position:relative}
+.nope li::before{content:"";position:absolute;left:3px;top:9px;width:11px;height:2px;background:#B3261E;border-radius:2px;transform:rotate(45deg)}
+.nope li::after{content:"";position:absolute;left:3px;top:9px;width:11px;height:2px;background:#B3261E;border-radius:2px;transform:rotate(-45deg)}
+.nope p{margin-top:14px;font-size:13.5px;line-height:1.5;color:#6E2A25}
+.os-req{margin:-6px 0 12px;font-size:12.5px;color:var(--mute);text-align:center}
+.os-req b{color:var(--ink-2)}
+@media (max-width:900px){.req-grid{grid-template-columns:1fr}.nope ul{grid-template-columns:1fr}}
 .modal .card{margin:0;max-height:calc(100dvh - 32px);overflow:auto}
 .modal h3{text-align:center;font-size:26px;letter-spacing:-.04em;margin-top:8px}
 .modal .sub{text-align:center;font-size:14px;color:var(--ink-2);margin:6px 8px 0;line-height:1.45}
@@ -497,6 +516,55 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
   </div>
 </section>
 
+<section class="reqs" id="requirements">
+  <div class="wrap center">
+    <h2 class="reveal">Will it run on<br><span class="serif">my computer?</span></h2>
+    <p class="lead reveal" data-delay="1">Screen Recorder runs on 64-bit Windows, Mac and Linux. Check yours below before you download.</p>
+  </div>
+  <div class="wrap">
+    <div class="req-grid">
+      <article class="req reveal">
+        <h3>Windows</h3>
+        <ul>
+          <li><b>Windows 11</b>, or <b>Windows 10</b> version 1809 or newer</li>
+          <li>64-bit (x64). Also runs on Windows 11 on ARM</li>
+          <li>File: <code>ScreenRecorder-Setup.exe</code></li>
+        </ul>
+      </article>
+      <article class="req reveal" data-delay="1">
+        <h3>Mac</h3>
+        <ul>
+          <li><b>macOS 10.15 Catalina</b> or newer, including <b>macOS 15 Sequoia</b> and later</li>
+          <li>Apple Silicon (M1–M4) and Intel</li>
+          <li>File: <code>ScreenRecorder-macOS.dmg</code></li>
+        </ul>
+      </article>
+      <article class="req reveal" data-delay="2">
+        <h3>Linux</h3>
+        <ul>
+          <li><b>Ubuntu 24.04+</b>, <b>Debian 13+</b>: the <code>.deb</code></li>
+          <li><b>Ubuntu 22.04</b>, <b>Debian 12</b>, <b>Mint 21+</b>, <b>Fedora 38+</b> and most others: the <code>AppImage</code></li>
+          <li>64-bit (x86_64). Live effects and auto-zoom need an X11 session</li>
+        </ul>
+      </article>
+    </div>
+    <div class="nope reveal" role="note" aria-labelledby="nope-title">
+      <div class="nope-head">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#B3261E"/><path d="M8.5 8.5l7 7m0-7l-7 7" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+        <strong id="nope-title">Not supported</strong>
+      </div>
+      <ul>
+        <li><b>32-bit computers</b> (any system). The app is built with Flutter, which only makes 64-bit desktop apps.</li>
+        <li><b>Windows 7, 8 and 8.1</b>, and Windows 10 before version 1809</li>
+        <li><b>macOS 10.14 Mojave</b> and older</li>
+        <li><b>Linux on ARM</b> (Raspberry Pi and similar), and Linux older than Ubuntu 22.04 / Debian 12</li>
+        <li>Phones, tablets and Chromebooks</li>
+      </ul>
+      <p>Not sure? On Windows, open <b>Settings → System → About</b> and look for “64-bit operating system”. On a Mac, open <b>Apple menu → About This Mac</b>. On Linux, run <code>uname -m</code>: you need <code>x86_64</code>.</p>
+    </div>
+  </div>
+</section>
+
 <dialog class="modal" id="get-dialog" aria-labelledby="get-title">
   <div class="card">
       <div class="tab"><img src="/assets/icon.png" alt="">Screen Recorder</div>
@@ -510,6 +578,9 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
             <label><input type="radio" name="os" value="mac"><span>Mac</span></label>
             <label><input type="radio" name="os" value="linux"><span>Linux</span></label>
           </div>
+          <p class="os-req" data-for="windows">Needs <b>64-bit Windows 10 (1809+) or 11</b>.</p>
+          <p class="os-req" data-for="mac" hidden>Needs <b>macOS 10.15 or newer</b>, Apple Silicon or Intel.</p>
+          <p class="os-req" data-for="linux" hidden>Needs <b>64-bit Linux</b>: Ubuntu 22.04+, Debian 12+ or similar. <a href="#requirements" class="req-link">Details</a></p>
           <div class="fields">
             <label class="field">Your name<input type="text" name="name" autocomplete="name" required maxlength="80"></label>
             <label class="field">Email<input type="email" name="email" autocomplete="email" required maxlength="160"></label>
@@ -526,7 +597,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
           <p data-for="mac" hidden>If it doesn’t start, use the button below. Open <b>ScreenRecorder-macOS.dmg</b> and drag Screen Recorder into Applications.</p>
           <p data-for="linux" hidden>If it doesn’t start, use the button below. Double-click the <b>.deb</b> to install it, or run <code>sudo apt install ./ScreenRecorder-Linux-x64.deb</code>.</p>
           <a class="btn get-file" href="#" download><span class="dot" aria-hidden="true"></span><span>Download for <span class="os-name">Windows</span></span></a>
-          <a class="alt-file" data-for="linux" href="#" hidden>Other Linux? Get the .tar.gz</a>
+          <a class="alt-file" data-for="linux" href="#" hidden>Ubuntu 22.04, Debian 12, Fedora or another distro? Get the AppImage</a>
           <div class="smart" role="note" data-for="windows">
             <div class="smart-head">
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l8 3v6.2c0 4.7-3.3 8.6-8 9.8-4.7-1.2-8-5.1-8-9.8V5.5z" fill="#0067C0"/><path d="M12 7.5v5.2M12 15.6v.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
@@ -554,9 +625,9 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
           <div class="smart" role="note" data-for="linux" hidden>
             <div class="smart-head">
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l8 3v6.2c0 4.7-3.3 8.6-8 9.8-4.7-1.2-8-5.1-8-9.8V5.5z" fill="#0067C0"/><path d="M12 7.5v5.2M12 15.6v.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
-              <strong>For Ubuntu 24.04+ and Debian 13+</strong>
+              <strong>The .deb is for Ubuntu 24.04+ and Debian 13+</strong>
             </div>
-            <p>The .deb installs FFmpeg and everything else it needs, and adds Screen Recorder to your apps. The cursor halo, face camera and auto-zoom need an X11 session; on Wayland it records without them.</p>
+            <p>It installs FFmpeg and everything else it needs, and adds Screen Recorder to your apps. On older or other distros, use the AppImage: make it executable (<code>chmod +x</code>) and double-click it. The cursor halo, face camera and auto-zoom need an X11 session; on Wayland it records without them.</p>
           </div>
           <button type="button" class="reset">Not <span class="sent-to"></span>? Start again</button>
         </div>
@@ -579,7 +650,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>How does auto-zoom know where to zoom?</button><div class="a"><div><p>While you record, the app notes where your mouse is and where you click. When you stop, it zooms in around your clicks and follows the cursor. You can change how close, how long and how smooth, or turn it off.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Can I move the face camera?</button><div class="a"><div><p>Yes. Drag the bubble anywhere on screen, or snap it to a corner from the Camera settings. It's recorded wherever you leave it.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Can I record my microphone?</button><div class="a"><div><p>Yes. Turn on Mic before you start. You can keep or remove the sound when you export.</p></div></div></div>
-      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>What do I need?</button><div class="a"><div><p>Windows 10 (version 1809 or newer) or Windows 11; macOS 10.15 or newer on Apple Silicon or Intel; or 64-bit Linux (the .deb is for Ubuntu 24.04+ and Debian 13+). A webcam and microphone are optional.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>What do I need?</button><div class="a"><div><p>A 64-bit computer with Windows 10 (version 1809 or newer) or Windows 11; macOS 10.15 or newer (Apple Silicon or Intel), including macOS 15; or 64-bit Linux such as Ubuntu 22.04+, Debian 12+ or Fedora 38+. 32-bit computers are not supported. A webcam and microphone are optional. <a href="#requirements">See all requirements</a>.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Is there a Mac or Linux version?</button><div class="a"><div><p>Yes. Pick Mac or Linux in the download window. Everything works on both: the cursor halo and click ripples, auto-zoom, the face camera, backgrounds and the editor. On Linux, the live effects and auto-zoom need an X11 session (Wayland only records).</p></div></div></div>
     </div>
   </div>
@@ -596,7 +667,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         <p>A free screen recorder with click highlights, auto-zoom and quick edits. Everything stays on your computer.</p>
         <a class="dlw" href="#get"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Download for <span class="os-name">Windows</span></span></a>
       </div>
-      <div><h4>Menu</h4><a class="l" href="#top">Home</a><a class="l" href="#features">Features</a><a class="l" href="#uses">Use cases</a><a class="l" href="#faq">FAQ</a><a class="l" href="#get">Download</a></div>
+      <div><h4>Menu</h4><a class="l" href="#top">Home</a><a class="l" href="#features">Features</a><a class="l" href="#uses">Use cases</a><a class="l" href="#requirements">Requirements</a><a class="l" href="#faq">FAQ</a><a class="l" href="#get">Download</a></div>
       <div><h4>More</h4><a class="l" href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app" target="_blank" rel="noopener">Source code</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app/releases" target="_blank" rel="noopener">Release notes</a></div>
     </div>
     <div class="legal"><span>Screen Recorder for Windows, Mac and Linux</span><span>Record only what you have the right to share.</span></div>
@@ -769,7 +840,7 @@ document.querySelectorAll('.os-pick input').forEach(r => r.addEventListener('cha
         const url = data.downloadUrl + '&os=' + currentOs;
         file.href = url;
         file.hidden = false;
-        box.querySelector('.alt-file').href = data.downloadUrl + '&os=linux-tar';
+        box.querySelector('.alt-file').href = data.downloadUrl + '&os=linux-appimage';
         setOs(currentOs);
         // Start the download without leaving the page (the link redirects to the file).
         const go = document.createElement('a');
@@ -790,6 +861,12 @@ document.querySelectorAll('.os-pick input').forEach(r => r.addEventListener('cha
   });
   box.querySelector('.reset').addEventListener('click', () => { box.classList.remove('sent'); form.reset(); form.name.focus(); });
 })();
+
+// "Details" in the pop-up: close it and show the requirements.
+document.querySelectorAll('.req-link').forEach(a => a.addEventListener('click', () => {
+  const dlg = document.getElementById('get-dialog');
+  if (dlg && dlg.open) dlg.close();
+}));
 
 // Download pop-up: every "Download" link opens it instead of scrolling.
 (function(){
