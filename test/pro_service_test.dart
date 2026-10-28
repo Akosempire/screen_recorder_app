@@ -99,7 +99,7 @@ void main() {
 
     // buy() keeps checking in the background until the payment is confirmed.
     expect(pro.waitingForPayment, isTrue);
-    for (var i = 0; i < 100 && !pro.isPro; i++) {
+    for (var i = 0; i < 100 && (!pro.isPro || pro.waitingForPayment); i++) {
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
     expect(pro.isPro, isTrue);
