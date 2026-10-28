@@ -259,7 +259,15 @@ jobs:
             libstdc++-12-dev libmpv-dev mpv patchelf file desktop-file-utils librsvg2-dev
       - run: flutter pub get
       - name: Build Flutter app
-        run: flutter build linux --release --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }} --dart-define=APP_BUILD=${{ github.run_number }} --dart-define=APP_VERSION=1.0.${{ github.run_number }}
+        shell: bash
+        run: |
+          set -o pipefail
+          echo "::notice title=Ubuntu 22.04 libmpv::$(pkg-config --modversion mpv)"
+          if ! flutter build linux --release --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }} --dart-define=APP_BUILD=${{ github.run_number }} --dart-define=APP_VERSION=1.0.${{ github.run_number }} 2>&1 | tee build.txt; then
+            msg=$(grep -nE "error|Error|undefined|No such|not found|requires" build.txt | head -40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=Linux build on 22.04::${msg}"
+            exit 1
+          fi
       - name: Make the AppImage
         run: |
           packaging/linux/appimage.sh dist
