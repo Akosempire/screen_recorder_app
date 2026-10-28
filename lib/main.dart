@@ -1,12 +1,20 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
+import 'mobile/mobile_app.dart';
 import 'services/demo_mode.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isAndroid) {
+    // Phones and tablets: their own simple recorder screen.
+    runApp(const MobileApp());
+    return;
+  }
   MediaKit.ensureInitialized(); // video playback in the editor
   DemoMode.parse(args);
 

@@ -57,6 +57,8 @@ class UpdateInfo {
         return installerUrl;
       case 'macos':
         return downloads['macos'];
+      case 'android':
+        return downloads['android'];
       case 'linux':
         if (appImage && downloads['linux_appimage'] != null) {
           return downloads['linux_appimage'];

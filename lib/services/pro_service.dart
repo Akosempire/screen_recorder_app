@@ -158,7 +158,12 @@ class ProService extends ChangeNotifier {
   /// they can pay.
   Duration? get recordingLimit => (_enabled && !isPro) ? freeLimit : null;
 
+  /// Where to keep pro.json when the desktop settings folder doesn't apply
+  /// (Android sets its app files folder here).
+  File? storeOverride;
+
   File? get _store {
+    if (storeOverride != null) return storeOverride;
     if (_file != null) return _file;
     final folder = appSettingsFolder();
     return folder == null ? null : File(p.join(folder.path, 'pro.json'));
