@@ -21,6 +21,13 @@ extension ProCurrencyCode on ProCurrency {
   String get code => this == ProCurrency.ngn ? 'NGN' : 'USD';
 }
 
+/// 'NGN' / 'USD' from the server, or null for anything else.
+ProCurrency? proCurrencyFromCode(Object? code) => switch (code) {
+      'NGN' => ProCurrency.ngn,
+      'USD' => ProCurrency.usd,
+      _ => null,
+    };
+
 /// Display prices (Bachs charges what's on its products; the server owns them).
 String proPrice(ProPlan plan, ProCurrency currency) => switch ((plan, currency)) {
       (ProPlan.monthly, ProCurrency.ngn) => '₦2,000',
@@ -128,6 +135,7 @@ class ProService extends ChangeNotifier {
   DateTime? _checkedAt;
   bool _enabled = false;
   int _freeLimitSeconds = 180;
+  ProCurrency? _suggestedCurrency;
   String? _pendingActivation;
   ProPlan? _pendingPlan;
   bool _waiting = false;
@@ -142,6 +150,10 @@ class ProService extends ChangeNotifier {
   bool get waitingForPayment => _waiting;
   ProPlan? get pendingPlan => _pendingPlan;
   Duration get freeLimit => Duration(seconds: _freeLimitSeconds);
+
+  /// The currency for where the user is, from their IP country on the server
+  /// (naira in Nigeria, dollars elsewhere). Null until the server has answered.
+  ProCurrency? get suggestedCurrency => _suggestedCurrency;
 
   /// Pro unlocks unlimited recording. A licence checked recently keeps
   /// working offline: lifetime always, monthly for 14 days.
@@ -199,6 +211,7 @@ class ProService extends ChangeNotifier {
       _enabled = plans['enabled'] == true;
       final limit = plans['freeLimitSeconds'];
       if (limit is int && limit > 0) _freeLimitSeconds = limit;
+      _suggestedCurrency = proCurrencyFromCode(plans['currency']) ?? _suggestedCurrency;
     } catch (error) {
       AppLogger.debug('Pro plans check failed: $error');
     }
@@ -357,6 +370,7 @@ class ProService extends ChangeNotifier {
       _enabled = json['enabled'] == true;
       final limit = json['freeLimitSeconds'];
       if (limit is int && limit > 0) _freeLimitSeconds = limit;
+      _suggestedCurrency = proCurrencyFromCode(json['currency']);
       final pending = json['pendingActivation'];
       _pendingActivation = pending is String && pending.length >= 24 ? pending : null;
       _pendingPlan = json['pendingPlan'] == 'lifetime'
@@ -380,6 +394,7 @@ class ProService extends ChangeNotifier {
         'checkedAt': _checkedAt?.toIso8601String(),
         'enabled': _enabled,
         'freeLimitSeconds': _freeLimitSeconds,
+        'currency': _suggestedCurrency?.code,
         'pendingActivation': _pendingActivation,
         'pendingPlan': _pendingPlan?.name,
       }));

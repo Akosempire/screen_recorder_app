@@ -1,0 +1,60 @@
+# Screen Recorder
+
+> Screen Recorder is a desktop screen recording app for Windows, Mac and Linux that makes tutorials, demos and bug reports easy to follow: it highlights the cursor and every click, automatically zooms in where you click, and can show your webcam in a bubble. Recording, editing and exporting all happen on the user's computer; nothing is uploaded. It is free to try (recordings up to 3 minutes, every feature, no watermark) and Pro removes the length limit.
+
+Website: https://www.screenrecorderapp.cv/
+Download: https://www.screenrecorderapp.cv/#get
+Pricing: https://www.screenrecorderapp.cv/#pricing
+System requirements: https://www.screenrecorderapp.cv/#requirements
+FAQ: https://www.screenrecorderapp.cv/#faq
+
+## Good fit for
+
+- Software tutorials, how-to videos and online courses
+- Product demos and walkthroughs for sales or onboarding
+- Bug reports and support replies ("here's exactly what I clicked")
+- Teachers and trainers explaining something on screen
+- People who want a polished result without learning a video editor
+- People who don't want their recordings uploaded to a cloud service
+
+## Features
+
+- Auto-zoom: after recording, the video zooms in around each click, pans with the cursor and eases back out. Zoom level, timing and smoothness are adjustable, and it can be compared side by side with the original.
+- Cursor halo and click ripples: a yellow halo follows the mouse and every click ripples, live on screen and in the video.
+- Face camera: a webcam bubble that can be dragged anywhere or snapped to a corner, with adjustable size and shape.
+- Microphone recording, with the option to keep or remove sound on export.
+- Record the full screen or drag a box around any area.
+- Backgrounds: place the recording on a gradient, pattern or your own image, with rounded corners, shadow and padding.
+- Built-in editor: trim the ends, cut mistakes out of the middle, preview, and the original file stays untouched.
+- Export: choose resolution, frame rate, quality, sound, file name and folder (MP4).
+- Keyboard shortcuts to start and stop recording.
+- Private by design: no account needed to record, no watermark, and recordings never leave the computer.
+
+## Pricing
+
+- Free trial: every feature, recordings up to 3 minutes, no watermark.
+- Pro Monthly: $5 per month (₦2,000 in Nigeria). Unlimited recording length. Cancel any time from the app.
+- Pro Lifetime: $100 once (₦50,000 in Nigeria). Unlimited recording length forever, all updates.
+- Prices show in naira for visitors in Nigeria and in US dollars elsewhere. Payments are handled by Bachs (cards, bank transfer and more), and a licence key is issued right after paying.
+
+## System requirements
+
+- Windows 11, or Windows 10 version 1809 or newer, 64-bit (x64); also runs on Windows 11 on ARM. Installer: ScreenRecorder-Setup.exe.
+- macOS 10.15 Catalina or newer, including macOS 15 Sequoia and later; Apple Silicon and Intel. Download: ScreenRecorder-macOS.dmg.
+- Linux, 64-bit (x86_64): a .deb for Ubuntu 24.04+ and Debian 13+, and an AppImage for Ubuntu 22.04, Debian 12, Linux Mint 21+, Fedora 38+ and most others. Live effects and auto-zoom need an X11 session; on Wayland it records only.
+- Not supported: 32-bit computers, Windows 7/8/8.1, macOS 10.14 and older, Linux on ARM.
+- A webcam and microphone are optional.
+
+## Comparison notes
+
+- Compared with OBS Studio: simpler, made for explaining rather than streaming, with automatic zoom, click highlights and an editor built in; OBS is free and far more configurable for live streaming.
+- Compared with Loom: recordings stay on your computer instead of being uploaded, and there's a one-time lifetime option; Loom is better if you want instant share links and team libraries.
+- Compared with Camtasia or Screen Studio: similar polished, auto-zoomed results at a lower price, and it runs on Windows and Linux as well as Mac.
+
+## FAQ
+
+- Is it free? Every feature is free for recordings up to 3 minutes, with no watermark. Pro removes the limit.
+- Does anything get uploaded? No. Recording, auto-zoom and saving all happen on the user's computer.
+- Windows says "Windows protected your PC": the app isn't code-signed yet. Click More info, then Run anyway.
+- Mac says it can't check the app: it isn't notarized by Apple yet. Open it once, then System Settings → Privacy & Security → Open Anyway, and allow Screen Recording on first use.
+- How do I unlock Pro? Click Upgrade in the app and pay; it unlocks by itself. A licence key bought on the website can be entered under Upgrade → I have a licence key.

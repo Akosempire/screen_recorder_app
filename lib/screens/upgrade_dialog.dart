@@ -17,7 +17,8 @@ Future<void> showUpgradeDialog(BuildContext context, {String? reason}) {
   );
 }
 
-/// Naira for people in Nigeria, dollars elsewhere (they can switch).
+/// Fallback before the server has said where the user is: naira for a
+/// Nigerian locale or West Africa time, dollars otherwise.
 ProCurrency defaultProCurrency() {
   final locale = Platform.localeName.toUpperCase();
   final tz = DateTime.now().timeZoneName.toUpperCase();
@@ -40,7 +41,10 @@ class _UpgradeDialogState extends State<UpgradeDialog> {
   ProService get _pro => widget.service ?? ProService.instance;
 
   ProPlan _plan = ProPlan.lifetime;
-  ProCurrency _currency = defaultProCurrency();
+  // The user's own pick wins; otherwise the server's answer for their
+  // country, then a guess from this computer's settings.
+  ProCurrency? _picked;
+  ProCurrency get _currency => _picked ?? _pro.suggestedCurrency ?? defaultProCurrency();
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _key = TextEditingController();
@@ -177,7 +181,7 @@ class _UpgradeDialogState extends State<UpgradeDialog> {
             StudioSegmented<ProCurrency>(
               dense: true,
               value: _currency,
-              onChanged: _busy ? null : (c) => setState(() => _currency = c),
+              onChanged: _busy ? null : (c) => setState(() => _picked = c),
               segments: const [
                 StudioSegment(ProCurrency.ngn, '₦ Naira'),
                 StudioSegment(ProCurrency.usd, r'$ Dollars'),

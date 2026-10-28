@@ -8,6 +8,7 @@ import 'package:screen_recorder_app/services/pro_service.dart';
 class _FakeApi {
   late HttpServer server;
   bool enabled = true;
+  String? currency;
   int claimsBeforePaid = 2;
   final checkouts = <Map<String, dynamic>>[];
   final licences = <String, Map<String, dynamic>>{};
@@ -22,7 +23,7 @@ class _FakeApi {
       var status = 200;
       final q = req.uri.queryParameters;
       if (req.uri.path == '/api/plans') {
-        reply = {'enabled': enabled, 'freeLimitSeconds': 180};
+        reply = {'enabled': enabled, 'freeLimitSeconds': 180, 'currency': currency};
       } else if (req.uri.path == '/api/checkout' && req.method == 'POST') {
         final json = jsonDecode(body) as Map<String, dynamic>;
         checkouts.add(json);
@@ -75,6 +76,23 @@ void main() {
         clock: clock,
         pollEvery: const Duration(milliseconds: 20),
       );
+
+  test('currency follows the country the server sees, and is remembered', () async {
+    api.currency = 'NGN';
+    final pro = service();
+    expect(pro.suggestedCurrency, isNull);
+    await pro.refresh();
+    expect(pro.suggestedCurrency, ProCurrency.ngn);
+    api.currency = null; // server unsure: keep the last answer
+    await pro.refresh();
+    expect(pro.suggestedCurrency, ProCurrency.ngn);
+    pro.dispose();
+
+    final again = service();
+    await again.start(); // reads pro.json before the server answers
+    expect(again.suggestedCurrency, ProCurrency.ngn);
+    again.dispose();
+  });
 
   test('no limit until payments are switched on', () async {
     api.enabled = false;

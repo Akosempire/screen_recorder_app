@@ -29,6 +29,27 @@ for (const ref of refs) {
 }
 console.log(`✓ index.html: ${assets} local assets found`);
 
+
+// Structured data (read by Google and AI assistants) must parse, and its FAQ
+// must match the questions on the page.
+{
+  const block = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  if (!block) fail('index.html has no JSON-LD');
+  else {
+    try {
+      const data = JSON.parse(block[1]);
+      const faq = data['@graph'].find((n) => n['@type'] === 'FAQPage');
+      const onPage = [...html.matchAll(/<span class="pm"[^>]*><\/span>([\s\S]*?)<\/button>/g)]
+        .map((m) => m[1].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim());
+      const inData = faq.mainEntity.map((q) => q.name);
+      if (JSON.stringify(onPage) !== JSON.stringify(inData)) fail('JSON-LD FAQ is out of date with the FAQ on the page');
+      else console.log(`✓ JSON-LD: ${inData.length} FAQ entries match the page`);
+    } catch (error) {
+      fail(`JSON-LD does not parse: ${error.message}`);
+    }
+  }
+}
+
 if (failed) {
   console.error(`build failed: ${failed} problem(s)`);
   process.exit(1);
@@ -43,8 +64,8 @@ fs.copyFileSync(path.join(root, 'index.html'), path.join(out, 'index.html'));
 fs.copyFileSync(path.join(root, 'pro.html'), path.join(out, 'pro.html'));
 fs.copyFileSync(path.join(root, 'admin.html'), path.join(out, 'admin.html'));
 fs.cpSync(path.join(root, 'assets'), path.join(out, 'assets'), { recursive: true });
-for (const name of ['robots.txt', 'sitemap.xml']) {
+for (const name of ['robots.txt', 'sitemap.xml', 'llms.txt']) {
   if (fs.existsSync(path.join(root, name))) fs.copyFileSync(path.join(root, name), path.join(out, name));
 }
-console.log('✓ copied index.html, pro.html, admin.html, assets/, robots.txt and sitemap.xml to public/');
+console.log('✓ copied index.html, pro.html, admin.html, assets/, robots.txt, sitemap.xml and llms.txt to public/');
 console.log('build ok');
