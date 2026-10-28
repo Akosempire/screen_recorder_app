@@ -8,13 +8,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, macos-15-intel, macos-26]
+        os: [macos-15-intel, macos-15, macos-26]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: FFmpeg
         run: |
-          curl -fsSL -o ff.zip "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip"
+          arch=$( [ "$(uname -m)" = "arm64" ] && echo arm64 || echo amd64 )
+          curl -fsSL -o ff.zip "https://ffmpeg.martin-riedl.de/redirect/latest/macos/$arch/release/ffmpeg.zip"
           unzip -q ff.zip && chmod +x ffmpeg
           echo "::notice title=${{ matrix.os }} system::$(sw_vers -productVersion) $(uname -m) / $(./ffmpeg -hide_banner -version | head -1)"
       - name: avfoundation devices and 3 s capture

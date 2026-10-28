@@ -296,16 +296,17 @@ jobs:
       - name: Desktop-less test environment
         run: |
           # A bare container plus what every Linux desktop already has
-          # (GTK 3, fonts, OpenGL, X11, sound client) - AppImages rely on these.
+          # (GTK 3, fonts, OpenGL, X11, ALSA/Pulse sound) - AppImages rely on these.
           if command -v apt-get >/dev/null; then
             apt-get update -q
             # GTK 3 itself (the package was renamed libgtk-3-0t64 in Ubuntu 24.04).
             DEBIAN_FRONTEND=noninteractive apt-get install -y -q libgtk-3-0 || DEBIAN_FRONTEND=noninteractive apt-get install -y -q libgtk-3-0t64
             DEBIAN_FRONTEND=noninteractive apt-get install -y -q xvfb xauth procps \
               libharfbuzz0b libfontconfig1 fonts-dejavu-core libgl1 libegl1 libx11-6 libxext6 libxrandr2 libxi6 libxcursor1 libxinerama1 libxkbcommon0 libpulse0
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -q libasound2 || DEBIAN_FRONTEND=noninteractive apt-get install -y -q libasound2t64
           else
             dnf install -y -q gtk3 xorg-x11-server-Xvfb xorg-x11-xauth procps-ng \
-              harfbuzz fontconfig dejavu-sans-fonts mesa-libGL mesa-libEGL libX11 libXext libXrandr libXi libXcursor libXinerama libxkbcommon pulseaudio-libs
+              harfbuzz fontconfig dejavu-sans-fonts mesa-libGL mesa-libEGL libX11 libXext libXrandr libXi libXcursor libXinerama libxkbcommon pulseaudio-libs alsa-lib
           fi
       - name: Start the app and take a screenshot
         shell: bash

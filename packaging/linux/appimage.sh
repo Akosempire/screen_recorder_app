@@ -57,6 +57,17 @@ patchelf --set-rpath '$ORIGIN/lib:$ORIGIN/../lib' "$APPDIR/usr/bin/screen_record
 for so in "$APPDIR"/usr/bin/lib/*.so; do
   patchelf --set-rpath '$ORIGIN:$ORIGIN/../../lib' "$so"
 done
+# linuxdeploy leaves out libraries it expects every system to have. JACK
+# (needed by the bundled FFmpeg libraries) isn't on every desktop, so it
+# travels with the app, along with the Berkeley DB library it uses.
+for soname in libjack.so.0 libdb-5.3.so; do
+  path=$(ldconfig -p | awk -v s="$soname" '$1 == s {print $NF; exit}')
+  if [ -n "$path" ]; then
+    cp -L "$path" "$APPDIR/usr/lib/$soname"
+    patchelf --set-rpath '$ORIGIN' "$APPDIR/usr/lib/$soname"
+  fi
+done
+
 # Fail the build if anything the app needs is still missing (ignoring the
 # few system libraries every desktop has, which AppImages never bundle).
 missing=$(LD_LIBRARY_PATH="$APPDIR/usr/lib" ldd "$APPDIR/usr/bin/screen_recorder_app" "$APPDIR"/usr/bin/lib/*.so | grep "not found" | sort -u || true)
