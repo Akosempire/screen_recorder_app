@@ -135,6 +135,11 @@ void main() {
     expect(info.downloadFor('macos'), 'https://x/mac.dmg');
     expect(info.downloadFor('linux'), 'https://x/a.tar.gz');
     expect(info.downloadFor('linux', debInstall: true), 'https://x/a.deb');
+    // No AppImage in this manifest: fall back to the tar.gz.
+    expect(info.downloadFor('linux', appImage: true), 'https://x/a.tar.gz');
+    final withAppImage = UpdateInfo.parse(
+        '{"build": 9, "installer": "https://x/s.exe", "downloads": {"linux_appimage": "https://x/a.AppImage"}}')!;
+    expect(withAppImage.downloadFor('linux', appImage: true), 'https://x/a.AppImage');
     expect(info.downloads.containsKey('bad'), isFalse);
   });
 

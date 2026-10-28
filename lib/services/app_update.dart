@@ -46,17 +46,21 @@ class UpdateInfo {
   /// Windows installer.
   final String installerUrl;
 
-  /// Other platforms' downloads: `macos`, `linux_deb`, `linux_tar`.
+  /// Other platforms' downloads: `macos`, `linux_deb`, `linux_tar`,
+  /// `linux_appimage`.
   final Map<String, String> downloads;
 
   /// The file to fetch on this platform ([os] is `Platform.operatingSystem`).
-  String? downloadFor(String os, {bool debInstall = false}) {
+  String? downloadFor(String os, {bool debInstall = false, bool appImage = false}) {
     switch (os) {
       case 'windows':
         return installerUrl;
       case 'macos':
         return downloads['macos'];
       case 'linux':
+        if (appImage && downloads['linux_appimage'] != null) {
+          return downloads['linux_appimage'];
+        }
         return debInstall
             ? (downloads['linux_deb'] ?? downloads['linux_tar'])
             : (downloads['linux_tar'] ?? downloads['linux_deb']);
@@ -251,6 +255,8 @@ class AppUpdateService extends ChangeNotifier {
           _os,
           // The .deb installs to /opt/screen-recorder.
           debInstall: Platform.resolvedExecutable.startsWith('/opt/screen-recorder/'),
+          // Set by the AppImage runtime.
+          appImage: (Platform.environment['APPIMAGE'] ?? '').isNotEmpty,
         ) ??
         downloadPageUrl;
     try {
