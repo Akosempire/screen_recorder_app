@@ -34,11 +34,11 @@ test('Supabase URLs keep TLS but drop sslmode; local URLs are untouched', () => 
   assert.equal(l.ssl, undefined);
 });
 
-test('email content escapes the name and carries the link and suya note', () => {
+test('email content escapes the name and carries the link', () => {
   const m = downloadEmail({ name: '<b>Ada</b> L', link: 'https://x.app/api/download?t=a.b', days: 7 });
   assert.match(m.html, /Hi &lt;b&gt;Ada&lt;\/b&gt;,/);
   assert.match(m.html, /href="https:\/\/x\.app\/api\/download\?t=a\.b"/);
-  assert.match(m.html, /Buy me suya to keep it running/);
+  assert.doesNotMatch(m.html, /suya/i);
   assert.match(m.text, /works for 7 days/);
 });
 
@@ -107,4 +107,12 @@ test('sign-up saves to Postgres and hands back a download link that works', { sk
     await pool.query('DELETE FROM signups WHERE email = $1', [email]);
     await db.closePool();
   }
+});
+
+test('download check says whether the APK is published', async () => {
+  const { published } = await import('../api/download.js');
+  const ok = await published('x.apk', async () => ({ status: 302 }), 1);
+  const missing = await published('y.apk', async () => ({ status: 404 }), 1);
+  assert.equal(ok, true);
+  assert.equal(missing, false);
 });

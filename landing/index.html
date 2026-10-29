@@ -32,10 +32,10 @@
    "@id": "https://www.screenrecorderapp.cv/#app",
    "name": "Screen Recorder",
    "url": "https://www.screenrecorderapp.cv/",
-   "description": "Desktop screen recorder for Windows, Mac and Linux that highlights the cursor and every click, automatically zooms in where you click, and adds a webcam bubble. Trim, cut, add backgrounds and export to MP4. Everything stays on your computer.",
+   "description": "Desktop screen recorder for Windows, Mac, Linux and Android that highlights the cursor and every click, automatically zooms in where you click, and adds a webcam bubble. Trim, cut, add backgrounds and export to MP4. Everything stays on your computer.",
    "applicationCategory": "MultimediaApplication",
    "applicationSubCategory": "Screen recorder",
-   "operatingSystem": "Windows 10 (1809+), Windows 11, macOS 10.15+, Linux (64-bit)",
+   "operatingSystem": "Windows 10 (1809+), Windows 11, macOS 10.15+, Linux (64-bit), Android 10+",
    "image": "https://www.screenrecorderapp.cv/assets/real/app-compare.webp",
    "screenshot": "https://www.screenrecorderapp.cv/assets/real/app-compare.webp",
    "downloadUrl": "https://www.screenrecorderapp.cv/#get",
@@ -439,7 +439,7 @@ input[aria-invalid=true]{border-color:var(--err);animation:shake .35s}
 @media (max-width:900px){.plans{grid-template-columns:1fr;max-width:460px;margin-left:auto;margin-right:auto}}
 /* system requirements */
 .reqs{padding:90px 0 40px}
-.req-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:40px}
+.req-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:40px}
 .req{background:var(--panel);border-radius:24px;padding:24px 22px;text-align:left}
 .req h3{font-size:22px;letter-spacing:-.03em}
 .req ul{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:9px}
@@ -455,6 +455,7 @@ input[aria-invalid=true]{border-color:var(--err);animation:shake .35s}
 .nope p{margin-top:14px;font-size:13.5px;line-height:1.5;color:#6E2A25}
 .os-req{margin:-6px 0 12px;font-size:12.5px;color:var(--mute);text-align:center}
 .os-req b{color:var(--ink-2)}
+@media (max-width:1100px){.req-grid{grid-template-columns:1fr 1fr}}
 @media (max-width:900px){.req-grid{grid-template-columns:1fr}.nope ul{grid-template-columns:1fr}}
 .modal .card{margin:0;max-height:calc(100dvh - 32px);overflow:auto}
 .modal h3{text-align:center;font-size:26px;letter-spacing:-.04em;margin-top:8px}
@@ -480,11 +481,13 @@ html:has(.modal[open]){overflow:hidden}
 .done .get-file{margin-top:14px;text-decoration:none}
 .done .alt-file{display:block;margin-top:10px;font-size:13px;color:var(--ink-2)}
 .done code{font-size:12px;background:var(--panel);padding:1px 5px;border-radius:5px;word-break:break-all}
-.os-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;background:var(--panel);border-radius:14px;margin-bottom:14px}
+.os-pick{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;background:var(--panel);border-radius:14px;margin-bottom:14px}
 .os-pick label{position:relative;cursor:pointer}
 .os-pick input{position:absolute;opacity:0;pointer-events:none}
-.os-pick span{display:block;text-align:center;font-size:14px;font-weight:600;color:var(--mute);padding:9px 6px;border-radius:10px;transition:background .2s,color .2s,box-shadow .2s}
+.os-pick span{display:block;text-align:center;font-size:14px;white-space:nowrap;font-weight:600;color:var(--mute);padding:9px 6px;border-radius:10px;transition:background .2s,color .2s,box-shadow .2s}
 .os-pick input:checked+span{background:#fff;color:var(--ink);box-shadow:0 4px 12px -8px rgba(0,0,0,.4)}
+.os-pick input:disabled+span{opacity:.45;cursor:not-allowed}
+.os-pick small{display:block;font-size:10px;font-weight:500;color:var(--mute);margin-top:-2px}
 .os-pick input:focus-visible+span{outline:2px solid var(--focus);outline-offset:2px}
 .signup [hidden]{display:none!important}
 .done .smart{margin-top:14px;text-align:left;background:#EEF5FD;border:1px solid #CFE3F8;border-radius:14px;padding:12px 14px}
@@ -497,10 +500,6 @@ html:has(.modal[open]){overflow:hidden}
 .done button{background:none;border:0;text-decoration:underline;color:var(--mute);cursor:pointer;margin-top:8px;font-size:13.5px}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .fine{margin:20px auto 0;max-width:420px;text-align:center;font-size:12.5px;color:rgba(255,255,255,.8)}
-.suya{max-width:420px;margin:14px auto 0;display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:12px 12px 12px 16px;box-shadow:0 10px 30px -20px rgba(0,0,0,.4)}
-.suya p{flex:1;font-size:14px;color:var(--ink-2);line-height:1.35}
-.suya a{background:#000;color:#fff;text-decoration:none;font-weight:600;font-size:13.5px;padding:9px 12px;border-radius:11px;white-space:nowrap;transition:transform .2s var(--ease)}
-.suya a:hover{transform:scale(1.04)}
 
 /* ---------- FAQ ---------- */
 .faq{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:40px;align-items:start}
@@ -576,7 +575,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
     <a href="#faq">FAQ</a>
     <a href="#get">Download</a>
   </nav>
-  <a class="dl" href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.6 4.5c2.1 0 3.5 1.2 5.4 3.3 1.9-2.1 3.3-3.3 5.4-3.3 3.6 0 5.7 3.9 4.2 7.3C19.5 16.4 12 21 12 21z"/></svg>Buy me suya</a>
+  <a class="dl" href="#pricing"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6z"/></svg>Get Pro</a>
 </header>
 
 <main id="top">
@@ -730,10 +729,6 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
       </ul>
       <button type="button" class="btn open-get" style="margin-top:20px"><span class="dot" aria-hidden="true"></span><span>Download for <span class="os-name">Windows</span></span></button>
     </div>
-    <div class="suya reveal">
-      <p>Enjoying the app? Buy me suya to keep it running.</p>
-      <a href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a>
-    </div>
   </div>
 </section>
 
@@ -807,8 +802,8 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
 
 <section class="reqs" id="requirements">
   <div class="wrap center">
-    <h2 class="reveal">Will it run on<br><span class="serif">my computer?</span></h2>
-    <p class="lead reveal" data-delay="1">Screen Recorder runs on 64-bit Windows, Mac and Linux. Check yours below before you download.</p>
+    <h2 class="reveal">Will it run on<br><span class="serif">my device?</span></h2>
+    <p class="lead reveal" data-delay="1">Screen Recorder runs on 64-bit Windows, Mac and Linux computers, and on Android phones and tablets. Check yours below before you download.</p>
   </div>
   <div class="wrap">
     <div class="req-grid">
@@ -836,6 +831,14 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
           <li>64-bit (x86_64). Live effects and auto-zoom need an X11 session</li>
         </ul>
       </article>
+      <article class="req reveal" data-delay="3">
+        <h3>Android</h3>
+        <ul>
+          <li><b>Android 10</b> or newer, phones and tablets</li>
+          <li>Records the screen and sound, saves to your Gallery</li>
+          <li>File: <code>ScreenRecorder-Android.apk</code> (32-bit version for older phones)</li>
+        </ul>
+      </article>
     </div>
     <div class="nope reveal" role="note" aria-labelledby="nope-title">
       <div class="nope-head">
@@ -847,9 +850,9 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         <li><b>Windows 7, 8 and 8.1</b>, and Windows 10 before version 1809</li>
         <li><b>macOS 10.14 Mojave</b> and older</li>
         <li><b>Linux on ARM</b> (Raspberry Pi and similar), and Linux older than Ubuntu 22.04 / Debian 12</li>
-        <li>Phones, tablets and Chromebooks</li>
+        <li><b>iPhone and iPad</b>, Android 9 and older, and Chromebooks</li>
       </ul>
-      <p>Not sure? On Windows, open <b>Settings → System → About</b> and look for “64-bit operating system”. On a Mac, open <b>Apple menu → About This Mac</b>. On Linux, run <code>uname -m</code>: you need <code>x86_64</code>.</p>
+      <p>Not sure? On Windows, open <b>Settings → System → About</b> and look for “64-bit operating system”. On a Mac, open <b>Apple menu → About This Mac</b>. On Linux, run <code>uname -m</code>: you need <code>x86_64</code>. On Android, open <b>Settings → About phone</b> for the Android version.</p>
     </div>
   </div>
 </section>
@@ -859,17 +862,19 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
       <div class="tab"><img src="/assets/icon.png" alt="">Screen Recorder</div>
       <button type="button" class="x" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       <h3 id="get-title">Download Screen Recorder</h3>
-      <p class="sub">Free for Windows, Mac and Linux. Pick your computer, enter your details and the download starts straight away.</p>
+      <p class="sub">For Windows, Mac, Linux and Android. Pick your device, enter your details and the download starts straight away.</p>
       <div class="signup">
         <form id="signup-form" novalidate>
-          <div class="os-pick" role="radiogroup" aria-label="Your computer">
+          <div class="os-pick" role="radiogroup" aria-label="Your device">
             <label><input type="radio" name="os" value="windows" checked><span>Windows</span></label>
             <label><input type="radio" name="os" value="mac"><span>Mac</span></label>
             <label><input type="radio" name="os" value="linux"><span>Linux</span></label>
+            <label><input type="radio" name="os" value="android"><span>Android</span></label>
           </div>
           <p class="os-req" data-for="windows">Needs <b>64-bit Windows 10 (1809+) or 11</b>.</p>
           <p class="os-req" data-for="mac" hidden>Needs <b>macOS 10.15 or newer</b>, Apple Silicon or Intel.</p>
           <p class="os-req" data-for="linux" hidden>Needs <b>64-bit Linux</b>: Ubuntu 22.04+, Debian 12+ or similar. <a href="#requirements" class="req-link">Details</a></p>
+          <p class="os-req" data-for="android" hidden>For <b>Android 10 or newer</b> phones and tablets. Records your screen and sound, saves to your Gallery.</p>
           <div class="fields">
             <label class="field">Your name<input type="text" name="name" autocomplete="name" required maxlength="80"></label>
             <label class="field">Email<input type="email" name="email" autocomplete="email" required maxlength="160"></label>
@@ -886,7 +891,9 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
           <p data-for="mac" hidden>If it doesn’t start, use the button below. Open <b>ScreenRecorder-macOS.dmg</b> and drag Screen Recorder into Applications.</p>
           <p data-for="linux" hidden>If it doesn’t start, use the button below. Double-click the <b>.deb</b> to install it, or run <code>sudo apt install ./ScreenRecorder-Linux-x64.deb</code>.</p>
           <a class="btn get-file" href="#" download><span class="dot" aria-hidden="true"></span><span>Download for <span class="os-name">Windows</span></span></a>
+          <p data-for="android" hidden>If it doesn’t start, use the button below. Open <b>ScreenRecorder-Android.apk</b> from your downloads and tap <b>Install</b>.</p>
           <a class="alt-file" data-for="linux" href="#" hidden>Ubuntu 22.04, Debian 12, Fedora or another distro? Get the AppImage</a>
+          <a class="alt-file alt-android" data-for="android" href="#" hidden>Older phone that won’t install it? Get the 32-bit version</a>
           <div class="smart" role="note" data-for="windows">
             <div class="smart-head">
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l8 3v6.2c0 4.7-3.3 8.6-8 9.8-4.7-1.2-8-5.1-8-9.8V5.5z" fill="#0067C0"/><path d="M12 7.5v5.2M12 15.6v.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
@@ -917,6 +924,19 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
               <strong>The .deb is for Ubuntu 24.04+ and Debian 13+</strong>
             </div>
             <p>It installs FFmpeg and everything else it needs, and adds Screen Recorder to your apps. On older or other distros, use the AppImage: make it executable (<code>chmod +x</code>) and double-click it. The cursor halo, face camera and auto-zoom need an X11 session; on Wayland it records without them.</p>
+          </div>
+          <div class="smart" role="note" data-for="android" hidden>
+            <div class="smart-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l8 3v6.2c0 4.7-3.3 8.6-8 9.8-4.7-1.2-8-5.1-8-9.8V5.5z" fill="#0067C0"/><path d="M12 7.5v5.2M12 15.6v.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+              <strong>Android asks before installing apps from the web</strong>
+            </div>
+            <p>That’s normal for apps that aren’t from the Play Store.</p>
+            <ol class="smart-steps">
+              <li><span>1</span>Tap <b>Settings</b> when asked</li>
+              <li><span>2</span>Turn on <b>Allow from this source</b></li>
+              <li><span>3</span>Go back and tap <b>Install</b></li>
+            </ol>
+            <p>If Play Protect warns you, tap <b>More details</b>, then <b>Install anyway</b>.</p>
           </div>
           <button type="button" class="reset">Not <span class="sent-to"></span>? Start again</button>
         </div>
@@ -958,7 +978,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         <a class="dlw" href="#get"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Download for <span class="os-name">Windows</span></span></a>
       </div>
       <div><h4>Menu</h4><a class="l" href="#top">Home</a><a class="l" href="#features">Features</a><a class="l" href="#uses">Use cases</a><a class="l" href="#pricing">Pricing</a><a class="l" href="#requirements">Requirements</a><a class="l" href="#faq">FAQ</a><a class="l" href="#get">Download</a></div>
-      <div><h4>More</h4><a class="l" href="https://buymeamalt.com/@ibrahim_designer" target="_blank" rel="noopener">Buy me suya</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app" target="_blank" rel="noopener">Source code</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app/releases" target="_blank" rel="noopener">Release notes</a></div>
+      <div><h4>More</h4><a class="l" href="#pricing">Pricing</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app" target="_blank" rel="noopener">Source code</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app/releases" target="_blank" rel="noopener">Release notes</a></div>
     </div>
     <div class="legal"><span>Screen Recorder for Windows, Mac and Linux</span><span>Record only what you have the right to share.</span></div>
   </div>
@@ -1081,11 +1101,12 @@ document.querySelectorAll('.qa button').forEach(btn => {
 });
 
 // Which computer: guessed from the browser, changeable in the pop-up.
-const OS_NAMES = { windows: 'Windows', mac: 'Mac', linux: 'Linux' };
+const OS_NAMES = { windows: 'Windows', mac: 'Mac', linux: 'Linux', android: 'Android' };
 let currentOs = (function(){
   const ua = navigator.userAgent || '';
   const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
-  if (/iPhone|iPad|Android/i.test(ua)) return 'windows';
+  if (/Android/i.test(ua)) return 'android';
+  if (/iPhone|iPad/i.test(ua)) return 'windows';
   if (/mac/i.test(platform) || /Mac OS X/.test(ua)) return 'mac';
   if (/linux|x11/i.test(platform) || /Linux|X11/.test(ua)) return 'linux';
   return 'windows';
@@ -1099,6 +1120,16 @@ function setOs(os){
 }
 setOs(currentOs);
 document.querySelectorAll('.os-pick input').forEach(r => r.addEventListener('change', () => setOs(r.value)));
+
+// Android shows "Coming soon" until its APK is published.
+fetch('/api/download?check=1').then(r => r.json()).then(info => {
+  if (info && info.android) return;
+  const input = document.querySelector('.os-pick input[value="android"]');
+  if (!input) return;
+  input.disabled = true;
+  input.nextElementSibling.innerHTML = 'Android<small>Coming soon</small>';
+  if (currentOs === 'android') setOs('windows');
+}).catch(() => {});
 
 // Sign-up form.
 (function(){
@@ -1131,6 +1162,7 @@ document.querySelectorAll('.os-pick input').forEach(r => r.addEventListener('cha
         file.href = url;
         file.hidden = false;
         box.querySelector('.alt-file').href = data.downloadUrl + '&os=linux-appimage';
+        box.querySelector('.alt-android').href = data.downloadUrl + '&os=android-32';
         setOs(currentOs);
         // Start the download without leaving the page (the link redirects to the file).
         const go = document.createElement('a');

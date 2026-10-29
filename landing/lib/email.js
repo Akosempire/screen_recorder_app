@@ -8,7 +8,6 @@ import crypto from 'node:crypto';
 //  - "sendbyte": our own branded email through SendByte (needs a verified domain).
 // EMAIL_PROVIDER picks one; by default Supabase is used when it is configured.
 const API = () => (process.env.SENDBYTE_API_URL || 'https://api.sendbyte.africa/v1').replace(/\/+$/, '');
-export const SUPPORT_URL = 'https://buymeamalt.com/@ibrahim_designer';
 
 const supabaseReady = () => Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 const sendbyteReady = () => Boolean(process.env.SENDBYTE_API_KEY && process.env.EMAIL_FROM);
@@ -37,16 +36,12 @@ export function downloadEmail({ name, link, days }) {
     'Download Screen Recorder</a></p>' +
     '<p>Open <b>ScreenRecorder-Setup.exe</b> and a Screen Recorder shortcut appears on your desktop. ' +
     'If Windows says "Windows protected your PC", click <b>More info</b>, then <b>Run anyway</b>.</p>' +
-    '<div style="margin:24px 0;padding:16px 18px;border-radius:12px;background:#FFF8DC;border:1px solid #F3E2A0">' +
-    '<p style="margin:0 0 10px">Enjoying the app? Buy me suya to keep it running.</p>' +
-    `<a href="${SUPPORT_URL}" style="color:#15171A;font-weight:600">Buy me suya</a></div>` +
     `<p style="color:#5E6670;font-size:13px">This link works for ${days} days. ` +
     'You received this because you asked for the download on our website.</p>' +
     '</div>';
   const text =
     `Hi ${first},\n\nDownload Screen Recorder for Windows: ${link}\n\n` +
-    `This link works for ${days} days.\n\n` +
-    `Enjoying the app? Buy me suya to keep it running: ${SUPPORT_URL}\n`;
+    `This link works for ${days} days.\n`;
   return { subject: 'Your Screen Recorder download link', html, text };
 }
 

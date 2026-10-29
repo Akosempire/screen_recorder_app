@@ -20,10 +20,30 @@ export function fileUrl(os) {
   return `${RELEASE}/${name}`;
 }
 
-// GET /api/download?t=<signed token>&os=windows|mac|linux|linux-tar|linux-appimage
+// Whether the latest release has a file (the APK appears only once Android
+// signing is set up). Remembered for 5 minutes per server instance.
+const seen = new Map();
+export async function published(name, fetcher = fetch, now = Date.now()) {
+  const hit = seen.get(name);
+  if (hit && now - hit.at < 5 * 60 * 1000) return hit.ok;
+  let ok = false;
+  try {
+    const res = await fetcher(`${RELEASE}/${name}`, { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(4000) });
+    ok = res.status >= 200 && res.status < 400;
+  } catch { ok = hit ? hit.ok : false; }
+  seen.set(name, { ok, at: now });
+  return ok;
+}
+
+// GET /api/download?t=<signed token>&os=windows|mac|linux|linux-tar|linux-appimage|android|android-32
+// GET /api/download?check=1 → { android: true|false }
 export default async function handler(req, res) {
   const secret = process.env.LINK_SECRET;
   const url = new URL(req.url, 'http://local');
+  if (url.searchParams.get('check')) {
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    return res.status(200).json({ android: await published(FILES.android) });
+  }
   const email = secret ? readToken(url.searchParams.get('t') || '', secret) : null;
 
   if (!email) {

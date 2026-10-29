@@ -1,6 +1,6 @@
 # Screen Recorder
 
-> Screen Recorder is a desktop screen recording app for Windows, Mac and Linux that makes tutorials, demos and bug reports easy to follow: it highlights the cursor and every click, automatically zooms in where you click, and can show your webcam in a bubble. Recording, editing and exporting all happen on the user's computer; nothing is uploaded. It is free to try (recordings up to 3 minutes, every feature, no watermark) and Pro removes the length limit.
+> Screen Recorder is a screen recording app for Windows, Mac, Linux and Android that makes tutorials, demos and bug reports easy to follow: it highlights the cursor and every click, automatically zooms in where you click, and can show your webcam in a bubble. Recording, editing and exporting all happen on the user's computer; nothing is uploaded. It is free to try (recordings up to 3 minutes, every feature, no watermark) and Pro removes the length limit.
 
 Website: https://www.screenrecorderapp.cv/
 Download: https://www.screenrecorderapp.cv/#get
@@ -42,7 +42,8 @@ FAQ: https://www.screenrecorderapp.cv/#faq
 - Windows 11, or Windows 10 version 1809 or newer, 64-bit (x64); also runs on Windows 11 on ARM. Installer: ScreenRecorder-Setup.exe.
 - macOS 10.15 Catalina or newer, including macOS 15 Sequoia and later; Apple Silicon and Intel. Download: ScreenRecorder-macOS.dmg.
 - Linux, 64-bit (x86_64): a .deb for Ubuntu 24.04+ and Debian 13+, and an AppImage for Ubuntu 22.04, Debian 12, Linux Mint 21+, Fedora 38+ and most others. Live effects and auto-zoom need an X11 session; on Wayland it records only.
-- Not supported: 32-bit computers, Windows 7/8/8.1, macOS 10.14 and older, Linux on ARM.
+- Android 10 or newer phones and tablets: an APK from the website (ScreenRecorder-Android.apk, plus a 32-bit version for older phones). Records the screen and sound and saves to the Gallery; same Pro licence.
+- Not supported: 32-bit computers, Windows 7/8/8.1, macOS 10.14 and older, Linux on ARM, iPhone and iPad, Android 9 and older.
 - A webcam and microphone are optional.
 
 ## Comparison notes
