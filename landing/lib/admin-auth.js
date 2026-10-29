@@ -55,6 +55,27 @@ function supabase(env) {
   return { url, headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } };
 }
 
+/** Turns Supabase's refusal into a message that says what to fix. */
+export function codeError(status, detail = '') {
+  const d = detail.toLowerCase();
+  let message;
+  if (status === 429 || d.includes('rate limit') || d.includes('security purposes')) {
+    message = 'Supabase is limiting emails right now. Wait a few minutes and try again.';
+  } else if (d.includes('smtp') || d.includes('sending') || d.includes('email')) {
+    message = 'Supabase could not send the email. In Supabase → Authentication → Emails → SMTP Settings, turn custom SMTP off (or finish its settings), then try again.';
+  } else if (d.includes('signup') || d.includes('sign up') || status === 422) {
+    message = 'Supabase is not allowing new sign-ins. In Supabase → Authentication → Sign In / Providers, turn on "Allow new users to sign up" and make sure Email is enabled.';
+  } else if (status === 401 || status === 403) {
+    message = 'The website\'s Supabase key was refused. Check SUPABASE_SERVICE_ROLE_KEY in Vercel matches Supabase → Project Settings → API keys.';
+  } else {
+    message = `The code could not be sent (Supabase said: ${detail || `error ${status}`}).`;
+  }
+  const err = new Error(message);
+  err.status = status === 429 ? 429 : 400; // shown to the admin as-is
+  err.detail = detail;
+  return err;
+}
+
 /** Emails a sign-in code (Supabase's "Magic Link" email; its template must show {{ .Token }}). */
 export async function sendCode(email, env = process.env, fetcher = fetch) {
   const { url, headers } = supabase(env);
@@ -66,12 +87,9 @@ export async function sendCode(email, env = process.env, fetcher = fetch) {
   });
   if (res.ok) return;
   const data = await res.json().catch(() => ({}));
-  const err = new Error(res.status === 429
-    ? 'Too many codes requested. Wait a few minutes and try again.'
-    : 'The code could not be sent. Try again in a minute.');
-  err.status = res.status === 429 ? 429 : 502;
-  err.detail = data.msg || data.message || data.error_description || '';
-  throw err;
+  const detail = String(data.msg || data.message || data.error_description || data.error || '');
+  console.error('Supabase /otp failed', res.status, detail);
+  throw codeError(res.status, detail);
 }
 
 /** True when the code is right (Supabase checks it and its expiry). */

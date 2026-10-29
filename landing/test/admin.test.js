@@ -207,3 +207,12 @@ test('admin endpoint: sign in by email code, lockout, settings, licences, CSV', 
     sb.close();
   }
 });
+
+test('sign-in code errors say what to fix', async () => {
+  const { codeError } = await import('../lib/admin-auth.js');
+  assert.match(codeError(500, 'Error sending magic link email').message, /SMTP Settings/);
+  assert.match(codeError(429, 'email rate limit exceeded').message, /Wait a few minutes/);
+  assert.match(codeError(422, 'Signups not allowed for otp').message, /Allow new users to sign up/);
+  assert.match(codeError(401, 'Invalid API key').message, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.equal(codeError(500, 'x').status, 400);
+});
