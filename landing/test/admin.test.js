@@ -216,3 +216,10 @@ test('sign-in code errors say what to fix', async () => {
   assert.match(codeError(401, 'Invalid API key').message, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.equal(codeError(500, 'x').status, 400);
 });
+
+test('team-only email error is explained, with Supabase\'s words', async () => {
+  const { codeError } = await import('../lib/admin-auth.js');
+  const e = codeError(400, 'Email address "a@b.com" cannot be used as it is not authorized');
+  assert.match(e.message, /Organization → Team/);
+  assert.match(e.message, /Supabase said: Email address/);
+});

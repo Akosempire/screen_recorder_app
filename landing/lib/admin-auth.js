@@ -61,6 +61,8 @@ export function codeError(status, detail = '') {
   let message;
   if (status === 429 || d.includes('rate limit') || d.includes('security purposes')) {
     message = 'Supabase is limiting emails right now. Wait a few minutes and try again.';
+  } else if (d.includes('not authorized') || d.includes('not allowed to send')) {
+    message = 'Supabase\'s built-in email only sends to members of your Supabase team. Invite this email in Supabase → Organization → Team (or set up custom SMTP), then try again.';
   } else if (d.includes('smtp') || d.includes('sending') || d.includes('email')) {
     message = 'Supabase could not send the email. In Supabase → Authentication → Emails → SMTP Settings, turn custom SMTP off (or finish its settings), then try again.';
   } else if (d.includes('signup') || d.includes('sign up') || status === 422) {
@@ -70,6 +72,7 @@ export function codeError(status, detail = '') {
   } else {
     message = `The code could not be sent (Supabase said: ${detail || `error ${status}`}).`;
   }
+  if (detail && !message.includes(detail)) message += ` (Supabase said: ${detail})`;
   const err = new Error(message);
   err.status = status === 429 ? 429 : 400; // shown to the admin as-is
   err.detail = detail;
