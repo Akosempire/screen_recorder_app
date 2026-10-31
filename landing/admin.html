@@ -196,6 +196,22 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
             <p class="msg" id="settings-msg" role="alert"></p>
           </form>
         </div>
+        <div class="card">
+          <h2>Email (Brevo)</h2>
+          <p class="muted small">Sends your dashboard sign-in codes through Brevo instead of Supabase. Get the API key in Brevo → SMTP &amp; API → API keys (it starts with <code>xkeysib-</code>). The sender must be verified in Brevo → Senders, Domains &amp; Dedicated IPs.</p>
+          <form id="email-form" class="fields" style="margin-top:14px">
+            <label class="f">Brevo API key <span class="muted" id="cur-brevo"></span>
+              <input type="password" name="brevo_api_key" autocomplete="off" placeholder="xkeysib-…">
+            </label>
+            <label class="f">Send from (email)<input type="email" name="email_from" autocomplete="off" placeholder="no-reply@yourdomain.com"></label>
+            <label class="f">Sender name<input type="text" name="email_from_name" autocomplete="off" placeholder="Screen Recorder"></label>
+            <div class="row">
+              <button class="btn" type="submit">Save email settings</button>
+              <button class="btn ghost" type="button" id="test-email">Send me a test email</button>
+            </div>
+            <p class="msg" id="email-msg" role="alert"></p>
+          </form>
+        </div>
       </section>
 
       <!-- Activity -->
@@ -402,6 +418,9 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
     $('#cur-key').textContent = s.bachs_api_key ? `(saved: ${s.bachs_api_key})` : '(not set)';
     $('#cur-wh').textContent = s.bachs_webhook_secret ? `(saved: ${s.bachs_webhook_secret})` : '(not set)';
     $('#wh-url').textContent = s.webhook_url;
+    const ef = $('#email-form');
+    ef.brevo_api_key.value = ''; ef.email_from.value = s.email_from || ''; ef.email_from_name.value = s.email_from_name || '';
+    $('#cur-brevo').textContent = s.brevo_api_key ? `(saved: ${s.brevo_api_key})` : '(not set)';
     if (!s.key_matches_environment) msg($('#settings-msg'), 'The saved API key doesn\'t match the mode: live needs an sk_live_ key, sandbox an sk_sandbox_ key.');
   }
   $('#settings-form').addEventListener('submit', async (e) => {
@@ -421,6 +440,23 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
       msg($('#settings-msg'), s.payments_live ? 'Saved. Pro is on sale.' : 'Saved. Pro goes on sale once the API key and webhook secret are set and selling is on.', s.payments_live ? 'ok' : 'err');
     } catch (err) { msg($('#settings-msg'), err.message); }
   });
+  $('#email-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      const s = await api('settings', { method: 'POST', body: {
+        brevo_api_key: f.brevo_api_key.value, email_from: f.email_from.value, email_from_name: f.email_from_name.value,
+      } });
+      await loadSettings();
+      msg($('#email-msg'), s.email_ready ? 'Saved. Sign-in codes now go through Brevo. Send yourself a test email to check.' : 'Saved. Add both the API key and the sender address to switch to Brevo.', s.email_ready ? 'ok' : 'err');
+    } catch (err) { msg($('#email-msg'), err.message); }
+  });
+  $('#test-email').addEventListener('click', async () => {
+    const b = $('#test-email'); b.disabled = true; msg($('#email-msg'), 'Sending…', 'ok');
+    try { const r = await api('test-email', { method: 'POST', body: {} }); msg($('#email-msg'), r.message, r.ok ? 'ok' : 'err'); }
+    catch (err) { msg($('#email-msg'), err.message); }
+    finally { b.disabled = false; }
+  });
   $('#test-bachs').addEventListener('click', async () => {
     const b = $('#test-bachs'); b.disabled = true; msg($('#settings-msg'), 'Testing each step of a purchase…', 'ok');
     try {
@@ -439,7 +475,7 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
     const t = $('#log-table');
     t.replaceChildren(el('tr', {}, ...['When', 'Admin', 'What', 'Details'].map(h => el('th', { text: h }))));
     if (!items.length) t.append(el('tr', {}, el('td', { colspan: 4, class: 'empty', text: 'No activity yet.' })));
-    const words = { login: 'Signed in', login_failed: 'Wrong code', settings: 'Changed settings', grant: 'Gave a licence', revoke: 'Revoked a licence', restore: 'Restored a licence', checkout_failed: 'Payment could not start', test_bachs: 'Tested Bachs' };
+    const words = { login: 'Signed in', login_failed: 'Wrong code', settings: 'Changed settings', grant: 'Gave a licence', revoke: 'Revoked a licence', restore: 'Restored a licence', checkout_failed: 'Payment could not start', test_bachs: 'Tested Bachs', test_email: 'Test email' };
     for (const r of items) t.append(el('tr', {}, el('td', { text: date(r.created_at) }), el('td', { text: r.email }), el('td', { text: words[r.action] || r.action }), el('td', { class: 'mono', text: r.detail || '' })));
   }
 

@@ -223,3 +223,43 @@ test('team-only email error is explained, with Supabase\'s words', async () => {
   assert.match(e.message, /Organization → Team/);
   assert.match(e.message, /Supabase said: Email address/);
 });
+
+test('Brevo: own sign-in codes work once, for 10 minutes; settings validate the key', async () => {
+  const { issueCode, checkCode } = await import('../lib/admin-auth.js');
+  const { saveSettings, loadConfig, publicSettings } = await import('../lib/config.js');
+  const { sendEmail, codeEmail } = await import('../lib/brevo.js');
+  const env = { LINK_SECRET: 'x'.repeat(32) };
+  const kv = new Map();
+  const store = { getSetting: async (k) => kv.get(k) ?? null, setSetting: async (k, v) => { kv.set(k, v); } };
+
+  assert.equal(await checkCode(store, 'a@b.co', '123456', env), null, 'no code yet: fall back to Supabase');
+  const code = await issueCode(store, 'a@b.co', env, 1000);
+  assert.match(code, /^\d{6}$/);
+  assert.ok(![...kv.values()].some((v) => v.includes(code)), 'code is not stored in plain text');
+  assert.equal(await checkCode(store, 'a@b.co', code === '000000' ? '000001' : '000000', env, 2000), false);
+  assert.equal(await checkCode(store, 'a@b.co', code, env, 2000), true);
+  assert.equal(await checkCode(store, 'a@b.co', code, env, 3000), null, 'used up');
+  const late = await issueCode(store, 'a@b.co', env, 0);
+  assert.equal(await checkCode(store, 'a@b.co', late, env, 11 * 60 * 1000), null, 'expired');
+
+  await assert.rejects(saveSettings(store, { brevo_api_key: 'xsmtpsib-abc' }, env), /xkeysib-/);
+  await saveSettings(store, { brevo_api_key: 'xkeysib-' + 'a'.repeat(64) + '-Zz', email_from: 'No-Reply@Example.com', email_from_name: 'Screen Recorder' }, env);
+  const config = await loadConfig(store, env);
+  assert.equal(config.EMAIL_FROM, 'no-reply@example.com');
+  const pub = publicSettings(config);
+  assert.equal(pub.email_ready, true);
+  assert.ok(!JSON.stringify(pub).includes('a'.repeat(30)), 'key is masked');
+
+  let sent;
+  await sendEmail(config, { to: 'a@b.co', ...codeEmail('123456') }, async (url, init) => {
+    sent = { url, init };
+    return { ok: true, status: 201, text: async () => '{"messageId":"m"}' };
+  });
+  assert.equal(sent.url, 'https://api.brevo.com/v3/smtp/email');
+  assert.equal(sent.init.headers['api-key'], config.BREVO_API_KEY);
+  assert.equal(JSON.parse(sent.init.body).sender.email, 'no-reply@example.com');
+  await assert.rejects(
+    sendEmail(config, { to: 'a@b.co', subject: 's', html: 'h', text: 't' }, async () => ({ ok: false, status: 401, text: async () => '{"code":"unauthorized","message":"We have detected you are using an unrecognised IP address 1.2.3.4"}' })),
+    /Authorised IPs/,
+  );
+});

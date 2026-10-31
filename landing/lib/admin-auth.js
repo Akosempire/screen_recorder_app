@@ -1,6 +1,6 @@
 // Admin sign-in: a 6-digit code emailed by Supabase Auth, then a signed,
 // HttpOnly session cookie (12 hours). Only emails in the admin list can sign in.
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 
 export const COOKIE = '__Host-sr_admin';
 const SESSION_MS = 12 * 3600 * 1000;
@@ -106,4 +106,34 @@ export async function verifyCode(email, code, env = process.env, fetcher = fetch
     signal: AbortSignal.timeout(10000),
   });
   return res.ok;
+}
+
+// ---- Our own email codes (sent through Brevo) ------------------------------------
+// Used instead of Supabase's emails once Brevo is set up. The code is stored
+// only as an HMAC, works for 10 minutes, and once.
+const CODE_MS = 10 * 60 * 1000;
+const codeSetting = (email) => `admin_code:${email}`;
+const codeHash = (email, code, env) =>
+  createHmac('sha256', sessionKey(env)).update(`code:${email}:${code}`).digest('base64url');
+
+/** Makes and stores a new code for this email; returns the code to send. */
+export async function issueCode(store, email, env = process.env, now = Date.now()) {
+  const code = String(randomInt(0, 1000000)).padStart(6, '0');
+  await store.setSetting(codeSetting(email), JSON.stringify({ h: codeHash(email, code, env), x: now + CODE_MS }));
+  return code;
+}
+
+/**
+ * Checks a code made by issueCode. Returns true/false, or null when there's no
+ * live code for this email (then the Supabase code is checked instead).
+ */
+export async function checkCode(store, email, code, env = process.env, now = Date.now()) {
+  let saved;
+  try { saved = JSON.parse((await store.getSetting(codeSetting(email))) || 'null'); } catch { saved = null; }
+  if (!saved || !saved.h || !(saved.x > now)) return null;
+  const given = Buffer.from(codeHash(email, String(code), env));
+  const expected = Buffer.from(saved.h);
+  const ok = /^\d{6}$/.test(String(code)) && given.length === expected.length && timingSafeEqual(given, expected);
+  if (ok) await store.setSetting(codeSetting(email), '{}'); // used up
+  return ok;
 }

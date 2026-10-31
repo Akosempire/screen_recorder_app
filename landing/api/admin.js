@@ -1,6 +1,7 @@
 import {
-  clearCookie, makeSession, readCookie, readSession, sendCode, sessionCookie, verifyCode,
+  checkCode, clearCookie, issueCode, makeSession, readCookie, readSession, sendCode, sessionCookie, verifyCode,
 } from '../lib/admin-auth.js';
+import { brevoReady, codeEmail, sendEmail } from '../lib/brevo.js';
 import {
   grantLicense, listLicenses, listPeople, logAction, overview, recentFailures, setRevoked, toCsv,
 } from '../lib/admin.js';
@@ -36,7 +37,12 @@ export default async function handler(req, res) {
         if (await recentFailures(db, email) >= 5) {
           return res.status(429).json({ error: 'Too many wrong codes. Wait 15 minutes and try again.' });
         }
-        await sendCode(email);
+        if (brevoReady(config)) {
+          const code = await issueCode(supabaseStore, email);
+          await sendEmail(config, { to: email, ...codeEmail(code) });
+        } else {
+          await sendCode(email);
+        }
       }
       return res.status(200).json({ ok: true, message: 'If this email is an admin, a 6-digit code is on its way.' });
     }
@@ -47,7 +53,9 @@ export default async function handler(req, res) {
       if (await recentFailures(db, email) >= 5) {
         return res.status(429).json({ error: 'Too many wrong codes. Wait 15 minutes and try again.' });
       }
-      if (!(await verifyCode(email, String(body.code || '').trim()))) {
+      const code = String(body.code || '').trim();
+      const ours = await checkCode(supabaseStore, email, code);
+      if (!(ours === null ? await verifyCode(email, code) : ours)) {
         await logAction(db, email, 'login_failed');
         return res.status(401).json({ error: 'That code is not right or has expired.' });
       }
@@ -112,6 +120,22 @@ export default async function handler(req, res) {
             ...result,
             message: failed ? `${failed.name} failed: ${failed.detail}` : `Everything works (${fresh.BACHS_ENVIRONMENT === 'production' ? 'live' : 'sandbox'}): buyers can pay in naira and dollars.`,
           });
+        }
+        case 'test-email': {
+          const fresh = await loadConfig(supabaseStore);
+          try {
+            await sendEmail(fresh, {
+              to: me,
+              subject: 'Screen Recorder test email',
+              html: '<p>This is a test from your Screen Recorder dashboard. Email through Brevo works.</p>',
+              text: 'This is a test from your Screen Recorder dashboard. Email through Brevo works.',
+            });
+            await logAction(db, me, 'test_email', 'sent');
+            return res.status(200).json({ ok: true, message: `Sent a test email to ${me} from ${fresh.EMAIL_FROM}. Check your inbox (and spam).` });
+          } catch (error) {
+            await logAction(db, me, 'test_email', error.message);
+            return res.status(200).json({ ok: false, message: error.message });
+          }
         }
         case 'grant': {
           const row = await grantLicense(db, body, config);

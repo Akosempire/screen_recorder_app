@@ -6,9 +6,10 @@
 // SETTINGS_KEY, or LINK_SECRET (already set in Vercel). Changing that key
 // makes stored secrets unreadable; re-enter them in the dashboard.
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { BREVO_KEY_RE } from './brevo.js';
 
-export const SECRET_KEYS = ['bachs_api_key', 'bachs_webhook_secret', 'license_secret'];
-export const PLAIN_KEYS = ['bachs_environment', 'payments_enabled', 'admin_emails'];
+export const SECRET_KEYS = ['bachs_api_key', 'bachs_webhook_secret', 'license_secret', 'brevo_api_key'];
+export const PLAIN_KEYS = ['bachs_environment', 'payments_enabled', 'admin_emails', 'email_from', 'email_from_name'];
 
 /** The first admin, so the dashboard can be reached before anything is set up. */
 export const DEFAULT_ADMINS = ['akosempire1@gmail.com'];
@@ -49,9 +50,10 @@ export async function loadConfig(store, env = process.env) {
       return null;
     }
   };
-  const [apiKey, webhook, licence, mode, enabled, admins] = await Promise.all([
+  const [apiKey, webhook, licence, mode, enabled, admins, brevo, from, fromName] = await Promise.all([
     read('bachs_api_key'), read('bachs_webhook_secret'), read('license_secret'),
     read('bachs_environment'), read('payments_enabled'), read('admin_emails'),
+    read('brevo_api_key'), read('email_from'), read('email_from_name'),
   ]);
   const open = (v) => {
     if (!v) return null;
@@ -64,6 +66,9 @@ export async function loadConfig(store, env = process.env) {
   // Payments switch: dashboard "off" wins; otherwise on when keys exist.
   out.PAYMENTS_ENABLED = enabled === null || enabled === undefined ? 'auto' : enabled;
   out.ADMIN_EMAILS = admins || env.ADMIN_EMAILS || DEFAULT_ADMINS.join(',');
+  out.BREVO_API_KEY = open(brevo) || env.BREVO_API_KEY || '';
+  out.EMAIL_FROM = from || env.EMAIL_FROM || '';
+  out.EMAIL_FROM_NAME = fromName || env.EMAIL_FROM_NAME || 'Screen Recorder';
 
   // The licence secret must never change once licences exist: create it once.
   if (!out.LICENSE_SECRET && env.LINK_SECRET) {
@@ -99,6 +104,9 @@ export async function saveSettings(store, input, env = process.env) {
     if (key === 'bachs_api_key' && !/^sk_(sandbox|live)_[A-Za-z0-9_-]{8,}$/.test(value)) {
       throw Object.assign(new Error('The Bachs API key should start with sk_sandbox_ or sk_live_.'), { status: 400 });
     }
+    if (key === 'brevo_api_key' && !BREVO_KEY_RE.test(value)) {
+      throw Object.assign(new Error('The Brevo API key should start with xkeysib-. (An SMTP key starting xsmtpsib- won\'t work here.)'), { status: 400 });
+    }
     if (key === 'bachs_webhook_secret' && !/^whsec_[A-Za-z0-9_-]{8,}$/.test(value)) {
       throw Object.assign(new Error('The webhook signing secret should start with whsec_.'), { status: 400 });
     }
@@ -122,6 +130,18 @@ export async function saveSettings(store, input, env = process.env) {
     await store.setSetting(settingName('admin_emails'), list.join(','));
     changed.push('admin_emails');
   }
+  if (input.email_from !== undefined) {
+    const from = String(input.email_from).trim().toLowerCase();
+    if (from && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(from)) {
+      throw Object.assign(new Error('Enter the sender as an email address, like no-reply@yourdomain.com.'), { status: 400 });
+    }
+    await store.setSetting(settingName('email_from'), from);
+    changed.push('email_from');
+  }
+  if (input.email_from_name !== undefined) {
+    await store.setSetting(settingName('email_from_name'), String(input.email_from_name).trim().slice(0, 60) || 'Screen Recorder');
+    changed.push('email_from_name');
+  }
   return changed;
 }
 
@@ -138,6 +158,10 @@ export function publicSettings(config) {
     payments_live: paymentsOn(config),
     admin_emails: adminEmails(config),
     licence_secret_ready: Boolean(config.LICENSE_SECRET),
+    brevo_api_key: config.BREVO_API_KEY ? `${config.BREVO_API_KEY.slice(0, 12)}…${config.BREVO_API_KEY.slice(-4)}` : null,
+    email_from: config.EMAIL_FROM || '',
+    email_from_name: config.EMAIL_FROM_NAME || 'Screen Recorder',
+    email_ready: Boolean(config.BREVO_API_KEY && config.EMAIL_FROM),
     webhook_url: `${(config.SITE_URL || 'https://screenrecorderapp.vercel.app').replace(/\/+$/, '')}/api/bachs-webhook`,
   };
 }
