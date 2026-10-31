@@ -5,6 +5,7 @@ import {
   grantLicense, listLicenses, listPeople, logAction, overview, recentFailures, setRevoked, toCsv,
 } from '../lib/admin.js';
 import { bachsClient, supabaseStore } from '../lib/billing-store.js';
+import { testCheckout } from '../lib/billing.js';
 import { adminEmails, loadConfig, publicSettings, saveSettings } from '../lib/config.js';
 import { readJson, sendError } from '../lib/http.js';
 import * as db from '../lib/supabase-rest.js';
@@ -100,12 +101,17 @@ export default async function handler(req, res) {
         }
         case 'test-bachs': {
           const fresh = await loadConfig(supabaseStore);
-          try {
-            await bachsClient(fresh).products.list({ limit: 1 });
-            return res.status(200).json({ ok: true, message: `Connected to Bachs (${fresh.BACHS_ENVIRONMENT === 'production' ? 'live' : 'sandbox'}).` });
-          } catch (error) {
-            return res.status(200).json({ ok: false, message: `Bachs said: ${error.message}` });
+          let bachs;
+          try { bachs = bachsClient(fresh); } catch (error) {
+            return res.status(200).json({ ok: false, message: error.message, steps: [] });
           }
+          const result = await testCheckout({ store: supabaseStore, bachs, env: fresh, email: me });
+          const failed = result.steps.find((s) => !s.ok);
+          await logAction(db, me, 'test_bachs', failed ? `${failed.name}: ${failed.detail}` : 'all steps passed');
+          return res.status(200).json({
+            ...result,
+            message: failed ? `${failed.name} failed: ${failed.detail}` : `Everything works (${fresh.BACHS_ENVIRONMENT === 'production' ? 'live' : 'sandbox'}): buyers can pay in naira and dollars.`,
+          });
         }
         case 'grant': {
           const row = await grantLicense(db, body, config);

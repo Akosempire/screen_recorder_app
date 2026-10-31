@@ -286,3 +286,30 @@ test('webhook endpoint verifies signatures and grants the licence; licence endpo
     sb.close();
   }
 });
+
+test('checkout failures name the step and Bachs\'s reason; the test checks NGN and USD', async () => {
+  const { describeError, startCheckout, testCheckout } = await import('../lib/billing.js');
+  const apiError = Object.assign(new Error('Currency NGN is not enabled'), { statusCode: 422, errorCode: 'currency_not_enabled' });
+  const rows = new Map();
+  const store = {
+    getCheckout: async (a) => rows.get(a) ?? null,
+    saveCheckout: async (f) => rows.set(f.activation, { ...(rows.get(f.activation) || {}), ...f }),
+    getSetting: async () => JSON.stringify({ monthly: 'prod_m', lifetime: 'prod_l' }),
+    setSetting: async () => {},
+  };
+  const bachs = {
+    products: { list: async () => ({ data: [] }) },
+    checkoutSessions: { create: async (input) => { if (input.billing_currency === 'NGN') throw apiError; return { checkout_id: 'c', checkout_url: 'https://pay' }; } },
+  };
+  await assert.rejects(
+    startCheckout({ plan: 'monthly', currency: 'NGN', email: 'a@b.co', activation: 'a'.repeat(32) }, { store, bachs, env: {} }),
+    (e) => describeError(e) === '[Bachs: checkout session] Bachs 422 currency_not_enabled: Currency NGN is not enabled',
+  );
+  assert.equal(describeError(new Error('bad key sk_live_abc123')), 'bad key sk_…');
+  const r = await testCheckout({ store, bachs, env: {}, email: 'admin@x.co' });
+  assert.equal(r.ok, false);
+  assert.deepEqual(r.steps.map((s) => [s.name, s.ok]), [
+    ['Bachs key works', true], ['Database tables ready', true], ['Pro products on Bachs', true],
+    ['Checkout page in NGN', false], ['Checkout page in USD', true],
+  ]);
+});

@@ -41,6 +41,29 @@ const ACTIVE_STATES = new Set(['active', 'trialing', 'past_due']);
 /** Grace after a monthly period ends before Pro switches off. */
 const GRACE_MS = 3 * 24 * 3600 * 1000;
 
+/** One line saying what went wrong, for the admin log (never shown to buyers). */
+export function describeError(error) {
+  if (!error) return 'unknown error';
+  const parts = [];
+  if (error.stage) parts.push(`[${error.stage}]`);
+  if (error.statusCode) parts.push(`Bachs ${error.statusCode}${error.errorCode ? ` ${error.errorCode}` : ''}:`);
+  parts.push(String(error.message || error).replace(/(sk|whsec)_[A-Za-z0-9_]+/g, '$1_…'));
+  if (Array.isArray(error.fieldErrors) && error.fieldErrors.length) {
+    parts.push(JSON.stringify(error.fieldErrors).slice(0, 200));
+  }
+  return parts.join(' ').slice(0, 300);
+}
+
+/** Runs one step of a checkout, tagging any error with the step's name. */
+async function step(stage, fn) {
+  try {
+    return await fn();
+  } catch (error) {
+    if (error && typeof error === 'object' && !error.stage) error.stage = stage;
+    throw error;
+  }
+}
+
 export class BillingError extends Error {
   constructor(status, message) {
     super(message);
@@ -144,6 +167,42 @@ async function listAll(bachs) {
 
 // ---- checkout -----------------------------------------------------------------
 
+/**
+ * The admin's "Test the Bachs connection": every step a real purchase takes,
+ * without saving anything. Returns { ok, steps: [{ name, ok, detail }] }.
+ */
+export async function testCheckout({ store, bachs, env = process.env, email }) {
+  const steps = [];
+  const run = async (name, fn) => {
+    try {
+      const detail = await fn();
+      steps.push({ name, ok: true, detail: detail || '' });
+      return true;
+    } catch (error) {
+      steps.push({ name, ok: false, detail: describeError(error) });
+      return false;
+    }
+  };
+  const site = (env.SITE_URL || 'https://screenrecorderapp.vercel.app').replace(/\/+$/, '');
+  let ids;
+  const ok = await run('Bachs key works', async () => { await bachs.products.list({ limit: 1 }); return env.BACHS_ENVIRONMENT === 'production' ? 'live' : 'sandbox'; })
+    && await run('Database tables ready', async () => { await store.getCheckout('x'.repeat(32)); return 'checkouts table found'; })
+    && await run('Pro products on Bachs', async () => { ids = await productIds({ store, bachs, env }); return `monthly ${ids.monthly}, lifetime ${ids.lifetime}`; })
+    && (await Promise.all(CURRENCIES.map((currency) => run(`Checkout page in ${currency}`, async () => {
+      const session = await bachs.checkoutSessions.create({
+        product_cart: [{ product_id: ids.monthly, quantity: 1 }],
+        customer: { email, name: 'Dashboard test' },
+        billing_currency: currency,
+        metadata: { app: `${APP_TAG}-test` },
+        success_url: `${site}/pro.html`,
+        cancel_url: `${site}/#pricing`,
+        expires_in_minutes: 5,
+      });
+      return session.checkout_url ? 'opens fine' : 'no checkout link returned';
+    })))).every(Boolean);
+  return { ok, steps };
+}
+
 /** Starts (or reuses) a hosted checkout. Returns { checkoutUrl, activation }. */
 export async function startCheckout(input, { store, bachs, env = process.env }) {
   const plan = String(input.plan || '');
@@ -159,17 +218,17 @@ export async function startCheckout(input, { store, bachs, env = process.env }) 
   }
   if (!isActivation(activation)) throw new BillingError(400, 'Invalid request.');
 
-  const existing = await store.getCheckout(activation);
+  const existing = await step('database: read checkout', () => store.getCheckout(activation));
   if (existing?.license_key) throw new BillingError(409, 'This purchase is already complete.');
   if (existing?.checkout_url && existing.plan === plan && existing.currency === currency) {
     return { checkoutUrl: existing.checkout_url, activation };
   }
 
-  const ids = await productIds({ store, bachs, env });
+  const ids = await step('Bachs: products', () => productIds({ store, bachs, env }));
   const site = (env.SITE_URL || 'https://screenrecorderapp.vercel.app').replace(/\/+$/, '');
-  await store.saveCheckout({ activation, email, name, plan, currency });
+  await step('database: save checkout', () => store.saveCheckout({ activation, email, name, plan, currency }));
 
-  const session = await bachs.checkoutSessions.create({
+  const session = await step('Bachs: checkout session', () => bachs.checkoutSessions.create({
     product_cart: [{ product_id: ids[plan], quantity: 1 }],
     customer: { email, name },
     billing_currency: currency,
@@ -177,13 +236,13 @@ export async function startCheckout(input, { store, bachs, env = process.env }) 
     reference: `sr-${plan}-${randomBytes(6).toString('hex')}`,
     success_url: `${site}/pro.html?a=${encodeURIComponent(activation)}`,
     cancel_url: `${site}/#pricing`,
-  }, { idempotencyKey: `${APP_TAG}-checkout-${activation}-${plan}-${currency}` });
+  }, { idempotencyKey: `${APP_TAG}-checkout-${activation}-${plan}-${currency}` }));
 
-  await store.saveCheckout({
+  await step('database: save checkout link', () => store.saveCheckout({
     activation, email, name, plan, currency,
     bachs_checkout_id: session.checkout_id,
     checkout_url: session.checkout_url,
-  });
+  }));
   return { checkoutUrl: session.checkout_url, activation };
 }
 

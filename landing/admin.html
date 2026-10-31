@@ -422,8 +422,15 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
     } catch (err) { msg($('#settings-msg'), err.message); }
   });
   $('#test-bachs').addEventListener('click', async () => {
-    try { const r = await api('test-bachs', { method: 'POST', body: {} }); msg($('#settings-msg'), r.message, r.ok ? 'ok' : 'err'); }
+    const b = $('#test-bachs'); b.disabled = true; msg($('#settings-msg'), 'Testing each step of a purchase…', 'ok');
+    try {
+      const r = await api('test-bachs', { method: 'POST', body: {} });
+      const lines = (r.steps || []).map(s => (s.ok ? '✓ ' : '✗ ') + s.name + (s.detail ? ' — ' + s.detail : ''));
+      msg($('#settings-msg'), [r.message].concat(lines).join('\n'), r.ok ? 'ok' : 'err');
+      $('#settings-msg').style.whiteSpace = 'pre-line';
+    }
     catch (err) { msg($('#settings-msg'), err.message); }
+    finally { b.disabled = false; }
   });
 
   // ---- activity ----
@@ -432,7 +439,7 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
     const t = $('#log-table');
     t.replaceChildren(el('tr', {}, ...['When', 'Admin', 'What', 'Details'].map(h => el('th', { text: h }))));
     if (!items.length) t.append(el('tr', {}, el('td', { colspan: 4, class: 'empty', text: 'No activity yet.' })));
-    const words = { login: 'Signed in', login_failed: 'Wrong code', settings: 'Changed settings', grant: 'Gave a licence', revoke: 'Revoked a licence', restore: 'Restored a licence' };
+    const words = { login: 'Signed in', login_failed: 'Wrong code', settings: 'Changed settings', grant: 'Gave a licence', revoke: 'Revoked a licence', restore: 'Restored a licence', checkout_failed: 'Payment could not start', test_bachs: 'Tested Bachs' };
     for (const r of items) t.append(el('tr', {}, el('td', { text: date(r.created_at) }), el('td', { text: r.email }), el('td', { text: words[r.action] || r.action }), el('td', { class: 'mono', text: r.detail || '' })));
   }
 
