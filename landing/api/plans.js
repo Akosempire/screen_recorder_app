@@ -1,5 +1,5 @@
-import { PLANS } from '../lib/billing.js';
-import { currentConfig, paymentsConfigured } from '../lib/billing-store.js';
+import { PLANS, availableCurrencies } from '../lib/billing.js';
+import { currentConfig, paymentsConfigured, supabaseStore } from '../lib/billing-store.js';
 import { countryOf, currencyFor } from '../lib/geo.js';
 
 // GET /api/plans: what the app and website need to know about Pro.
@@ -10,17 +10,22 @@ import { countryOf, currencyFor } from '../lib/geo.js';
 export default async function handler(req, res) {
   const limit = Number(process.env.FREE_LIMIT_SECONDS || 180);
   let enabled = false;
+  let currencies = ['NGN', 'USD'];
   try {
     enabled = paymentsConfigured(await currentConfig());
+    if (enabled) currencies = await availableCurrencies(supabaseStore);
   } catch { /* database unreachable: stay free */ }
   const country = countryOf(req);
+  const suggested = currencyFor(country);
   // Per-visitor answer (country), so browsers may cache it but shared caches may not.
   res.setHeader('Cache-Control', 'private, max-age=60');
   res.setHeader('Vary', 'x-vercel-ip-country');
   return res.status(200).json({
     enabled,
     country,
-    currency: currencyFor(country),
+    // Only currencies Bachs can charge right now; the suggestion falls back to USD.
+    currencies,
+    currency: currencies.includes(suggested) ? suggested : currencies[0],
     freeLimitSeconds: Number.isFinite(limit) && limit > 0 ? limit : 180,
     plans: {
       monthly: { NGN: PLANS.monthly.NGN, USD: PLANS.monthly.USD, interval: 'month' },

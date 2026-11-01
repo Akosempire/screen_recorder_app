@@ -41,6 +41,26 @@ const ACTIVE_STATES = new Set(['active', 'trialing', 'past_due']);
 /** Grace after a monthly period ends before Pro switches off. */
 const GRACE_MS = 3 * 24 * 3600 * 1000;
 
+// ---- which currencies Bachs can actually charge --------------------------------
+// Bachs refuses a checkout in a currency with no payment method switched on
+// (BILLING_CURRENCY_HAS_NO_PAYMENT_METHOD). We remember that, so the website and
+// app stop offering it; the dashboard test (or a later success) clears it.
+const unavailableKey = (currency) => `currency_unavailable:${currency}`;
+export const NO_METHOD = 'BILLING_CURRENCY_HAS_NO_PAYMENT_METHOD';
+
+export async function availableCurrencies(store) {
+  const out = [];
+  for (const c of CURRENCIES) {
+    const flag = await store.getSetting(unavailableKey(c)).catch(() => null);
+    if (!flag) out.push(c);
+  }
+  return out.length ? out : ['USD'];
+}
+
+async function markCurrency(store, currency, ok) {
+  try { await store.setSetting(unavailableKey(currency), ok ? '' : new Date().toISOString()); } catch { /* not critical */ }
+}
+
 /** One line saying what went wrong, for the admin log (never shown to buyers). */
 export function describeError(error) {
   if (!error) return 'unknown error';
@@ -198,7 +218,13 @@ export async function testCheckout({ store, bachs, env = process.env, email }) {
         cancel_url: `${site}/#pricing`,
         expires_in_minutes: 5,
       });
+      await markCurrency(store, currency, true);
       return session.checkout_url ? 'opens fine' : 'no checkout link returned';
+    }).then(async (ok) => {
+      if (!ok && steps.find((s) => s.name === `Checkout page in ${currency}`)?.detail.includes(NO_METHOD)) {
+        await markCurrency(store, currency, false);
+      }
+      return ok;
     })))).every(Boolean);
   return { ok, steps };
 }
@@ -228,7 +254,9 @@ export async function startCheckout(input, { store, bachs, env = process.env }) 
   const site = (env.SITE_URL || 'https://screenrecorderapp.vercel.app').replace(/\/+$/, '');
   await step('database: save checkout', () => store.saveCheckout({ activation, email, name, plan, currency }));
 
-  const session = await step('Bachs: checkout session', () => bachs.checkoutSessions.create({
+  let session;
+  try {
+    session = await step('Bachs: checkout session', () => bachs.checkoutSessions.create({
     product_cart: [{ product_id: ids[plan], quantity: 1 }],
     customer: { email, name },
     billing_currency: currency,
@@ -237,6 +265,15 @@ export async function startCheckout(input, { store, bachs, env = process.env }) 
     success_url: `${site}/pro.html?a=${encodeURIComponent(activation)}`,
     cancel_url: `${site}/#pricing`,
   }, { idempotencyKey: `${APP_TAG}-checkout-${activation}-${plan}-${currency}` }));
+  } catch (error) {
+    if (error?.errorCode === NO_METHOD) {
+      await markCurrency(store, currency, false);
+      const other = currency === 'NGN' ? 'dollars' : 'naira';
+      throw Object.assign(new BillingError(400, `Paying in ${currency === 'NGN' ? 'naira' : 'dollars'} isn't available right now. Please choose ${other}.`), { stage: error.stage, cause: error });
+    }
+    throw error;
+  }
+  await markCurrency(store, currency, true);
 
   await step('database: save checkout link', () => store.saveCheckout({
     activation, email, name, plan, currency,

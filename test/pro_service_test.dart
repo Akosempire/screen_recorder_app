@@ -9,6 +9,7 @@ class _FakeApi {
   late HttpServer server;
   bool enabled = true;
   String? currency;
+  List<String>? currencies;
   int claimsBeforePaid = 2;
   final checkouts = <Map<String, dynamic>>[];
   final licences = <String, Map<String, dynamic>>{};
@@ -23,7 +24,7 @@ class _FakeApi {
       var status = 200;
       final q = req.uri.queryParameters;
       if (req.uri.path == '/api/plans') {
-        reply = {'enabled': enabled, 'freeLimitSeconds': 180, 'currency': currency};
+        reply = {'enabled': enabled, 'freeLimitSeconds': 180, 'currency': currency, if (currencies != null) 'currencies': currencies};
       } else if (req.uri.path == '/api/checkout' && req.method == 'POST') {
         final json = jsonDecode(body) as Map<String, dynamic>;
         checkouts.add(json);
@@ -76,6 +77,15 @@ void main() {
         clock: clock,
         pollEvery: const Duration(milliseconds: 20),
       );
+
+  test('only currencies the server can charge are offered', () async {
+    final pro = service();
+    expect(pro.currencies, {ProCurrency.ngn, ProCurrency.usd});
+    api.currencies = ['USD'];
+    await pro.refresh();
+    expect(pro.currencies, {ProCurrency.usd});
+    pro.dispose();
+  });
 
   test('currency follows the country the server sees, and is remembered', () async {
     api.currency = 'NGN';

@@ -1214,6 +1214,12 @@ document.querySelectorAll('.req-link').forEach(a => a.addEventListener('click', 
 
   // Until payments are switched on, Pro buttons say so instead of failing.
   fetch('/api/plans').then(r => r.json()).then(info => {
+    // Hide a currency Bachs can't charge right now (e.g. naira before it's enabled).
+    if (info && Array.isArray(info.currencies) && info.currencies.length) {
+      radios.forEach(r => { const ok = info.currencies.includes(r.value); r.closest('label').hidden = !ok; r.disabled = !ok; });
+      document.querySelector('.cur').hidden = info.currencies.length < 2;
+      if (!info.currencies.includes(currency)) { picked = false; setCurrency(info.currencies[0]); }
+    }
     if (info && !picked && (info.currency === 'NGN' || info.currency === 'USD')) setCurrency(info.currency);
     if (info && info.enabled) return;
     document.querySelectorAll('.plan-btn.buy').forEach(b => { b.disabled = true; b.textContent = 'Coming soon'; });

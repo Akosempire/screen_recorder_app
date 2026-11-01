@@ -313,3 +313,32 @@ test('checkout failures name the step and Bachs\'s reason; the test checks NGN a
     ['Checkout page in NGN', false], ['Checkout page in USD', true],
   ]);
 });
+
+test('a currency Bachs cannot charge is hidden and buyers get a clear message', async () => {
+  const { startCheckout, availableCurrencies, testCheckout } = await import('../lib/billing.js');
+  const kv = new Map();
+  const rows = new Map();
+  const store = {
+    getSetting: async (k) => (k.startsWith('bachs_products') ? JSON.stringify({ monthly: 'm', lifetime: 'l' }) : kv.get(k) ?? null),
+    setSetting: async (k, v) => { kv.set(k, v); },
+    getCheckout: async (a) => rows.get(a) ?? null,
+    saveCheckout: async (f) => rows.set(f.activation, { ...(rows.get(f.activation) || {}), ...f }),
+  };
+  let ngnWorks = false;
+  const noMethod = () => Object.assign(new Error('No payment method available to this checkout can charge NGN.'), { statusCode: 400, errorCode: 'BILLING_CURRENCY_HAS_NO_PAYMENT_METHOD' });
+  const bachs = {
+    products: { list: async () => ({ data: [] }) },
+    checkoutSessions: { create: async (i) => { if (i.billing_currency === 'NGN' && !ngnWorks) throw noMethod(); return { checkout_id: 'c', checkout_url: 'https://pay' }; } },
+  };
+  assert.deepEqual(await availableCurrencies(store), ['NGN', 'USD']);
+  await assert.rejects(
+    startCheckout({ plan: 'monthly', currency: 'NGN', email: 'a@b.co', activation: 'b'.repeat(32) }, { store, bachs, env: {} }),
+    (e) => e.status === 400 && /naira isn't available.*choose dollars/i.test(e.message),
+  );
+  assert.deepEqual(await availableCurrencies(store), ['USD']);
+  const usd = await startCheckout({ plan: 'monthly', currency: 'USD', email: 'a@b.co', activation: 'c'.repeat(32) }, { store, bachs, env: {} });
+  assert.equal(usd.checkoutUrl, 'https://pay');
+  ngnWorks = true; // switched on in Bachs: the dashboard test brings naira back
+  assert.equal((await testCheckout({ store, bachs, env: {}, email: 'x@y.co' })).ok, true);
+  assert.deepEqual(await availableCurrencies(store), ['NGN', 'USD']);
+});

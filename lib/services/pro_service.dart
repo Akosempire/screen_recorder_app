@@ -136,6 +136,7 @@ class ProService extends ChangeNotifier {
   bool _enabled = false;
   int _freeLimitSeconds = 180;
   ProCurrency? _suggestedCurrency;
+  Set<ProCurrency> _currencies = {ProCurrency.ngn, ProCurrency.usd};
   String? _pendingActivation;
   ProPlan? _pendingPlan;
   bool _waiting = false;
@@ -154,6 +155,10 @@ class ProService extends ChangeNotifier {
   /// The currency for where the user is, from their IP country on the server
   /// (naira in Nigeria, dollars elsewhere). Null until the server has answered.
   ProCurrency? get suggestedCurrency => _suggestedCurrency;
+
+  /// Currencies the payment provider can charge right now (naira is hidden
+  /// until it's switched on in Bachs).
+  Set<ProCurrency> get currencies => _currencies;
 
   /// Pro unlocks unlimited recording. A licence checked recently keeps
   /// working offline: lifetime always, monthly for 14 days.
@@ -212,6 +217,11 @@ class ProService extends ChangeNotifier {
       final limit = plans['freeLimitSeconds'];
       if (limit is int && limit > 0) _freeLimitSeconds = limit;
       _suggestedCurrency = proCurrencyFromCode(plans['currency']) ?? _suggestedCurrency;
+      final list = plans['currencies'];
+      if (list is List) {
+        final parsed = list.map(proCurrencyFromCode).whereType<ProCurrency>().toSet();
+        if (parsed.isNotEmpty) _currencies = parsed;
+      }
     } catch (error) {
       AppLogger.debug('Pro plans check failed: $error');
     }

@@ -44,7 +44,11 @@ class _UpgradeDialogState extends State<UpgradeDialog> {
   // The user's own pick wins; otherwise the server's answer for their
   // country, then a guess from this computer's settings.
   ProCurrency? _picked;
-  ProCurrency get _currency => _picked ?? _pro.suggestedCurrency ?? defaultProCurrency();
+  ProCurrency get _currency {
+    final want = _picked ?? _pro.suggestedCurrency ?? defaultProCurrency();
+    final allowed = _pro.currencies;
+    return allowed.contains(want) ? want : (allowed.contains(ProCurrency.usd) ? ProCurrency.usd : allowed.first);
+  }
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _key = TextEditingController();
@@ -174,7 +178,7 @@ class _UpgradeDialogState extends State<UpgradeDialog> {
           ),
         ],
         const SizedBox(height: 16),
-        Row(
+        if (_pro.currencies.length > 1) Row(
           children: [
             const Text('Pay in', style: StudioText.label),
             const SizedBox(width: 10),
