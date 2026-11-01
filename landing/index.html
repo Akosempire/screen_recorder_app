@@ -81,34 +81,9 @@
     },
     {
      "@type": "Offer",
-     "name": "Pro Monthly",
-     "price": "2000.00",
-     "priceCurrency": "NGN",
-     "description": "Unlimited recording length, billed monthly.",
-     "url": "https://www.screenrecorderapp.cv/#pricing",
-     "availability": "https://schema.org/InStock",
-     "priceSpecification": {
-      "@type": "UnitPriceSpecification",
-      "price": "2000.00",
-      "priceCurrency": "NGN",
-      "billingDuration": 1,
-      "unitCode": "MON"
-     }
-    },
-    {
-     "@type": "Offer",
      "name": "Pro Lifetime",
-     "price": "100.00",
+     "price": "50.00",
      "priceCurrency": "USD",
-     "description": "Unlimited recording length forever, one payment.",
-     "url": "https://www.screenrecorderapp.cv/#pricing",
-     "availability": "https://schema.org/InStock"
-    },
-    {
-     "@type": "Offer",
-     "name": "Pro Lifetime",
-     "price": "50000.00",
-     "priceCurrency": "NGN",
      "description": "Unlimited recording length forever, one payment.",
      "url": "https://www.screenrecorderapp.cv/#pricing",
      "availability": "https://schema.org/InStock"
@@ -124,7 +99,7 @@
      "name": "What's free, and what's Pro?",
      "acceptedAnswer": {
       "@type": "Answer",
-      "text": "Everything is free for recordings up to 3 minutes: cursor halo, auto-zoom, face camera, backgrounds and the editor, with no watermark. Pro removes the 3-minute limit: ₦2,000 or $5 a month, or ₦50,000 or $100 once for lifetime access. See pricing."
+      "text": "Everything is free for recordings up to 3 minutes: cursor halo, auto-zoom, face camera, backgrounds and the editor, with no watermark. Pro removes the 3-minute limit: $5 a month, or $50 once for lifetime access (paid in US dollars). See pricing."
      }
     },
     {
@@ -736,16 +711,12 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
   <div class="wrap center">
     <h2 class="reveal">Go Pro.<br><span class="serif">Record without limits.</span></h2>
     <p class="lead reveal" data-delay="1">Every feature is free for recordings up to 3 minutes. Pro removes the limit.</p>
-    <div class="cur reveal" data-delay="1" role="radiogroup" aria-label="Currency">
-      <label><input type="radio" name="cur" value="NGN"><span>₦ Naira</span></label>
-      <label><input type="radio" name="cur" value="USD" checked><span>$ Dollars</span></label>
-    </div>
   </div>
   <div class="wrap">
     <div class="plans">
       <article class="plan reveal">
         <h3>Free</h3>
-        <p class="amount"><strong data-ngn="₦0" data-usd="$0">$0</strong></p>
+        <p class="amount"><strong>$0</strong></p>
         <ul>
           <li>Recordings up to 3 minutes</li>
           <li>Cursor halo, auto-zoom, face camera</li>
@@ -756,7 +727,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
       </article>
       <article class="plan reveal" data-delay="1">
         <h3>Pro Monthly</h3>
-        <p class="amount"><strong data-ngn="₦2,000" data-usd="$5">$5</strong><span>/ month</span></p>
+        <p class="amount"><strong>$5</strong><span>/ month</span></p>
         <ul>
           <li><b>Unlimited</b> recording length</li>
           <li>Everything in Free</li>
@@ -768,7 +739,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
       <article class="plan best reveal" data-delay="2">
         <span class="badge">Best value</span>
         <h3>Pro Lifetime</h3>
-        <p class="amount"><strong data-ngn="₦50,000" data-usd="$100">$100</strong><span>once</span></p>
+        <p class="amount"><strong>$50</strong><span>once</span></p>
         <ul>
           <li><b>Unlimited</b> recording length, forever</li>
           <li>Everything in Free</li>
@@ -952,7 +923,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
   </div>
   <div class="wrap">
     <div class="faq">
-      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>What's free, and what's Pro?</button><div class="a"><div><p>Everything is free for recordings up to 3 minutes: cursor halo, auto-zoom, face camera, backgrounds and the editor, with no watermark. Pro removes the 3-minute limit: ₦2,000 or $5 a month, or ₦50,000 or $100 once for lifetime access. <a href="#pricing">See pricing</a>.</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>What's free, and what's Pro?</button><div class="a"><div><p>Everything is free for recordings up to 3 minutes: cursor halo, auto-zoom, face camera, backgrounds and the editor, with no watermark. Pro removes the 3-minute limit: $5 a month, or $50 once for lifetime access (paid in US dollars). <a href="#pricing">See pricing</a>.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Windows says "Windows protected your PC"</button><div class="a"><div><p>That's normal for new apps that aren't code-signed yet. Click More info, then Run anyway.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>How do I unlock Pro in the app?</button><div class="a"><div><p>Click <b>Upgrade</b> in the app and pay; the app unlocks by itself. If you paid on this website, you get a licence key (SR-XXXX-XXXX-XXXX-XXXX): in the app, click Upgrade → <b>I have a licence key</b>. Monthly plans can be cancelled any time from the app.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>My Mac says it can't check the app</button><div class="a"><div><p>The app isn't notarized by Apple yet. Open it once and click Done, then go to System Settings → Privacy &amp; Security, scroll down and click Open Anyway. The first time you record, allow Screen Recording there too, then reopen the app.</p></div></div></div>
@@ -1190,37 +1161,15 @@ document.querySelectorAll('.req-link').forEach(a => a.addEventListener('click', 
   if (dlg && dlg.open) dlg.close();
 }));
 
-// Pricing: naira or dollars, then checkout on Bachs.
+// Pricing: US dollars, checkout on Bachs.
 (function(){
-  const radios = document.querySelectorAll('.cur input');
-  if (!radios.length) return;
-  let currency = 'USD';
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    if (tz === 'Africa/Lagos' || /-NG$/i.test(navigator.language || '')) currency = 'NGN';
-  } catch (_) {}
-  const PRICES = { monthly: { NGN: '₦2,000 a month', USD: '$5 a month' }, lifetime: { NGN: '₦50,000, one payment', USD: '$100, one payment' } };
+  if (!document.querySelector('.plan-btn.buy')) return;
+  const currency = 'USD';
+  const PRICES = { monthly: '$5 a month', lifetime: '$50, one payment' };
   const NAMES = { monthly: 'Pro Monthly', lifetime: 'Pro Lifetime' };
-  function setCurrency(c){
-    currency = c;
-    document.querySelectorAll('.plan .amount strong').forEach(el => { el.textContent = c === 'NGN' ? el.dataset.ngn : el.dataset.usd; });
-    radios.forEach(r => { r.checked = r.value === c; });
-  }
-  // A quick guess from the time zone now; the visitor's country (from the
-  // server) replaces it, unless they've already picked a currency themselves.
-  let picked = false;
-  radios.forEach(r => r.addEventListener('change', () => { picked = true; setCurrency(r.value); }));
-  setCurrency(currency);
 
   // Until payments are switched on, Pro buttons say so instead of failing.
   fetch('/api/plans').then(r => r.json()).then(info => {
-    // Hide a currency Bachs can't charge right now (e.g. naira before it's enabled).
-    if (info && Array.isArray(info.currencies) && info.currencies.length) {
-      radios.forEach(r => { const ok = info.currencies.includes(r.value); r.closest('label').hidden = !ok; r.disabled = !ok; });
-      document.querySelector('.cur').hidden = info.currencies.length < 2;
-      if (!info.currencies.includes(currency)) { picked = false; setCurrency(info.currencies[0]); }
-    }
-    if (info && !picked && (info.currency === 'NGN' || info.currency === 'USD')) setCurrency(info.currency);
     if (info && info.enabled) return;
     document.querySelectorAll('.plan-btn.buy').forEach(b => { b.disabled = true; b.textContent = 'Coming soon'; });
   }).catch(() => {});
@@ -1234,7 +1183,7 @@ document.querySelectorAll('.req-link').forEach(a => a.addEventListener('click', 
   document.querySelectorAll('.plan-btn.buy').forEach(b => b.addEventListener('click', () => {
     plan = b.dataset.plan;
     dlg.querySelector('#buy-title').textContent = 'Get ' + NAMES[plan];
-    dlg.querySelector('.buy-price').textContent = PRICES[plan][currency] + '. Unlimited recording length.';
+    dlg.querySelector('.buy-price').textContent = PRICES[plan] + '. Unlimited recording length.';
     msg.textContent = ''; msg.className = 'msg';
     if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
     form.name.focus();

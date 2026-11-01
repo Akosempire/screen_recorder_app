@@ -4,7 +4,7 @@ import * as db from '../lib/supabase-rest.js';
 import { bachsClient, currentConfig, paymentsConfigured, supabaseStore } from '../lib/billing-store.js';
 import { readJson, sendError } from '../lib/http.js';
 
-// POST /api/checkout { plan: monthly|lifetime, currency: NGN|USD, email, name, activation? }
+// POST /api/checkout { plan: monthly|lifetime, currency: USD, email, name, activation? }
 // Returns { checkoutUrl, activation }. The app sends its own activation id so
 // it can collect the licence afterwards; the website gets a new one.
 export default async function handler(req, res) {

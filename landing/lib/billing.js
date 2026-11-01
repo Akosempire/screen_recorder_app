@@ -21,19 +21,18 @@ export const PLANS = {
     name: 'Screen Recorder Pro (monthly)',
     description: 'Unlimited recording length. Renews every month; cancel any time.',
     USD: '5.00',
-    NGN: '2000.00',
     interval: 'month',
   },
   lifetime: {
     name: 'Screen Recorder Pro (lifetime)',
     description: 'Unlimited recording length, forever. One payment.',
-    USD: '100.00',
-    NGN: '50000.00',
+    USD: '50.00',
     interval: null,
   },
 };
 
-export const CURRENCIES = ['NGN', 'USD'];
+/** Pro is sold in US dollars only. */
+export const CURRENCIES = ['USD'];
 
 /** Subscription states that keep Pro on (past_due: Bachs is retrying a renewal). */
 const ACTIVE_STATES = new Set(['active', 'trialing', 'past_due']);
@@ -134,7 +133,9 @@ export async function productIds({ store, bachs, env = process.env }) {
   const ids = { monthly: env.BACHS_PRODUCT_MONTHLY || null, lifetime: env.BACHS_PRODUCT_LIFETIME || null };
   if (ids.monthly && ids.lifetime) return ids;
 
-  const settingKey = `bachs_products_${mode}`;
+  // Keyed by price: changing a price in PLANS makes (and then reuses) new products.
+  const priceTag = Object.keys(PLANS).map((k) => `${k}-${PLANS[k].USD}`).join('_');
+  const settingKey = `bachs_products_${mode}_${priceTag}`;
   const saved = await store.getSetting(settingKey);
   if (saved) {
     try {
@@ -149,7 +150,7 @@ export async function productIds({ store, bachs, env = process.env }) {
     const existing = await listAll(bachs);
     for (const product of existing) {
       const meta = product.metadata || {};
-      if (meta.app === APP_TAG && PLANS[meta.plan] && !product.archived_at && !ids[meta.plan]) {
+      if (meta.app === APP_TAG && PLANS[meta.plan] && meta.usd === PLANS[meta.plan].USD && !product.archived_at && !ids[meta.plan]) {
         ids[meta.plan] = product.id;
       }
     }
@@ -161,14 +162,10 @@ export async function productIds({ store, bachs, env = process.env }) {
     const created = await bachs.products.create({
       name: p.name,
       description: p.description,
-      price: {
-        currency: 'USD',
-        amount: p.USD,
-        currency_options: [{ currency: 'NGN', amount: p.NGN }],
-      },
+      price: { currency: 'USD', amount: p.USD },
       ...(p.interval ? { billing_cycle: { interval: p.interval, frequency: 1 } } : {}),
-      metadata: { app: APP_TAG, plan },
-    }, { idempotencyKey: `${APP_TAG}-product-${plan}-${mode}-v1` });
+      metadata: { app: APP_TAG, plan, usd: p.USD },
+    }, { idempotencyKey: `${APP_TAG}-product-${plan}-${mode}-${p.USD}` });
     ids[plan] = created.id;
   }
 
@@ -232,13 +229,13 @@ export async function testCheckout({ store, bachs, env = process.env, email }) {
 /** Starts (or reuses) a hosted checkout. Returns { checkoutUrl, activation }. */
 export async function startCheckout(input, { store, bachs, env = process.env }) {
   const plan = String(input.plan || '');
-  const currency = String(input.currency || '').toUpperCase();
+  const currency = String(input.currency || 'USD').toUpperCase();
   const email = String(input.email || '').trim().toLowerCase();
   const name = String(input.name || '').trim().slice(0, 80) || email.split('@')[0];
   const activation = String(input.activation || '');
 
   if (!PLANS[plan]) throw new BillingError(400, 'Choose Monthly or Lifetime.');
-  if (!CURRENCIES.includes(currency)) throw new BillingError(400, 'Choose naira (NGN) or dollars (USD).');
+  if (!CURRENCIES.includes(currency)) throw new BillingError(400, 'Pro is paid in US dollars ($5 a month or $50 once). Please choose dollars, or update the app.');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 160) {
     throw new BillingError(400, 'Enter a valid email address, like you@example.com.');
   }
@@ -268,8 +265,7 @@ export async function startCheckout(input, { store, bachs, env = process.env }) 
   } catch (error) {
     if (error?.errorCode === NO_METHOD) {
       await markCurrency(store, currency, false);
-      const other = currency === 'NGN' ? 'dollars' : 'naira';
-      throw Object.assign(new BillingError(400, `Paying in ${currency === 'NGN' ? 'naira' : 'dollars'} isn't available right now. Please choose ${other}.`), { stage: error.stage, cause: error });
+      throw Object.assign(new BillingError(400, 'Payments aren\'t available right now. Please try again later.'), { stage: error.stage, cause: error });
     }
     throw error;
   }

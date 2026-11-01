@@ -50,14 +50,12 @@ const event = (type, data, extra = {}) => ({
   organization_id: 'org_1', data, ...extra,
 });
 
-test('prices: ₦2,000 / $5 monthly and ₦50,000 / $100 lifetime', () => {
-  assert.equal(PLANS.monthly.NGN, '2000.00');
+test('prices: $5 monthly and $50 lifetime, dollars only', () => {
   assert.equal(PLANS.monthly.USD, '5.00');
-  assert.equal(PLANS.lifetime.NGN, '50000.00');
-  assert.equal(PLANS.lifetime.USD, '100.00');
+  assert.equal(PLANS.lifetime.USD, '50.00');
 });
 
-test('products are created once with naira prices, then reused', async () => {
+test('products are created once in dollars, then reused', async () => {
   const store = memoryStore();
   const bachs = fakeBachs();
   const ids = await productIds({ store, bachs, env: ENV });
@@ -65,18 +63,18 @@ test('products are created once with naira prices, then reused', async () => {
   assert.equal(bachs.calls.created.length, 2);
   const monthly = bachs.calls.created.find((c) => c.input.metadata.plan === 'monthly').input;
   assert.deepEqual(monthly.billing_cycle, { interval: 'month', frequency: 1 });
-  assert.deepEqual(monthly.price, { currency: 'USD', amount: '5.00', currency_options: [{ currency: 'NGN', amount: '2000.00' }] });
+  assert.deepEqual(monthly.price, { currency: 'USD', amount: '5.00' });
   const lifetime = bachs.calls.created.find((c) => c.input.metadata.plan === 'lifetime').input;
   assert.equal(lifetime.billing_cycle, undefined);
-  assert.equal(lifetime.price.currency_options[0].amount, '50000.00');
+  assert.deepEqual(lifetime.price, { currency: 'USD', amount: '50.00' });
 
   await productIds({ store, bachs, env: ENV });
   assert.equal(bachs.calls.created.length, 2, 'second call reuses the saved ids');
 
   // Products already on Bachs (e.g. the setting was lost) are found, not duplicated.
   const found = fakeBachs({ existing: [
-    { id: 'prod_m', metadata: { app: 'screen_recorder', plan: 'monthly' } },
-    { id: 'prod_l', metadata: { app: 'screen_recorder', plan: 'lifetime' } },
+    { id: 'prod_m', metadata: { app: 'screen_recorder', plan: 'monthly', usd: '5.00' } },
+    { id: 'prod_l', metadata: { app: 'screen_recorder', plan: 'lifetime', usd: '50.00' } },
   ] });
   assert.deepEqual(await productIds({ store: memoryStore(), bachs: found, env: ENV }), { monthly: 'prod_m', lifetime: 'prod_l' });
   assert.equal(found.calls.created.length, 0);
@@ -87,21 +85,21 @@ test('checkout: validates input, sends metadata and currency, reuses an open che
   const bachs = fakeBachs();
   const activation = newActivation();
   const deps = { store, bachs, env: ENV };
-  await assert.rejects(startCheckout({ plan: 'weekly', currency: 'NGN', email: 'a@b.co', activation }, deps), /Monthly or Lifetime/);
-  await assert.rejects(startCheckout({ plan: 'monthly', currency: 'EUR', email: 'a@b.co', activation }, deps), /naira/);
-  await assert.rejects(startCheckout({ plan: 'monthly', currency: 'NGN', email: 'nope', activation }, deps), /valid email/);
-  await assert.rejects(startCheckout({ plan: 'monthly', currency: 'NGN', email: 'a@b.co', activation: 'short' }, deps), /Invalid/);
+  await assert.rejects(startCheckout({ plan: 'weekly', currency: 'USD', email: 'a@b.co', activation }, deps), /Monthly or Lifetime/);
+  await assert.rejects(startCheckout({ plan: 'monthly', currency: 'NGN', email: 'a@b.co', activation }, deps), /US dollars/);
+  await assert.rejects(startCheckout({ plan: 'monthly', currency: 'USD', email: 'nope', activation }, deps), /valid email/);
+  await assert.rejects(startCheckout({ plan: 'monthly', currency: 'USD', email: 'a@b.co', activation: 'short' }, deps), /Invalid/);
 
-  const out = await startCheckout({ plan: 'lifetime', currency: 'NGN', email: 'Ada@Example.com', name: 'Ada', activation }, deps);
+  const out = await startCheckout({ plan: 'lifetime', currency: 'USD', email: 'Ada@Example.com', name: 'Ada', activation }, deps);
   assert.match(out.checkoutUrl, /^https:\/\/sandbox-checkout\.bachs\.io\//);
   const sent = bachs.calls.sessions[0].input;
-  assert.equal(sent.billing_currency, 'NGN');
+  assert.equal(sent.billing_currency, 'USD');
   assert.deepEqual(sent.metadata, { app: 'screen_recorder', activation, plan: 'lifetime', email: 'ada@example.com' });
   assert.deepEqual(sent.customer, { email: 'ada@example.com', name: 'Ada' });
   assert.equal(sent.success_url, `https://example.app/pro.html?a=${activation}`);
   assert.equal(store.s.checkouts[activation].checkout_url, out.checkoutUrl);
 
-  const again = await startCheckout({ plan: 'lifetime', currency: 'NGN', email: 'ada@example.com', activation }, deps);
+  const again = await startCheckout({ plan: 'lifetime', currency: 'USD', email: 'ada@example.com', activation }, deps);
   assert.equal(again.checkoutUrl, out.checkoutUrl);
   assert.equal(bachs.calls.sessions.length, 1);
 });
@@ -136,10 +134,10 @@ test('monthly: first payment, renewal, cancellation keeps Pro until the period e
   const store = memoryStore();
   const deps = { store, bachs: fakeBachs(), env: ENV };
   const activation = newActivation();
-  await startCheckout({ plan: 'monthly', currency: 'NGN', email: 'bo@example.com', activation }, deps);
+  await startCheckout({ plan: 'monthly', currency: 'USD', email: 'bo@example.com', activation }, deps);
   const m = { app: 'screen_recorder', activation, plan: 'monthly', email: 'bo@example.com' };
 
-  await handleEvent(event('collection.succeeded', { currency: 'NGN', metadata: m }), { store, env: ENV });
+  await handleEvent(event('collection.succeeded', { currency: 'USD', metadata: m }), { store, env: ENV });
   const key = licenseKeyFor(activation, ENV.LICENSE_SECRET);
   assert.equal(isActive(store.s.licenses[key]), true);
 
@@ -173,7 +171,7 @@ test('a subscription event never downgrades a lifetime licence', async () => {
   const store = memoryStore();
   const deps = { store, bachs: fakeBachs(), env: ENV };
   const activation = newActivation();
-  await startCheckout({ plan: 'lifetime', currency: 'NGN', email: 'c@example.com', activation }, deps);
+  await startCheckout({ plan: 'lifetime', currency: 'USD', email: 'c@example.com', activation }, deps);
   const m = { app: 'screen_recorder', activation, plan: 'lifetime', email: 'c@example.com' };
   await handleEvent(event('collection.succeeded', { metadata: m }), { store, env: ENV });
   await handleEvent(event('customer.subscription.deleted', { status: 'canceled', metadata: m }), { store, env: ENV });
@@ -251,8 +249,8 @@ test('webhook endpoint verifies signatures and grants the licence; licence endpo
   const { default: license } = await import('../api/license.js');
   try {
     const activation = newActivation();
-    sb.tables.checkouts.push({ activation, email: 'dee@example.com', name: 'Dee', plan: 'lifetime', currency: 'NGN' });
-    const evt = event('collection.succeeded', { currency: 'NGN', metadata: { app: 'screen_recorder', activation, plan: 'lifetime', email: 'dee@example.com' } });
+    sb.tables.checkouts.push({ activation, email: 'dee@example.com', name: 'Dee', plan: 'lifetime', currency: 'USD' });
+    const evt = event('collection.succeeded', { currency: 'USD', metadata: { app: 'screen_recorder', activation, plan: 'lifetime', email: 'dee@example.com' } });
 
     let res = mockRes();
     await webhook(signedRequest(evt, 'whsec_wrong'), res);
@@ -287,9 +285,9 @@ test('webhook endpoint verifies signatures and grants the licence; licence endpo
   }
 });
 
-test('checkout failures name the step and Bachs\'s reason; the test checks NGN and USD', async () => {
+test('checkout failures name the step and Bachs\'s reason', async () => {
   const { describeError, startCheckout, testCheckout } = await import('../lib/billing.js');
-  const apiError = Object.assign(new Error('Currency NGN is not enabled'), { statusCode: 422, errorCode: 'currency_not_enabled' });
+  const apiError = Object.assign(new Error('Product is archived'), { statusCode: 422, errorCode: 'product_archived' });
   const rows = new Map();
   const store = {
     getCheckout: async (a) => rows.get(a) ?? null,
@@ -299,46 +297,42 @@ test('checkout failures name the step and Bachs\'s reason; the test checks NGN a
   };
   const bachs = {
     products: { list: async () => ({ data: [] }) },
-    checkoutSessions: { create: async (input) => { if (input.billing_currency === 'NGN') throw apiError; return { checkout_id: 'c', checkout_url: 'https://pay' }; } },
+    checkoutSessions: { create: async () => { throw apiError; } },
   };
   await assert.rejects(
-    startCheckout({ plan: 'monthly', currency: 'NGN', email: 'a@b.co', activation: 'a'.repeat(32) }, { store, bachs, env: {} }),
-    (e) => describeError(e) === '[Bachs: checkout session] Bachs 422 currency_not_enabled: Currency NGN is not enabled',
+    startCheckout({ plan: 'monthly', currency: 'USD', email: 'a@b.co', activation: 'a'.repeat(32) }, { store, bachs, env: {} }),
+    (e) => describeError(e) === '[Bachs: checkout session] Bachs 422 product_archived: Product is archived',
   );
   assert.equal(describeError(new Error('bad key sk_live_abc123')), 'bad key sk_…');
   const r = await testCheckout({ store, bachs, env: {}, email: 'admin@x.co' });
   assert.equal(r.ok, false);
   assert.deepEqual(r.steps.map((s) => [s.name, s.ok]), [
     ['Bachs key works', true], ['Database tables ready', true], ['Pro products on Bachs', true],
-    ['Checkout page in NGN', false], ['Checkout page in USD', true],
+    ['Checkout page in USD', false],
   ]);
 });
 
-test('a currency Bachs cannot charge is hidden and buyers get a clear message', async () => {
-  const { startCheckout, availableCurrencies, testCheckout } = await import('../lib/billing.js');
-  const kv = new Map();
-  const rows = new Map();
-  const store = {
-    getSetting: async (k) => (k.startsWith('bachs_products') ? JSON.stringify({ monthly: 'm', lifetime: 'l' }) : kv.get(k) ?? null),
-    setSetting: async (k, v) => { kv.set(k, v); },
-    getCheckout: async (a) => rows.get(a) ?? null,
-    saveCheckout: async (f) => rows.set(f.activation, { ...(rows.get(f.activation) || {}), ...f }),
-  };
-  let ngnWorks = false;
-  const noMethod = () => Object.assign(new Error('No payment method available to this checkout can charge NGN.'), { statusCode: 400, errorCode: 'BILLING_CURRENCY_HAS_NO_PAYMENT_METHOD' });
+test('/api/plans: dollars only', async () => {
+  const { default: plans } = await import('../api/plans.js');
+  let body; const res = { setHeader() {}, status() { return this; }, json(b) { body = b; return this; } };
+  await plans({ url: '/api/plans', headers: { 'x-vercel-ip-country': 'NG' } }, res);
+  assert.deepEqual(body.currencies, ['USD']);
+  assert.equal(body.currency, 'USD');
+  assert.deepEqual(body.plans.monthly, { USD: '5.00', interval: 'month' });
+});
+
+test('an old product at a different price is not reused', async () => {
+  const { productIds } = await import('../lib/billing.js');
+  const kv = new Map([['bachs_products_production', JSON.stringify({ monthly: 'old_m', lifetime: 'old_l' })]]);
+  const store = { getSetting: async (k) => kv.get(k) ?? null, setSetting: async (k, v) => { kv.set(k, v); } };
+  const created = [];
   const bachs = {
-    products: { list: async () => ({ data: [] }) },
-    checkoutSessions: { create: async (i) => { if (i.billing_currency === 'NGN' && !ngnWorks) throw noMethod(); return { checkout_id: 'c', checkout_url: 'https://pay' }; } },
+    products: {
+      async *listAll() { yield { id: 'old_l', metadata: { app: 'screen_recorder', plan: 'lifetime' } }; },
+      create: async (input) => { created.push(input); return { id: `new_${input.metadata.plan}` }; },
+    },
   };
-  assert.deepEqual(await availableCurrencies(store), ['NGN', 'USD']);
-  await assert.rejects(
-    startCheckout({ plan: 'monthly', currency: 'NGN', email: 'a@b.co', activation: 'b'.repeat(32) }, { store, bachs, env: {} }),
-    (e) => e.status === 400 && /naira isn't available.*choose dollars/i.test(e.message),
-  );
-  assert.deepEqual(await availableCurrencies(store), ['USD']);
-  const usd = await startCheckout({ plan: 'monthly', currency: 'USD', email: 'a@b.co', activation: 'c'.repeat(32) }, { store, bachs, env: {} });
-  assert.equal(usd.checkoutUrl, 'https://pay');
-  ngnWorks = true; // switched on in Bachs: the dashboard test brings naira back
-  assert.equal((await testCheckout({ store, bachs, env: {}, email: 'x@y.co' })).ok, true);
-  assert.deepEqual(await availableCurrencies(store), ['NGN', 'USD']);
+  const ids = await productIds({ store, bachs, env: { BACHS_ENVIRONMENT: 'production' } });
+  assert.deepEqual(ids, { monthly: 'new_monthly', lifetime: 'new_lifetime' });
+  assert.equal(created.find((c) => c.metadata.plan === 'lifetime').price.amount, '50.00');
 });

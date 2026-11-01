@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -17,16 +15,6 @@ Future<void> showUpgradeDialog(BuildContext context, {String? reason}) {
   );
 }
 
-/// Fallback before the server has said where the user is: naira for a
-/// Nigerian locale or West Africa time, dollars otherwise.
-ProCurrency defaultProCurrency() {
-  final locale = Platform.localeName.toUpperCase();
-  final tz = DateTime.now().timeZoneName.toUpperCase();
-  return locale.endsWith('_NG') || locale.contains('-NG') || tz == 'WAT' || tz.contains('LAGOS')
-      ? ProCurrency.ngn
-      : ProCurrency.usd;
-}
-
 class UpgradeDialog extends StatefulWidget {
   const UpgradeDialog({super.key, this.reason, this.service});
 
@@ -41,14 +29,7 @@ class _UpgradeDialogState extends State<UpgradeDialog> {
   ProService get _pro => widget.service ?? ProService.instance;
 
   ProPlan _plan = ProPlan.lifetime;
-  // The user's own pick wins; otherwise the server's answer for their
-  // country, then a guess from this computer's settings.
-  ProCurrency? _picked;
-  ProCurrency get _currency {
-    final want = _picked ?? _pro.suggestedCurrency ?? defaultProCurrency();
-    final allowed = _pro.currencies;
-    return allowed.contains(want) ? want : (allowed.contains(ProCurrency.usd) ? ProCurrency.usd : allowed.first);
-  }
+  final ProCurrency _currency = ProCurrency.usd;
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _key = TextEditingController();
@@ -178,22 +159,6 @@ class _UpgradeDialogState extends State<UpgradeDialog> {
           ),
         ],
         const SizedBox(height: 16),
-        if (_pro.currencies.length > 1) Row(
-          children: [
-            const Text('Pay in', style: StudioText.label),
-            const SizedBox(width: 10),
-            StudioSegmented<ProCurrency>(
-              dense: true,
-              value: _currency,
-              onChanged: _busy ? null : (c) => setState(() => _picked = c),
-              segments: const [
-                StudioSegment(ProCurrency.ngn, '₦ Naira'),
-                StudioSegment(ProCurrency.usd, r'$ Dollars'),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(child: _planCard(ProPlan.monthly, 'Monthly', '/ month', 'Cancel any time')),

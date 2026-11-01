@@ -33,9 +33,9 @@ FAQ: https://www.screenrecorderapp.cv/#faq
 ## Pricing
 
 - Free trial: every feature, recordings up to 3 minutes, no watermark.
-- Pro Monthly: $5 per month (₦2,000 in Nigeria). Unlimited recording length. Cancel any time from the app.
-- Pro Lifetime: $100 once (₦50,000 in Nigeria). Unlimited recording length forever, all updates.
-- Prices show in naira for visitors in Nigeria and in US dollars elsewhere. Payments are handled by Bachs (cards, bank transfer and more), and a licence key is issued right after paying.
+- Pro Monthly: $5 per month. Unlimited recording length. Cancel any time from the app.
+- Pro Lifetime: $50 once. Unlimited recording length forever, all updates.
+- Prices are in US dollars for everyone. Payments are handled by Bachs (cards, bank transfer and more), and a licence key is issued right after paying.
 
 ## System requirements
 

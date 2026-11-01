@@ -8,8 +8,6 @@ import 'package:screen_recorder_app/services/pro_service.dart';
 class _FakeApi {
   late HttpServer server;
   bool enabled = true;
-  String? currency;
-  List<String>? currencies;
   int claimsBeforePaid = 2;
   final checkouts = <Map<String, dynamic>>[];
   final licences = <String, Map<String, dynamic>>{};
@@ -24,7 +22,7 @@ class _FakeApi {
       var status = 200;
       final q = req.uri.queryParameters;
       if (req.uri.path == '/api/plans') {
-        reply = {'enabled': enabled, 'freeLimitSeconds': 180, 'currency': currency, if (currencies != null) 'currencies': currencies};
+        reply = {'enabled': enabled, 'freeLimitSeconds': 180};
       } else if (req.uri.path == '/api/checkout' && req.method == 'POST') {
         final json = jsonDecode(body) as Map<String, dynamic>;
         checkouts.add(json);
@@ -78,32 +76,6 @@ void main() {
         pollEvery: const Duration(milliseconds: 20),
       );
 
-  test('only currencies the server can charge are offered', () async {
-    final pro = service();
-    expect(pro.currencies, {ProCurrency.ngn, ProCurrency.usd});
-    api.currencies = ['USD'];
-    await pro.refresh();
-    expect(pro.currencies, {ProCurrency.usd});
-    pro.dispose();
-  });
-
-  test('currency follows the country the server sees, and is remembered', () async {
-    api.currency = 'NGN';
-    final pro = service();
-    expect(pro.suggestedCurrency, isNull);
-    await pro.refresh();
-    expect(pro.suggestedCurrency, ProCurrency.ngn);
-    api.currency = null; // server unsure: keep the last answer
-    await pro.refresh();
-    expect(pro.suggestedCurrency, ProCurrency.ngn);
-    pro.dispose();
-
-    final again = service();
-    await again.start(); // reads pro.json before the server answers
-    expect(again.suggestedCurrency, ProCurrency.ngn);
-    again.dispose();
-  });
-
   test('no limit until payments are switched on', () async {
     api.enabled = false;
     final pro = service();
@@ -119,10 +91,10 @@ void main() {
     final opened = <String>[];
     final pro = service(opened: opened);
     await pro.refresh();
-    await pro.buy(plan: ProPlan.lifetime, currency: ProCurrency.ngn, email: 'ada@example.com', name: 'Ada');
+    await pro.buy(plan: ProPlan.lifetime, currency: ProCurrency.usd, email: 'ada@example.com', name: 'Ada');
     expect(opened.single, startsWith('https://sandbox-checkout.bachs.io/'));
     expect(api.checkouts.single['plan'], 'lifetime');
-    expect(api.checkouts.single['currency'], 'NGN');
+    expect(api.checkouts.single['currency'], 'USD');
     expect((api.checkouts.single['activation'] as String).length, greaterThanOrEqualTo(24));
 
     // buy() keeps checking in the background until the payment is confirmed.

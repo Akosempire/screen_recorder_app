@@ -15,25 +15,17 @@ const String proApiBase = String.fromEnvironment('PRO_API', defaultValue: 'https
 
 enum ProPlan { monthly, lifetime }
 
-enum ProCurrency { ngn, usd }
+/// Pro is sold in US dollars only.
+enum ProCurrency { usd }
 
 extension ProCurrencyCode on ProCurrency {
-  String get code => this == ProCurrency.ngn ? 'NGN' : 'USD';
+  String get code => 'USD';
 }
 
-/// 'NGN' / 'USD' from the server, or null for anything else.
-ProCurrency? proCurrencyFromCode(Object? code) => switch (code) {
-      'NGN' => ProCurrency.ngn,
-      'USD' => ProCurrency.usd,
-      _ => null,
-    };
-
 /// Display prices (Bachs charges what's on its products; the server owns them).
-String proPrice(ProPlan plan, ProCurrency currency) => switch ((plan, currency)) {
-      (ProPlan.monthly, ProCurrency.ngn) => '₦2,000',
-      (ProPlan.monthly, ProCurrency.usd) => r'$5',
-      (ProPlan.lifetime, ProCurrency.ngn) => '₦50,000',
-      (ProPlan.lifetime, ProCurrency.usd) => r'$100',
+String proPrice(ProPlan plan, [ProCurrency currency = ProCurrency.usd]) => switch (plan) {
+      ProPlan.monthly => r'$5',
+      ProPlan.lifetime => r'$50',
     };
 
 /// A licence as the server describes it.
@@ -135,8 +127,6 @@ class ProService extends ChangeNotifier {
   DateTime? _checkedAt;
   bool _enabled = false;
   int _freeLimitSeconds = 180;
-  ProCurrency? _suggestedCurrency;
-  Set<ProCurrency> _currencies = {ProCurrency.ngn, ProCurrency.usd};
   String? _pendingActivation;
   ProPlan? _pendingPlan;
   bool _waiting = false;
@@ -152,13 +142,6 @@ class ProService extends ChangeNotifier {
   ProPlan? get pendingPlan => _pendingPlan;
   Duration get freeLimit => Duration(seconds: _freeLimitSeconds);
 
-  /// The currency for where the user is, from their IP country on the server
-  /// (naira in Nigeria, dollars elsewhere). Null until the server has answered.
-  ProCurrency? get suggestedCurrency => _suggestedCurrency;
-
-  /// Currencies the payment provider can charge right now (naira is hidden
-  /// until it's switched on in Bachs).
-  Set<ProCurrency> get currencies => _currencies;
 
   /// Pro unlocks unlimited recording. A licence checked recently keeps
   /// working offline: lifetime always, monthly for 14 days.
@@ -216,12 +199,6 @@ class ProService extends ChangeNotifier {
       _enabled = plans['enabled'] == true;
       final limit = plans['freeLimitSeconds'];
       if (limit is int && limit > 0) _freeLimitSeconds = limit;
-      _suggestedCurrency = proCurrencyFromCode(plans['currency']) ?? _suggestedCurrency;
-      final list = plans['currencies'];
-      if (list is List) {
-        final parsed = list.map(proCurrencyFromCode).whereType<ProCurrency>().toSet();
-        if (parsed.isNotEmpty) _currencies = parsed;
-      }
     } catch (error) {
       AppLogger.debug('Pro plans check failed: $error');
     }
@@ -380,7 +357,6 @@ class ProService extends ChangeNotifier {
       _enabled = json['enabled'] == true;
       final limit = json['freeLimitSeconds'];
       if (limit is int && limit > 0) _freeLimitSeconds = limit;
-      _suggestedCurrency = proCurrencyFromCode(json['currency']);
       final pending = json['pendingActivation'];
       _pendingActivation = pending is String && pending.length >= 24 ? pending : null;
       _pendingPlan = json['pendingPlan'] == 'lifetime'
@@ -404,7 +380,6 @@ class ProService extends ChangeNotifier {
         'checkedAt': _checkedAt?.toIso8601String(),
         'enabled': _enabled,
         'freeLimitSeconds': _freeLimitSeconds,
-        'currency': _suggestedCurrency?.code,
         'pendingActivation': _pendingActivation,
         'pendingPlan': _pendingPlan?.name,
       }));
