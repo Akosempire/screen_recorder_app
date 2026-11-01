@@ -207,6 +207,7 @@ List<String> buildAvfoundationArgs({
       encoder: encoder,
       outputPath: outputPath,
       recordMicrophone: microphoneIndex != null,
+      levelMicrophone: true,
     ),
   ];
 }

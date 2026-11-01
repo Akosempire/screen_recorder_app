@@ -38,9 +38,22 @@ void main() {
 
     expect(args, containsAllInOrder(['-f', 'x11grab']));
     expect(args, containsAllInOrder(['-f', 'pulse', '-thread_queue_size', '512', '-i', 'default']));
-    expect(args, containsAllInOrder(['-c:a', 'aac']));
+    expect(args, containsAllInOrder(['-af', microphoneLevelFilter, '-c:a', 'aac']));
     expect(args.contains('-an'), isFalse);
     expect(args.last, '/tmp/out.mp4');
+  });
+
+  test('the microphone is levelled when captured, not again when segments are merged', () {
+    expect(microphoneLevelFilter, contains('dynaudnorm'));
+    final merged = ffmpegConcatEncodeArgs(
+      listPath: '/tmp/list.txt',
+      encoder: 'libx264',
+      outputPath: '/tmp/merged.mp4',
+      recordMicrophone: true,
+    );
+    expect(merged, isNot(contains('-af')));
+    expect(ffmpegEncodeArgs(encoder: 'libx264', outputPath: '/tmp/x.mp4', levelMicrophone: true), isNot(contains('-af')),
+        reason: 'no microphone, no audio filter');
   });
 
   test('even dimensions are forced for odd regions', () {

@@ -178,6 +178,7 @@ class GnomeShellScreenRecorder implements ScreenRecorder {
         encoder: encoder,
         outputPath: mp4,
         recordMicrophone: recordMicrophone,
+        levelMicrophone: true,
       ),
     ]);
     if (result.exitCode != 0) {

@@ -110,6 +110,7 @@ List<String> buildGdigrabArgs({
       encoder: encoder,
       outputPath: outputPath,
       recordMicrophone: microphoneDevice != null,
+      levelMicrophone: true,
     ),
   ];
 }

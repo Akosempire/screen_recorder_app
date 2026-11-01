@@ -138,7 +138,15 @@ class RecorderService : Service() {
             tempFile = file
 
             val r = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(this) else @Suppress("DEPRECATION") MediaRecorder()
-            if (mic) r.setAudioSource(MediaRecorder.AudioSource.MIC)
+            // CAMCORDER is the mic tuning phones use for video: louder, with
+            // automatic gain, than the plain MIC source.
+            if (mic) {
+                try {
+                    r.setAudioSource(MediaRecorder.AudioSource.CAMCORDER)
+                } catch (e: RuntimeException) {
+                    r.setAudioSource(MediaRecorder.AudioSource.MIC)
+                }
+            }
             r.setVideoSource(MediaRecorder.VideoSource.SURFACE)
             r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             r.setOutputFile(file.absolutePath)
@@ -149,7 +157,7 @@ class RecorderService : Service() {
             if (mic) {
                 r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 r.setAudioEncodingBitRate(128_000)
-                r.setAudioSamplingRate(44_100)
+                r.setAudioSamplingRate(48_000)
             }
             if (maxSeconds > 0) r.setMaxDuration(maxSeconds * 1000)
             r.setOnInfoListener { _, what, _ ->

@@ -379,13 +379,21 @@ List<String> ffmpegConcatEncodeArgs({
   ];
 }
 
+/// Evens out the microphone while recording: cuts low rumble below 80 Hz,
+/// then lifts quiet speech to a steady level (up to +26 dB) without clipping
+/// loud parts. Laptop and USB mics often come in far too quiet otherwise.
+/// Only used on the raw microphone, never on audio that was already levelled.
+const String microphoneLevelFilter = 'highpass=f=80,dynaudnorm=f=200:g=11:p=0.9:m=20';
+
 List<String> ffmpegEncodeArgs({
   required String encoder,
   required String outputPath,
   bool recordMicrophone = false,
+  bool levelMicrophone = false,
 }) {
   return [
     if (recordMicrophone) ...[
+      if (levelMicrophone) ...['-af', microphoneLevelFilter],
       '-c:a',
       'aac',
       '-b:a',
@@ -439,6 +447,7 @@ List<String> buildX11GrabArgs({
       encoder: encoder,
       outputPath: outputPath,
       recordMicrophone: recordMicrophone,
+      levelMicrophone: true,
     ),
   ];
 }
