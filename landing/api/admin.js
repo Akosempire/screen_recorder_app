@@ -124,7 +124,7 @@ export default async function handler(req, res) {
           await logAction(db, me, 'test_bachs', failed ? `${failed.name}: ${failed.detail}` : 'all steps passed');
           return res.status(200).json({
             ...result,
-            message: failed ? `${failed.name} failed: ${failed.detail}` : `Everything works (${fresh.BACHS_ENVIRONMENT === 'production' ? 'live' : 'sandbox'}): buyers can pay in naira and dollars.`,
+            message: failed ? `${failed.name} failed: ${failed.detail}` : `Everything works (${fresh.BACHS_ENVIRONMENT === 'production' ? 'live' : 'sandbox'}): buyers can pay ($5 a month or $50 once).`,
           });
         }
         case 'change-start':
