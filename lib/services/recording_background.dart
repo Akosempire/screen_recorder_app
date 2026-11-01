@@ -6,7 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 /// What sits behind the recording.
-enum BackgroundKind { none, preset, image }
+enum BackgroundKind { none, preset, image, color }
 
 /// Built-in backgrounds: gradients and simple patterns. Painted at any size
 /// with [paintBackgroundPreset], so the preview and the export match.
@@ -15,6 +15,12 @@ enum BackgroundPreset {
   sunset('Sunset'),
   mint('Mint'),
   peach('Peach'),
+  sky('Sky'),
+  lilac('Lilac'),
+  coral('Coral'),
+  forest('Forest'),
+  gold('Gold'),
+  slate('Slate'),
   night('Night'),
   dots('Dots'),
   grid('Grid'),
@@ -24,6 +30,14 @@ enum BackgroundPreset {
   final String label;
 }
 
+/// Ready-made solid colours (ARGB). Any other colour can be picked too.
+const List<int> backgroundSwatches = [
+  0xFFFFFFFF, 0xFFF3F4F6, 0xFF111827, 0xFF000000,
+  0xFF1D4ED8, 0xFF0EA5E9, 0xFF10B981, 0xFF84CC16,
+  0xFFFACC15, 0xFFF97316, 0xFFEF4444, 0xFFEC4899,
+  0xFF8B5CF6, 0xFF7C2D12,
+];
+
 /// A background choice plus how the recording is framed on it.
 @immutable
 class BackgroundSpec {
@@ -31,11 +45,13 @@ class BackgroundSpec {
     this.kind = BackgroundKind.none,
     this.preset = BackgroundPreset.ocean,
     this.imagePath,
+    this.color = defaultColor,
     this.padding = defaultPadding,
     this.radius = defaultRadius,
     this.shadow = true,
   });
 
+  static const int defaultColor = 0xFF111827;
   static const double defaultPadding = 0.08;
   static const double minPadding = 0.03;
   static const double maxPadding = 0.16;
@@ -47,6 +63,9 @@ class BackgroundSpec {
 
   /// Uploaded picture (PNG / JPG / WebP), used when [kind] is image.
   final String? imagePath;
+
+  /// Solid colour (ARGB, always opaque), used when [kind] is color.
+  final int color;
 
   /// Space around the recording, as a fraction of the video width.
   final double padding;
@@ -60,6 +79,7 @@ class BackgroundSpec {
   bool get isActive => switch (kind) {
         BackgroundKind.none => false,
         BackgroundKind.preset => true,
+        BackgroundKind.color => true,
         BackgroundKind.image => imagePath != null && File(imagePath!).existsSync(),
       };
 
@@ -67,6 +87,7 @@ class BackgroundSpec {
         BackgroundKind.none => 'None',
         BackgroundKind.preset => preset.label,
         BackgroundKind.image => 'Your image',
+        BackgroundKind.color => 'Colour ${colorHex(color)}',
       };
 }
 
@@ -100,6 +121,17 @@ class BackgroundLayout {
       );
 
   RRect get innerRRect => RRect.fromRectAndRadius(inner, Radius.circular(radius));
+}
+
+/// '#RRGGBB' for an ARGB colour.
+String colorHex(int argb) => '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
+/// Reads '#RGB', '#RRGGBB' or 'RRGGBB' into an opaque ARGB colour, or null.
+int? parseColorHex(String text) {
+  var t = text.trim().replaceFirst('#', '');
+  if (RegExp(r'^[0-9a-fA-F]{3}$').hasMatch(t)) t = t.split('').map((c) => '$c$c').join();
+  if (!RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(t)) return null;
+  return 0xFF000000 | int.parse(t, radix: 16);
 }
 
 int _even(num v) => math.max(2, (v / 2).round() * 2);
@@ -137,6 +169,18 @@ void paintBackgroundPreset(Canvas canvas, Size size, BackgroundPreset preset) {
       canvas.drawRect(rect, linear(const [Color(0xFFC6F7E2), Color(0xFF43C59E), Color(0xFF0B7A75)], stops: const [0, .55, 1]));
     case BackgroundPreset.peach:
       canvas.drawRect(rect, linear(const [Color(0xFFFFF1E0), Color(0xFFFFD3C4), Color(0xFFF7B5CA)], stops: const [0, .5, 1]));
+    case BackgroundPreset.sky:
+      canvas.drawRect(rect, linear(const [Color(0xFFE0F2FE), Color(0xFF7DD3FC), Color(0xFF38BDF8)], stops: const [0, .55, 1]));
+    case BackgroundPreset.lilac:
+      canvas.drawRect(rect, linear(const [Color(0xFFF5E8FF), Color(0xFFC4B5FD), Color(0xFF8B5CF6)], stops: const [0, .55, 1]));
+    case BackgroundPreset.coral:
+      canvas.drawRect(rect, linear(const [Color(0xFFFFE4D6), Color(0xFFFF8A65), Color(0xFFE11D48)], stops: const [0, .5, 1]));
+    case BackgroundPreset.forest:
+      canvas.drawRect(rect, linear(const [Color(0xFF0F3D2E), Color(0xFF166534), Color(0xFF65A30D)], stops: const [0, .55, 1]));
+    case BackgroundPreset.gold:
+      canvas.drawRect(rect, linear(const [Color(0xFFFFF7D6), Color(0xFFFCD34D), Color(0xFFD97706)], stops: const [0, .5, 1]));
+    case BackgroundPreset.slate:
+      canvas.drawRect(rect, linear(const [Color(0xFF475569), Color(0xFF1E293B), Color(0xFF0F172A)], stops: const [0, .55, 1]));
     case BackgroundPreset.night:
       canvas.drawRect(rect, Paint()..color = const Color(0xFF0B0D1A));
       canvas.drawRect(
@@ -191,6 +235,15 @@ void paintBackgroundPreset(Canvas canvas, Size size, BackgroundPreset preset) {
   }
 }
 
+/// Paints [spec]'s colour or preset filling [size] (images are drawn separately).
+void paintBackground(Canvas canvas, Size size, BackgroundSpec spec) {
+  if (spec.kind == BackgroundKind.color) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = Color(spec.color | 0xFF000000));
+  } else {
+    paintBackgroundPreset(canvas, size, spec.preset);
+  }
+}
+
 /// Draws [image] covering [size] (cropped, centred, aspect kept).
 void paintCoverImage(Canvas canvas, Size size, ui.Image image) {
   final src = Size(image.width.toDouble(), image.height.toDouble());
@@ -235,7 +288,7 @@ Future<Uint8List> renderBackgroundFrame(BackgroundLayout layout, BackgroundSpec 
   if (picture != null) {
     paintCoverImage(canvas, size, picture);
   } else {
-    paintBackgroundPreset(canvas, size, spec.preset);
+    paintBackground(canvas, size, spec);
   }
   if (spec.shadow) paintRecordingShadow(canvas, layout.innerRRect, size.height);
   canvas.drawRRect(layout.innerRRect, Paint()..blendMode = BlendMode.clear);

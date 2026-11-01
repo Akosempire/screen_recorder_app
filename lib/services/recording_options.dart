@@ -160,6 +160,10 @@ class RecordingOptions extends ChangeNotifier {
   void setBackgroundImage(String path) =>
       _setBackground(kind: BackgroundKind.image, imagePath: path);
 
+  /// A solid colour (ARGB) behind the recording.
+  void setBackgroundColor(int argb) =>
+      _setBackground(kind: BackgroundKind.color, color: argb | 0xFF000000);
+
   set backgroundPadding(double value) => _setBackground(
       padding: value.clamp(BackgroundSpec.minPadding, BackgroundSpec.maxPadding).toDouble());
 
@@ -172,6 +176,7 @@ class RecordingOptions extends ChangeNotifier {
     BackgroundKind? kind,
     BackgroundPreset? preset,
     String? imagePath,
+    int? color,
     double? padding,
     double? radius,
     bool? shadow,
@@ -181,6 +186,7 @@ class RecordingOptions extends ChangeNotifier {
       kind: kind ?? b.kind,
       preset: preset ?? b.preset,
       imagePath: imagePath ?? b.imagePath,
+      color: color ?? b.color,
       padding: padding ?? b.padding,
       radius: radius ?? b.radius,
       shadow: shadow ?? b.shadow,
@@ -188,6 +194,7 @@ class RecordingOptions extends ChangeNotifier {
     if (next.kind == b.kind &&
         next.preset == b.preset &&
         next.imagePath == b.imagePath &&
+        next.color == b.color &&
         next.padding == b.padding &&
         next.radius == b.radius &&
         next.shadow == b.shadow) {
@@ -315,6 +322,7 @@ class RecordingOptions extends ChangeNotifier {
               kind: pick(BackgroundKind.values, bg['kind'], d.kind),
               preset: pick(BackgroundPreset.values, bg['preset'], d.preset),
               imagePath: bg['imagePath'] as String?,
+              color: bg['color'] is int ? (bg['color'] as int) | 0xFF000000 : d.color,
               padding: padding is num
                   ? padding.toDouble().clamp(BackgroundSpec.minPadding, BackgroundSpec.maxPadding).toDouble()
                   : d.padding,
@@ -354,6 +362,7 @@ class RecordingOptions extends ChangeNotifier {
           'kind': _background.kind.name,
           'preset': _background.preset.name,
           if (_background.imagePath != null) 'imagePath': _background.imagePath,
+          'color': _background.color,
           'padding': _background.padding,
           'radius': _background.radius,
           'shadow': _background.shadow,

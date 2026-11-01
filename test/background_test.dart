@@ -143,6 +143,59 @@ void main() {
     });
   });
 
+  group('solid colour backgrounds', () {
+    test('hex codes read and write', () {
+      expect(parseColorHex('#1d4ed8'), 0xFF1D4ED8);
+      expect(parseColorHex('1D4ED8'), 0xFF1D4ED8);
+      expect(parseColorHex('#fff'), 0xFFFFFFFF);
+      expect(parseColorHex('#12345'), isNull);
+      expect(parseColorHex('blue'), isNull);
+      expect(colorHex(0xFF1D4ED8), '#1D4ED8');
+      expect(colorHex(0x001D4ED8), '#1D4ED8');
+    });
+
+    test('a colour background is on, and named by its hex code', () {
+      const spec = BackgroundSpec(kind: BackgroundKind.color, color: 0xFFEF4444);
+      expect(spec.isActive, isTrue);
+      expect(spec.label, 'Colour #EF4444');
+    });
+
+    testWidgets('renderBackgroundFrame fills the frame with the colour', (tester) async {
+      await tester.runAsync(() async {
+        const spec = BackgroundSpec(kind: BackgroundKind.color, color: 0xFF1D4ED8, shadow: false);
+        final rgba = await _decode(await renderBackgroundFrame(layoutBackground(160, 90, spec), spec));
+        expect(rgba.sublist(0, 4), [0x1D, 0x4E, 0xD8, 255]);
+        expect(rgba[(45 * 160 + 80) * 4 + 3], 0, reason: 'the recording still shows through');
+      });
+    });
+
+    testWidgets('BackgroundFill shows the colour', (tester) async {
+      await tester.pumpWidget(const BackgroundFill(spec: BackgroundSpec(kind: BackgroundKind.color, color: 0xFF10B981)));
+      final box = tester.widget<ColoredBox>(find.byType(ColoredBox));
+      expect(box.color, const Color(0xFF10B981));
+    });
+
+    testWidgets('the colour picker returns the hex code typed in', (tester) async {
+      int? picked;
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async => picked = await showBackgroundColorPicker(context, 0xFF111827),
+            child: const Text('open'),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.text('Background colour'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), '#F97316');
+      await tester.pump();
+      await tester.tap(find.text('Use this colour'));
+      await tester.pumpAndSettle();
+      expect(picked, 0xFFF97316);
+    });
+  });
+
   testWidgets('RecordingOnBackground frames the child, or shows it plainly when off', (tester) async {
     const child = ColoredBox(key: ValueKey('frame'), color: Color(0xFF00FF00));
     await tester.pumpWidget(const Directionality(

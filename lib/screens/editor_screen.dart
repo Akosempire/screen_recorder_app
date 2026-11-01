@@ -482,6 +482,18 @@ class _BackgroundStrip extends StatelessWidget {
                     child: Center(child: Icon(Icons.block, size: 14, color: Studio.muted)),
                   ),
                 ),
+                chip(
+                  tooltip: spec.kind == BackgroundKind.color ? 'Colour ${colorHex(spec.color)}: click to change' : 'Solid colour',
+                  selected: spec.kind == BackgroundKind.color,
+                  onTap: () async {
+                    final picked = await showBackgroundColorPicker(context, spec.color);
+                    if (picked != null) options.setBackgroundColor(picked);
+                  },
+                  child: ColoredBox(
+                    color: Color(spec.color | 0xFF000000),
+                    child: const Center(child: Icon(Icons.palette_outlined, size: 13, color: Color(0xCCFFFFFF))),
+                  ),
+                ),
                 for (final preset in BackgroundPreset.values)
                   chip(
                     tooltip: preset.label,

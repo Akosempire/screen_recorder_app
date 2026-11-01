@@ -1437,7 +1437,7 @@ class _CornerPicker extends StatelessWidget {
   }
 }
 
-/// Background picker: built-in gradients and patterns, or an uploaded image,
+/// Background picker: any solid colour, built-in gradients and patterns, or an uploaded image,
 /// plus padding, corner roundness and shadow. Applied when exporting.
 class _BackgroundSection extends StatelessWidget {
   const _BackgroundSection({required this.sectionKey, required this.enabled});
@@ -1474,6 +1474,12 @@ class _BackgroundSection extends StatelessWidget {
     options.setBackgroundImage(path);
   }
 
+  Future<void> _pickColor(BuildContext context) async {
+    final options = RecordingOptions.instance;
+    final picked = await showBackgroundColorPicker(context, options.background.color);
+    if (picked != null) options.setBackgroundColor(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final options = RecordingOptions.instance;
@@ -1500,13 +1506,24 @@ class _BackgroundSection extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         GridView.count(
-          crossAxisCount: 3,
+          crossAxisCount: 4,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
-          childAspectRatio: 1.08,
+          childAspectRatio: 0.9,
           children: [
+            StudioTile(
+              label: 'Colour',
+              selected: spec.kind == BackgroundKind.color,
+              preview: ColoredBox(
+                color: Color(spec.color | 0xFF000000),
+                child: const Center(
+                  child: Icon(Icons.palette_outlined, size: 18, color: Color(0xCCFFFFFF)),
+                ),
+              ),
+              onTap: enabled ? () => _pickColor(context) : null,
+            ),
             for (final preset in BackgroundPreset.values)
               StudioTile(
                 label: preset.label,
@@ -1592,7 +1609,7 @@ class _BackgroundSection extends StatelessWidget {
         Text(
           on
               ? 'Your recording sits on this background when you export. The preview shows how it will look.'
-              : 'Put your recording on a gradient, a pattern or your own picture, with rounded corners.',
+              : 'Put your recording on a colour, a gradient, a pattern or your own picture, with rounded corners.',
           style: StudioText.caption.copyWith(height: 1.45),
         ),
       ],
