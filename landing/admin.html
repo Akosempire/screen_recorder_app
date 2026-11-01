@@ -88,17 +88,45 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
   <div class="card">
     <div class="logo"><img src="/assets/icon.png" alt="">Screen Recorder <small>Admin</small></div>
     <h1 style="margin-top:18px">Sign in</h1>
-    <p class="muted small" id="login-help">Enter your admin email. We'll email you a 6-digit code.</p>
-    <form id="email-form" class="fields" style="margin-top:16px">
-      <label class="f">Email<input type="email" name="email" autocomplete="email" required></label>
-      <button class="btn" type="submit">Email me a code</button>
-    </form>
-    <form id="code-form" class="fields" style="margin-top:16px" hidden>
-      <label class="f">6-digit code<input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required></label>
+    <p class="muted small">Your password, then the 6-digit code from your authenticator app.</p>
+    <form id="login-form" class="fields" style="margin-top:16px">
+      <label class="f">Email<input type="email" name="email" autocomplete="username" required></label>
+      <label class="f">Password<input type="password" name="password" autocomplete="current-password" required></label>
+      <label class="f">Code from Google Authenticator<input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" pattern="[0-9 ]{6,7}" required></label>
       <button class="btn" type="submit">Sign in</button>
-      <button class="btn ghost" type="button" id="other-email">Use a different email</button>
     </form>
     <p class="msg" id="login-msg" role="alert"></p>
+  </div>
+</section>
+
+<!-- First-time setup (opened with the setup link) -->
+<section class="login" id="setup" hidden>
+  <div class="card">
+    <div class="logo"><img src="/assets/icon.png" alt="">Screen Recorder <small>Admin</small></div>
+    <div id="setup-1">
+      <h1 style="margin-top:18px">Set up your sign-in</h1>
+      <p class="muted small">Choose a password (at least 10 characters). Next you'll connect Google Authenticator.</p>
+      <form id="setup-form" class="fields" style="margin-top:16px">
+        <label class="f">Admin email<input type="email" name="email" autocomplete="username" required></label>
+        <label class="f">New password<input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
+        <label class="f">Type it again<input type="password" name="password2" autocomplete="new-password" minlength="10" required></label>
+        <button class="btn" type="submit">Next</button>
+      </form>
+    </div>
+    <div id="setup-2" hidden>
+      <h1 style="margin-top:18px">Connect your phone</h1>
+      <ol class="small" style="margin:10px 0 0 18px;line-height:1.6">
+        <li>Install <b>Google Authenticator</b> on your phone (App Store or Play Store).</li>
+        <li>Tap <b>+</b> → <b>Scan a QR code</b>, and scan this:</li>
+      </ol>
+      <div class="qr" style="background:#fff;border-radius:12px;padding:10px;width:200px;margin:12px auto"></div>
+      <p class="muted small" style="text-align:center">Can't scan? Tap <b>Enter a setup key</b> and type:<br><code class="secret" style="font-size:14px"></code></p>
+      <form id="setup-code-form" class="fields" style="margin-top:12px">
+        <label class="f">3. Type the 6-digit code the app shows<input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required></label>
+        <button class="btn" type="submit">Finish</button>
+      </form>
+    </div>
+    <p class="msg" id="setup-msg" role="alert"></p>
   </div>
 </section>
 
@@ -197,20 +225,9 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
           </form>
         </div>
         <div class="card">
-          <h2>Email (Brevo)</h2>
-          <p class="muted small">Sends your dashboard sign-in codes through Brevo instead of Supabase. Get the API key in Brevo → SMTP &amp; API → API keys (it starts with <code>xkeysib-</code>). The sender must be verified in Brevo → Senders, Domains &amp; Dedicated IPs.</p>
-          <form id="email-form" class="fields" style="margin-top:14px">
-            <label class="f">Brevo API key <span class="muted" id="cur-brevo"></span>
-              <input type="password" name="brevo_api_key" autocomplete="off" placeholder="xkeysib-…">
-            </label>
-            <label class="f">Send from (email)<input type="email" name="email_from" autocomplete="off" placeholder="no-reply@yourdomain.com"></label>
-            <label class="f">Sender name<input type="text" name="email_from_name" autocomplete="off" placeholder="Screen Recorder"></label>
-            <div class="row">
-              <button class="btn" type="submit">Save email settings</button>
-              <button class="btn ghost" type="button" id="test-email">Send me a test email</button>
-            </div>
-            <p class="msg" id="email-msg" role="alert"></p>
-          </form>
+          <h2>Your sign-in</h2>
+          <p class="muted small">You sign in with your password and a code from Google Authenticator. Change both here, for example with a new phone.</p>
+          <div class="row" style="margin-top:12px"><button class="btn ghost" type="button" id="change-auth">Change password &amp; authenticator</button></div>
         </div>
       </section>
 
@@ -245,41 +262,65 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
       body: body ? JSON.stringify(body) : undefined,
     });
     const data = await res.json().catch(() => ({}));
-    if (res.status === 401 && !['login', 'verify'].includes(action)) { showLogin(); throw new Error('Please sign in.'); }
+    if (res.status === 401 && !['login', 'setup-start', 'setup-finish'].includes(action)) { showLogin(); throw new Error('Please sign in.'); }
     if (!res.ok) throw new Error(data.error || 'Something went wrong.');
     return data;
   }
 
   // ---- sign in ----
-  let loginEmail = '';
-  function showLogin(){ $('#app').hidden = true; $('#login').hidden = false; }
-  $('#email-form').addEventListener('submit', async (e) => {
+  function showLogin(){ $('#app').hidden = true; $('#setup').hidden = true; $('#login').hidden = false; }
+  $('#login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const b = e.target.querySelector('button'); b.disabled = true;
-    loginEmail = e.target.email.value.trim().toLowerCase();
+    const f = e.target, b = f.querySelector('button'); b.disabled = true;
     try {
-      const r = await api('login', { method: 'POST', body: { email: loginEmail } });
-      $('#email-form').hidden = true; $('#code-form').hidden = false;
-      $('#login-help').textContent = r.message + ' Check your inbox (and spam).';
-      msg($('#login-msg'), '');
-      $('#code-form').code.focus();
-    } catch (err) { msg($('#login-msg'), err.message); }
-    b.disabled = false;
-  });
-  $('#code-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const b = e.target.querySelector('button[type=submit]'); b.disabled = true;
-    try {
-      await api('verify', { method: 'POST', body: { email: loginEmail, code: e.target.code.value.trim() } });
-      e.target.code.value = '';
+      await api('login', { method: 'POST', body: { email: f.email.value.trim().toLowerCase(), password: f.password.value, code: f.code.value } });
+      f.password.value = ''; f.code.value = ''; msg($('#login-msg'), '');
       start();
-    } catch (err) { msg($('#login-msg'), err.message); }
+    } catch (err) { f.code.value = ''; msg($('#login-msg'), err.message); }
     b.disabled = false;
   });
-  $('#other-email').addEventListener('click', () => {
-    $('#code-form').hidden = true; $('#email-form').hidden = false;
-    $('#login-help').textContent = "Enter your admin email. We'll email you a 6-digit code.";
-    msg($('#login-msg'), '');
+
+  // ---- first-time setup / changing password (same two steps) ----
+  // The setup link is /admin#setup=TOKEN (the part after # never reaches the server logs).
+  const setupToken = (location.hash.match(/^#setup=([A-Za-z0-9_-]+)/) || [])[1] || '';
+  let setupEmail = '', changing = false;
+  function showSetup(change){
+    changing = Boolean(change);
+    $('#login').hidden = true; $('#app').hidden = true; $('#setup').hidden = false;
+    $('#setup-1').hidden = false; $('#setup-2').hidden = true; msg($('#setup-msg'), '');
+    const f = $('#setup-form');
+    f.email.closest('label').hidden = changing;
+    f.email.required = !changing;
+  }
+  $('#setup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target, b = f.querySelector('button');
+    if (f.password.value !== f.password2.value) return msg($('#setup-msg'), 'The two passwords are different.');
+    b.disabled = true;
+    try {
+      setupEmail = f.email.value.trim().toLowerCase();
+      const r = changing
+        ? await api('change-start', { method: 'POST', body: { password: f.password.value } })
+        : await api('setup-start', { method: 'POST', body: { token: setupToken, email: setupEmail, password: f.password.value } });
+      $('#setup .qr').innerHTML = r.qr; // SVG made by our server
+      $('#setup .secret').textContent = r.secret;
+      $('#setup-1').hidden = true; $('#setup-2').hidden = false; msg($('#setup-msg'), '');
+      $('#setup-code-form').code.focus();
+    } catch (err) { msg($('#setup-msg'), err.message); }
+    b.disabled = false;
+  });
+  $('#setup-code-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target, b = f.querySelector('button'); b.disabled = true;
+    try {
+      if (changing) await api('change-finish', { method: 'POST', body: { code: f.code.value } });
+      else await api('setup-finish', { method: 'POST', body: { token: setupToken, email: setupEmail, code: f.code.value } });
+      $('#setup-form').reset(); f.reset();
+      history.replaceState(null, '', '/admin');
+      $('#setup').hidden = true;
+      start();
+    } catch (err) { msg($('#setup-msg'), err.message); }
+    b.disabled = false;
   });
   $('#logout').addEventListener('click', async () => { await api('logout', { method: 'POST', body: {} }).catch(() => {}); location.reload(); });
 
@@ -418,9 +459,6 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
     $('#cur-key').textContent = s.bachs_api_key ? `(saved: ${s.bachs_api_key})` : '(not set)';
     $('#cur-wh').textContent = s.bachs_webhook_secret ? `(saved: ${s.bachs_webhook_secret})` : '(not set)';
     $('#wh-url').textContent = s.webhook_url;
-    const ef = $('#email-form');
-    ef.brevo_api_key.value = ''; ef.email_from.value = s.email_from || ''; ef.email_from_name.value = s.email_from_name || '';
-    $('#cur-brevo').textContent = s.brevo_api_key ? `(saved: ${s.brevo_api_key})` : '(not set)';
     if (!s.key_matches_environment) msg($('#settings-msg'), 'The saved API key doesn\'t match the mode: live needs an sk_live_ key, sandbox an sk_sandbox_ key.');
   }
   $('#settings-form').addEventListener('submit', async (e) => {
@@ -440,23 +478,7 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
       msg($('#settings-msg'), s.payments_live ? 'Saved. Pro is on sale.' : 'Saved. Pro goes on sale once the API key and webhook secret are set and selling is on.', s.payments_live ? 'ok' : 'err');
     } catch (err) { msg($('#settings-msg'), err.message); }
   });
-  $('#email-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const f = e.target;
-    try {
-      const s = await api('settings', { method: 'POST', body: {
-        brevo_api_key: f.brevo_api_key.value, email_from: f.email_from.value, email_from_name: f.email_from_name.value,
-      } });
-      await loadSettings();
-      msg($('#email-msg'), s.email_ready ? 'Saved. Sign-in codes now go through Brevo. Send yourself a test email to check.' : 'Saved. Add both the API key and the sender address to switch to Brevo.', s.email_ready ? 'ok' : 'err');
-    } catch (err) { msg($('#email-msg'), err.message); }
-  });
-  $('#test-email').addEventListener('click', async () => {
-    const b = $('#test-email'); b.disabled = true; msg($('#email-msg'), 'Sending…', 'ok');
-    try { const r = await api('test-email', { method: 'POST', body: {} }); msg($('#email-msg'), r.message, r.ok ? 'ok' : 'err'); }
-    catch (err) { msg($('#email-msg'), err.message); }
-    finally { b.disabled = false; }
-  });
+  $('#change-auth').addEventListener('click', () => showSetup(true));
   $('#test-bachs').addEventListener('click', async () => {
     const b = $('#test-bachs'); b.disabled = true; msg($('#settings-msg'), 'Testing each step of a purchase…', 'ok');
     try {
@@ -475,11 +497,11 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
     const t = $('#log-table');
     t.replaceChildren(el('tr', {}, ...['When', 'Admin', 'What', 'Details'].map(h => el('th', { text: h }))));
     if (!items.length) t.append(el('tr', {}, el('td', { colspan: 4, class: 'empty', text: 'No activity yet.' })));
-    const words = { login: 'Signed in', login_failed: 'Wrong code', settings: 'Changed settings', grant: 'Gave a licence', revoke: 'Revoked a licence', restore: 'Restored a licence', checkout_failed: 'Payment could not start', test_bachs: 'Tested Bachs', test_email: 'Test email' };
+    const words = { login: 'Signed in', login_failed: 'Failed sign-in', settings: 'Changed settings', grant: 'Gave a licence', revoke: 'Revoked a licence', restore: 'Restored a licence', checkout_failed: 'Payment could not start', test_bachs: 'Tested Bachs', test_email: 'Test email', setup: 'Set up sign-in' };
     for (const r of items) t.append(el('tr', {}, el('td', { text: date(r.created_at) }), el('td', { text: r.email }), el('td', { text: words[r.action] || r.action }), el('td', { class: 'mono', text: r.detail || '' })));
   }
 
-  start();
+  if (setupToken) showSetup(false); else start();
 })();
 </script>
 </body>

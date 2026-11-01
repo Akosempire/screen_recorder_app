@@ -122,10 +122,13 @@ function call(handler, { method = 'GET', action, body, cookie, query = '', json 
   });
 }
 
-test('admin endpoint: sign in by email code, lockout, settings, licences, CSV', async () => {
+test('admin endpoint: password + authenticator sign-in, lockout, settings, licences, CSV', async () => {
   const key = 'service-role';
   const sb = await fakeSupabase(key, '123456');
-  Object.assign(process.env, { SUPABASE_URL: sb.url, SUPABASE_SERVICE_ROLE_KEY: key, LINK_SECRET: ENV.LINK_SECRET, ADMIN_EMAILS: 'boss@example.com' });
+  Object.assign(process.env, { SUPABASE_URL: sb.url, SUPABASE_SERVICE_ROLE_KEY: key, LINK_SECRET: ENV.LINK_SECRET, ADMIN_EMAILS: 'boss@example.com', ADMIN_SETUP_TOKEN: 'endpoint-setup-token-123456' });
+  const P = await import('../lib/admin-password.js');
+  const now = () => P.totpAt(secret, Math.floor(Date.now() / 30000));
+  let secret;
   delete process.env.BACHS_API_KEY;
   const { default: admin } = await import('../api/admin.js');
   const { default: license } = await import('../api/license.js');
@@ -133,21 +136,29 @@ test('admin endpoint: sign in by email code, lockout, settings, licences, CSV', 
     // Not signed in.
     assert.equal((await call(admin, { action: 'overview' })).statusCode, 401);
 
-    // Strangers get the same answer but no email.
-    let r = await call(admin, { method: 'POST', action: 'login', body: { email: 'stranger@example.com' } });
+    // Setup needs the one-time token and an admin email.
+    let r = await call(admin, { method: 'POST', action: 'setup-start', body: { token: 'nope-nope-nope-nope-nope', email: 'boss@example.com', password: 'a strong password' } });
+    assert.equal(r.statusCode, 401);
+    r = await call(admin, { method: 'POST', action: 'setup-start', body: { token: process.env.ADMIN_SETUP_TOKEN, email: 'stranger@example.com', password: 'a strong password' } });
+    assert.equal(r.statusCode, 400);
+    r = await call(admin, { method: 'POST', action: 'setup-start', body: { token: process.env.ADMIN_SETUP_TOKEN, email: 'Boss@Example.com', password: 'a strong password' } });
     assert.equal(r.statusCode, 200);
-    assert.deepEqual(sb.sent, []);
-    r = await call(admin, { method: 'POST', action: 'login', body: { email: 'Boss@Example.com' } });
-    assert.deepEqual(sb.sent, ['boss@example.com']);
+    secret = r.body.secret.replace(/ /g, '');
+    r = await call(admin, { method: 'POST', action: 'setup-finish', body: { token: process.env.ADMIN_SETUP_TOKEN, email: 'boss@example.com', code: now() } });
+    assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+    r = await call(admin, { method: 'POST', action: 'setup-start', body: { token: process.env.ADMIN_SETUP_TOKEN, email: 'boss@example.com', password: 'another password' } });
+    assert.equal(r.statusCode, 401, 'setup link works once');
+    assert.equal((await call(admin, { action: 'status' })).body.setupOpen, false);
 
     // Forms from other sites can't post (no JSON).
-    assert.equal((await call(admin, { method: 'POST', action: 'verify', body: { email: 'boss@example.com', code: '123456' }, json: false })).statusCode, 415);
+    assert.equal((await call(admin, { method: 'POST', action: 'login', body: { email: 'boss@example.com', password: 'a strong password', code: now() }, json: false })).statusCode, 415);
 
-    // Wrong codes, then the right one sets a secure cookie.
-    r = await call(admin, { method: 'POST', action: 'verify', body: { email: 'boss@example.com', code: '000000' } });
+    // Wrong password, then the right password + code sets a secure cookie.
+    r = await call(admin, { method: 'POST', action: 'login', body: { email: 'boss@example.com', password: 'wrong password', code: now() } });
     assert.equal(r.statusCode, 401);
-    r = await call(admin, { method: 'POST', action: 'verify', body: { email: 'boss@example.com', code: '123456' } });
-    assert.equal(r.statusCode, 200);
+    await new Promise((resolve) => setTimeout(resolve, 30000 - (Date.now() % 30000) + 50)); // the setup code was used: wait for a fresh one
+    r = await call(admin, { method: 'POST', action: 'login', body: { email: 'boss@example.com', password: 'a strong password', code: now() } });
+    assert.equal(r.statusCode, 200, JSON.stringify(r.body));
     const setCookie = r.headers['set-cookie'];
     assert.match(setCookie, /^__Host-sr_admin=.+; Path=\/; HttpOnly; Secure; SameSite=Strict/);
     const cookie = setCookie.split(';')[0];
@@ -195,9 +206,9 @@ test('admin endpoint: sign in by email code, lockout, settings, licences, CSV', 
     const actions = sb.tables.admin_log.map((l) => l.action);
     for (const a of ['login_failed', 'login', 'settings', 'grant', 'revoke', 'restore']) assert.ok(actions.includes(a), a);
 
-    // Five wrong codes lock sign-in for 15 minutes.
-    for (let i = 0; i < 4; i++) await call(admin, { method: 'POST', action: 'verify', body: { email: 'boss@example.com', code: '999999' } });
-    r = await call(admin, { method: 'POST', action: 'verify', body: { email: 'boss@example.com', code: '123456' } });
+    // Five failed sign-ins lock it for 15 minutes.
+    for (let i = 0; i < 4; i++) await call(admin, { method: 'POST', action: 'login', body: { email: 'boss@example.com', password: 'guess', code: '999999' } });
+    r = await call(admin, { method: 'POST', action: 'login', body: { email: 'boss@example.com', password: 'a strong password', code: now() } });
     assert.equal(r.statusCode, 429);
 
     // A removed admin's cookie stops working.
@@ -262,4 +273,42 @@ test('Brevo: own sign-in codes work once, for 10 minutes; settings validate the 
     sendEmail(config, { to: 'a@b.co', subject: 's', html: 'h', text: 't' }, async () => ({ ok: false, status: 401, text: async () => '{"code":"unauthorized","message":"We have detected you are using an unrecognised IP address 1.2.3.4"}' })),
     /Authorised IPs/,
   );
+});
+
+test('password + authenticator sign-in', async () => {
+  const P = await import('../lib/admin-password.js');
+  // RFC 6238 test vectors (SHA-1), last 6 digits
+  const rfc = P.base32(Buffer.from('12345678901234567890'));
+  assert.equal(rfc, 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ');
+  assert.equal(P.totpAt(rfc, Math.floor(59 / 30)), '287082');
+  assert.equal(P.totpAt(rfc, Math.floor(1111111109 / 30)), '081804');
+
+  const env = { LINK_SECRET: 'y'.repeat(32), ADMIN_SETUP_TOKEN: 'setup-token-for-tests-123456' };
+  const kv = new Map();
+  const store = { getSetting: async (k) => kv.get(k) ?? null, setSetting: async (k, v) => { kv.set(k, v); } };
+  const email = 'akosempire1@gmail.com';
+
+  assert.equal(await P.setupOpen(store, env), true);
+  assert.equal(await P.setupTokenValid(store, 'wrong-token-xxxxxxxxxxxx', env), false);
+  assert.equal(await P.setupTokenValid(store, env.ADMIN_SETUP_TOKEN, env), true);
+  await assert.rejects(P.startSetup(store, email, 'short', env), /at least 10/);
+
+  const t0 = 1_800_000_000_000;
+  const s = await P.startSetup(store, email, 'correct horse battery', env, t0);
+  assert.match(s.qr, /^<svg/);
+  assert.match(s.uri, /^otpauth:\/\/totp\/Screen%20Recorder/);
+  const secret = s.secret.replace(/ /g, '');
+  assert.ok(![...kv.values()].some((v) => v.includes(secret) || v.includes('correct horse')), 'nothing stored in plain text');
+  await assert.rejects(P.finishSetup(store, email, '000000', env, t0), /doesn't match/);
+  await P.finishSetup(store, email, P.totpAt(secret, Math.floor(t0 / 30000)), env, t0);
+  await P.markSetupUsed(store, env);
+  assert.equal(await P.setupTokenValid(store, env.ADMIN_SETUP_TOKEN, env), false, 'setup link works once');
+
+  const t1 = t0 + 120_000;
+  const code = P.totpAt(secret, Math.floor(t1 / 30000));
+  assert.equal(await P.signIn(store, email, 'wrong password!!', code, env, t1), false);
+  assert.equal(await P.signIn(store, email, 'correct horse battery', '123456', env, t1), code === '123456');
+  assert.equal(await P.signIn(store, email, 'correct horse battery', code, env, t1), true);
+  assert.equal(await P.signIn(store, email, 'correct horse battery', code, env, t1 + 5000), false, 'a code works once');
+  assert.equal(await P.signIn(store, 'other@x.co', 'correct horse battery', code, env, t1), false);
 });

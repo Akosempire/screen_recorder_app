@@ -1,7 +1,8 @@
+import { clearCookie, makeSession, readCookie, readSession, sessionCookie } from '../lib/admin-auth.js';
 import {
-  checkCode, clearCookie, issueCode, makeSession, readCookie, readSession, sendCode, sessionCookie, verifyCode,
-} from '../lib/admin-auth.js';
-import { brevoReady, codeEmail, sendEmail } from '../lib/brevo.js';
+  finishSetup, markSetupUsed, setupOpen, setupTokenValid, signIn, startSetup,
+} from '../lib/admin-password.js';
+import { sendEmail } from '../lib/brevo.js';
 import {
   grantLicense, listLicenses, listPeople, logAction, overview, recentFailures, setRevoked, toCsv,
 } from '../lib/admin.js';
@@ -12,7 +13,8 @@ import { readJson, sendError } from '../lib/http.js';
 import * as db from '../lib/supabase-rest.js';
 
 // /api/admin?action=…  The admin dashboard's only endpoint.
-// Signed-out actions: login (send code), verify (check code, set cookie).
+// Signed-out actions: status, login (password + authenticator code),
+// setup-start / setup-finish (first time, with the one-time setup token).
 // Everything else needs the admin session cookie. Writes must be POST with a
 // JSON body (SameSite=Strict cookie + JSON keeps other sites from posting).
 export default async function handler(req, res) {
@@ -29,37 +31,41 @@ export default async function handler(req, res) {
       return res.status(415).json({ error: 'Send JSON.' });
     }
 
-    // ---- signing in ----
-    if (action === 'login' && req.method === 'POST') {
-      const email = String((await readJson(req)).email || '').trim().toLowerCase();
-      // Same answer whether or not the email is an admin (no list probing).
-      if (admins.includes(email)) {
-        if (await recentFailures(db, email) >= 5) {
-          return res.status(429).json({ error: 'Too many wrong codes. Wait 15 minutes and try again.' });
-        }
-        if (brevoReady(config)) {
-          const code = await issueCode(supabaseStore, email);
-          await sendEmail(config, { to: email, ...codeEmail(code) });
-        } else {
-          await sendCode(email);
-        }
-      }
-      return res.status(200).json({ ok: true, message: 'If this email is an admin, a 6-digit code is on its way.' });
+    // ---- signing in: password + authenticator code ----
+    const tooMany = () => res.status(429).json({ error: 'Too many wrong attempts. Wait 15 minutes and try again.' });
+    if (action === 'status' && req.method === 'GET') {
+      return res.status(200).json({ setupOpen: await setupOpen(supabaseStore) });
     }
-    if (action === 'verify' && req.method === 'POST') {
+    if (action === 'login' && req.method === 'POST') {
       const body = await readJson(req);
       const email = String(body.email || '').trim().toLowerCase();
-      if (!admins.includes(email)) return res.status(401).json({ error: 'That code is not right or has expired.' });
-      if (await recentFailures(db, email) >= 5) {
-        return res.status(429).json({ error: 'Too many wrong codes. Wait 15 minutes and try again.' });
-      }
-      const code = String(body.code || '').trim();
-      const ours = await checkCode(supabaseStore, email, code);
-      if (!(ours === null ? await verifyCode(email, code) : ours)) {
-        await logAction(db, email, 'login_failed');
-        return res.status(401).json({ error: 'That code is not right or has expired.' });
+      if (await recentFailures(db, email) >= 5) return tooMany();
+      const ok = admins.includes(email)
+        && await signIn(supabaseStore, email, String(body.password || ''), String(body.code || '').replace(/\s/g, ''));
+      if (!ok) {
+        if (email) await logAction(db, email.slice(0, 160), 'login_failed');
+        return res.status(401).json({ error: 'Email, password or code is not right.' });
       }
       await logAction(db, email, 'login');
+      res.setHeader('Set-Cookie', sessionCookie(makeSession(email)));
+      return res.status(200).json({ ok: true, email });
+    }
+    // First-time setup (or after a lost phone), with the one-time setup token.
+    if ((action === 'setup-start' || action === 'setup-finish') && req.method === 'POST') {
+      const body = await readJson(req);
+      const email = String(body.email || '').trim().toLowerCase();
+      if (await recentFailures(db, 'setup') >= 10) return tooMany();
+      if (!(await setupTokenValid(supabaseStore, String(body.token || '')))) {
+        await logAction(db, 'setup', 'login_failed', 'bad setup link');
+        return res.status(401).json({ error: 'This setup link is not valid or was already used.' });
+      }
+      if (!admins.includes(email)) return res.status(400).json({ error: `Use an admin email (${admins[0]}).` });
+      if (action === 'setup-start') {
+        return res.status(200).json(await startSetup(supabaseStore, email, body.password));
+      }
+      await finishSetup(supabaseStore, email, String(body.code || '').replace(/\s/g, ''));
+      await markSetupUsed(supabaseStore);
+      await logAction(db, email, 'setup', 'password and authenticator set');
       res.setHeader('Set-Cookie', sessionCookie(makeSession(email)));
       return res.status(200).json({ ok: true, email });
     }
@@ -121,6 +127,12 @@ export default async function handler(req, res) {
             message: failed ? `${failed.name} failed: ${failed.detail}` : `Everything works (${fresh.BACHS_ENVIRONMENT === 'production' ? 'live' : 'sandbox'}): buyers can pay in naira and dollars.`,
           });
         }
+        case 'change-start':
+          return res.status(200).json(await startSetup(supabaseStore, me, body.password));
+        case 'change-finish':
+          await finishSetup(supabaseStore, me, String(body.code || '').replace(/\s/g, ''));
+          await logAction(db, me, 'setup', 'changed password and authenticator');
+          return res.status(200).json({ ok: true });
         case 'test-email': {
           const fresh = await loadConfig(supabaseStore);
           try {
