@@ -10,15 +10,18 @@ import '../services/app_folders.dart';
 import '../services/app_update.dart';
 import '../services/camera_bubble.dart';
 import '../services/demo_mode.dart';
+import '../services/draft_store.dart';
 import '../services/recording_background.dart';
 import '../services/recording_library.dart';
 import '../services/pro_service.dart';
 import '../services/recording_options.dart';
 import '../services/shortcut_intents.dart';
+import '../services/studio_save_service.dart';
 import '../ui/background_widgets.dart';
 import '../ui/studio_painters.dart';
 import '../ui/studio_theme.dart';
 import '../ui/studio_widgets.dart';
+import '../widgets/recordings_shelf.dart';
 import 'studio_tour.dart';
 import 'upgrade_dialog.dart';
 
@@ -66,6 +69,19 @@ class _HomeScreenState extends State<HomeScreen> {
         (_) => _focusSection(demoSection),
       );
     }
+    if (!DraftStore.instance.loaded) DraftStore.instance.load();
+  }
+
+  /// Opens a kept recording in the editor (play, trim, export).
+  Future<void> _openDraft(Draft draft) async {
+    if (widget.controller.state.isBusy) return;
+    final save = widget.controller.fileSaveService;
+    if (save is StudioSaveService) await save.openDraft(draft);
+  }
+
+  void _openCurrent() {
+    final draft = DraftStore.instance.byId(_library.last?.draftId);
+    if (draft != null) _openDraft(draft);
   }
   final _sectionKeys = {
     for (final s in _Section.values) s: GlobalKey(),
@@ -165,6 +181,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         mode: mode,
                         enabled: enabled,
                         onStartRecording: widget.onStartRecording,
+                        onOpenDraft: _openDraft,
+                        onOpenCurrent: _openCurrent,
                       ),
                     ),
                     if (wide) ...[
@@ -463,6 +481,8 @@ class _Stage extends StatelessWidget {
     required this.mode,
     required this.enabled,
     required this.onStartRecording,
+    required this.onOpenDraft,
+    required this.onOpenCurrent,
   });
 
   final RecordingController controller;
@@ -470,10 +490,14 @@ class _Stage extends StatelessWidget {
   final _ViewMode mode;
   final bool enabled;
   final VoidCallback onStartRecording;
+  final ValueChanged<Draft> onOpenDraft;
+  final VoidCallback onOpenCurrent;
 
   @override
   Widget build(BuildContext context) {
     final error = controller.errorMessage;
+    final rec = recording;
+    final canOpen = rec?.draftId != null && DraftStore.instance.byId(rec?.draftId) != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
       child: Column(
@@ -490,9 +514,33 @@ class _Stage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(Studio.radiusLg),
               ),
               padding: const EdgeInsets.all(18),
-              child: recording == null
+              child: rec == null
                   ? const _EmptyStage()
-                  : _Preview(recording: recording!, mode: mode),
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _Preview(recording: rec, mode: mode),
+                        if (canOpen)
+                          Align(
+                            alignment: Alignment.bottomCenter,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: FilledButton.icon(
+                                onPressed: enabled ? onOpenCurrent : null,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Studio.primary,
+                                  foregroundColor: Studio.onPrimary,
+                                  shape: const StadiumBorder(),
+                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                                  textStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                                ),
+                                icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                                label: Text(rec.savedPath == null ? 'Play, edit & export' : 'Play, edit or export again'),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
             ),
           ),
           const SizedBox(height: 12),
@@ -503,7 +551,12 @@ class _Stage extends StatelessWidget {
             onStartRecording: onStartRecording,
           ),
           const SizedBox(height: 10),
-          _Timeline(recording: recording),
+          RecordingsShelf(
+            store: DraftStore.instance,
+            enabled: enabled,
+            currentId: rec?.draftId,
+            onOpen: onOpenDraft,
+          ),
         ],
       ),
     );
@@ -839,60 +892,6 @@ class _Transport extends StatelessWidget {
         ],
       );
       }),
-    );
-  }
-}
-
-class _Timeline extends StatelessWidget {
-  const _Timeline({required this.recording});
-
-  final LastRecording? recording;
-
-  @override
-  Widget build(BuildContext context) {
-    final strip = recording?.filmstrip;
-    final seconds = recording?.duration.inSeconds ?? 0;
-    return SizedBox(
-      height: 76,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: 18,
-            child: Row(
-              children: [
-                const Text('0s', style: StudioText.tiny),
-                const Spacer(),
-                if (seconds > 1) Text('${seconds ~/ 2}s', style: StudioText.tiny),
-                const Spacer(),
-                if (seconds > 0) Text('${seconds}s', style: StudioText.tiny),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2D),
-                  border: Border.all(color: const Color(0xFF1A1A1C), width: 2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: strip != null
-                    ? Image.file(strip, fit: BoxFit.fill, gaplessPlayback: true)
-                    : Center(
-                        child: Text(
-                          recording == null
-                              ? 'Your recording will show up here'
-                              : 'Building timeline…',
-                          style: StudioText.tiny.copyWith(color: const Color(0xFF9A9AA0)),
-                        ),
-                      ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

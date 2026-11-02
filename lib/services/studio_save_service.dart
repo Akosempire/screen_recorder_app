@@ -9,9 +9,11 @@ import '../screens/editor_screen.dart';
 import '../screens/export_dialog.dart';
 import 'app_folders.dart';
 import 'app_logger.dart';
+import 'draft_store.dart';
 import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
 import 'file_save_service.dart';
+import 'last_save_path_store.dart';
 import 'recording_background.dart';
 import 'recording_edit.dart';
 import 'recording_library.dart';
@@ -274,16 +276,19 @@ String defaultVideosFolder() => defaultVideosFolderFor();
 /// chosen settings with FFmpeg, and returns the destination path.
 ///
 /// Falls back to the plain native save dialog when no UI is mounted.
-class StudioSaveService implements FileSaveService {
+class StudioSaveService implements SelfSavingFileService {
   StudioSaveService({
     required this.navigatorKey,
     FileSaveService fallback = const LinuxFileSaveService(),
     this.runner = const ProcessRunner(),
-  }) : _fallback = fallback;
+    DraftStore? drafts,
+  })  : _fallback = fallback,
+        drafts = drafts ?? DraftStore.instance;
 
   final GlobalKey<NavigatorState> navigatorKey;
   final FileSaveService _fallback;
   final ProcessRunner runner;
+  final DraftStore drafts;
 
   /// Restores the full window before the dialog opens (set by the shell).
   Future<void> Function()? beforePrompt;
@@ -291,6 +296,9 @@ class StudioSaveService implements FileSaveService {
   /// Provides the produced file, region, and microphone state.
   RecordingController? controller;
 
+  /// Right after Stop: keep the recording as a draft, then open the editor.
+  /// Returns the exported file, or null when the editor was closed (the
+  /// recording stays in Recordings as a draft).
   @override
   Future<String?> chooseSaveLocation({
     String suggestedName = 'recording.mp4',
@@ -308,18 +316,45 @@ class StudioSaveService implements FileSaveService {
     await WidgetsBinding.instance.endOfFrame;
 
     final region = controller?.region;
-    final recording = RecordingLibrary.instance.ensure(
+    final produced = RecordingLibrary.instance.ensure(
       path: source,
       width: region?.width ?? 0,
       height: region?.height ?? 0,
       duration: controller?.elapsed ?? Duration.zero,
       hasAudio: controller?.recordMicrophone ?? false,
     );
-    unawaited(RecordingLibrary.instance.buildPreviews(recording));
 
-    final settings = ExportSettings(
+    // Move it out of the temporary folder first, so nothing can lose it.
+    final draft = await drafts.createFrom(
+      video: source,
+      original: produced.originalPath,
+      width: produced.width,
+      height: produced.height,
+      duration: produced.duration,
+      hasAudio: produced.hasAudio,
+      focusSeconds: produced.focusSeconds,
+    );
+    final recording = draft == null ? produced : RecordingLibrary.instance.openDraft(draft);
+    return openEditor(
+      recording,
       fileName: p.basenameWithoutExtension(suggestedName),
-      folder: initialDirectory ?? defaultVideosFolder(),
+      folder: initialDirectory,
+    );
+  }
+
+  /// Opens a kept recording (from the Recordings list) in the editor.
+  Future<String?> openDraft(Draft draft) {
+    final recording = RecordingLibrary.instance.openDraft(draft);
+    return openEditor(recording);
+  }
+
+  /// The editor (trim, cut, background, play), then the Export dialog.
+  Future<String?> openEditor(LastRecording recording, {String? fileName, String? folder}) async {
+    unawaited(RecordingLibrary.instance.buildPreviews(recording));
+    final draft = drafts.byId(recording.draftId);
+    final settings = ExportSettings(
+      fileName: fileName ?? _defaultName(draft?.createdAt ?? DateTime.now()),
+      folder: folder ?? (await FileLastSavePathStore().lastDirectory()) ?? defaultVideosFolder(),
       keepSound: recording.hasAudio,
       background: RecordingOptions.instance.background,
     );
@@ -341,9 +376,15 @@ class StudioSaveService implements FileSaveService {
         builder: (_) => ExportDialog(
           recording: recording,
           settings: settings,
-          onExport: (chosen) => _export(source, recording, chosen),
+          onExport: (chosen) => _export(recording.finalPath, recording, chosen),
         ),
       );
+    }
+
+    RecordingEdit? initialEdit;
+    if (draft != null && draft.hasEdits) {
+      initialEdit = RecordingEdit(recording.duration.inMilliseconds / 1000.0)
+        ..restore(trimStart: draft.trimStart, trimEnd: draft.trimEnd, cuts: draft.cuts);
     }
 
     // Editor first (trim, cut, background), then the Export dialog. If the
@@ -354,7 +395,15 @@ class StudioSaveService implements FileSaveService {
       destination = await navigator.push<String>(
         MaterialPageRoute(
           fullscreenDialog: true,
-          builder: (_) => EditorScreen(recording: recording, onExport: exportDialog),
+          builder: (_) => EditorScreen(
+            recording: recording,
+            onExport: exportDialog,
+            initialEdit: initialEdit,
+            ownsInitialEdit: true,
+            onSaveDraft: draft == null
+                ? null
+                : (edit) => drafts.saveEdits(draft.id, trimStart: edit.trimStart, trimEnd: edit.trimEnd, cuts: edit.cuts),
+          ),
         ),
       );
     } catch (error, stack) {
@@ -363,10 +412,21 @@ class StudioSaveService implements FileSaveService {
     }
     if (destination != null) {
       RecordingLibrary.instance.markSaved(destination);
+      if (draft != null) await drafts.markExported(draft.id, destination);
+      try {
+        await FileLastSavePathStore().remember(destination);
+      } catch (_) {}
     }
     return destination;
   }
 
+  static String _defaultName(DateTime t) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return 'recording_${t.year}${two(t.month)}${two(t.day)}_${two(t.hour)}${two(t.minute)}${two(t.second)}';
+  }
+
+  /// Writes the export to the chosen folder. The recording itself (the draft)
+  /// is never changed, so it can be exported again.
   Future<String> _export(
     String source,
     LastRecording recording,
@@ -375,7 +435,7 @@ class StudioSaveService implements FileSaveService {
     await Directory(settings.folder).create(recursive: true);
     final destination = uniqueDestination(settings.folder, settings.fileName);
     final stamp = DateTime.now().millisecondsSinceEpoch;
-    final temp = p.join(p.dirname(source), 'export_$stamp.mp4');
+    final temp = p.join(p.dirname(destination), '.export_$stamp.mp4');
 
     BackgroundLayout? layout;
     String? framePath;
@@ -383,7 +443,7 @@ class StudioSaveService implements FileSaveService {
       final (w, h) = await _videoSize(source, recording);
       final (outW, outH) = exportOutputSize(w, h, settings.resolution);
       layout = layoutBackground(outW, outH, settings.background);
-      framePath = p.join(p.dirname(source), 'background_$stamp.png');
+      framePath = p.join(Directory.systemTemp.path, 'screen_recorder_background_$stamp.png');
       await File(framePath).writeAsBytes(
         await renderBackgroundFrame(layout, settings.background),
       );
@@ -403,11 +463,14 @@ class StudioSaveService implements FileSaveService {
         AppLogger.info('Export: ffmpeg ${args.join(' ')}');
         final result = await runner.run(ffmpegExecutable, args);
         if (result.exitCode != 0 || !await File(temp).exists()) {
+          try {
+            await File(temp).delete();
+          } catch (_) {}
           throw ExportFailure(result.stderr.toString());
         }
-        // Replace the produced file so the controller saves the new version.
-        await File(source).delete();
-        await File(temp).rename(source);
+        await File(temp).rename(destination);
+      } else {
+        await File(source).copy(destination);
       }
     } finally {
       if (framePath != null) {

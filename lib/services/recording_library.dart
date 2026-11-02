@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import 'app_logger.dart';
+import 'draft_store.dart';
 import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
 
@@ -17,7 +18,11 @@ class LastRecording {
     required this.hasAudio,
     this.originalPath,
     this.focusSeconds,
+    this.draftId,
   });
+
+  /// The draft this recording is kept as (see DraftStore), if any.
+  final String? draftId;
 
   /// Video that will be saved (auto-zoomed when zoom applied).
   final String finalPath;
@@ -94,6 +99,25 @@ class RecordingLibrary extends ChangeNotifier {
     _last = created;
     notifyListeners();
     return created;
+  }
+
+  /// Makes [draft] the current recording (for the editor and the home preview).
+  LastRecording openDraft(Draft draft) {
+    final current = _last;
+    if (current != null && current.draftId == draft.id) return current;
+    final rec = LastRecording(
+      finalPath: draft.videoPath,
+      originalPath: draft.hasOriginal ? draft.originalPath : null,
+      width: draft.width,
+      height: draft.height,
+      duration: draft.duration,
+      hasAudio: draft.hasAudio,
+      focusSeconds: draft.focusSeconds,
+      draftId: draft.id,
+    )..savedPath = draft.exportedTo.isEmpty ? null : draft.exportedTo.last;
+    _last = rec;
+    notifyListeners();
+    return rec;
   }
 
   void markSaved(String path) {

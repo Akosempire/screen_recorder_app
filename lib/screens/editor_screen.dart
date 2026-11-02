@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../services/app_folders.dart';
 import '../services/pro_service.dart';
 import '../services/recording_background.dart';
 import '../services/recording_edit.dart';
@@ -17,15 +18,18 @@ import '../ui/studio_theme.dart';
 import '../ui/studio_widgets.dart';
 import 'upgrade_dialog.dart';
 
-/// Shown right after a recording stops: trim the ends, cut out sections,
-/// pick a background, then export. Nothing changes until export.
+/// Shown right after a recording stops (and when a recording is opened from
+/// Recordings): play it, trim the ends, cut out sections, pick a background,
+/// then export, or save it as a draft to finish later.
 class EditorScreen extends StatefulWidget {
   const EditorScreen({
     super.key,
     required this.recording,
     required this.onExport,
     this.initialEdit,
+    this.ownsInitialEdit = false,
     this.playback = true,
+    this.onSaveDraft,
   });
 
   final LastRecording recording;
@@ -34,8 +38,15 @@ class EditorScreen extends StatefulWidget {
   /// returns the saved path, or null if the dialog was cancelled.
   final Future<String?> Function(List<EditRange>? segments) onExport;
 
-  /// For demos and tests.
+  /// Edits to start from (a draft's saved trims and cuts, demos, tests).
   final RecordingEdit? initialEdit;
+
+  /// Dispose [initialEdit] with the editor (it was made just for it).
+  final bool ownsInitialEdit;
+
+  /// Keeps the trims and cuts with the draft. Called by "Save as draft" and
+  /// whenever the editor closes without exporting. Null: no draft (Close).
+  final Future<void> Function(RecordingEdit edit)? onSaveDraft;
 
   /// Play the video (with sound). Off in tests, which have no media engine.
   final bool playback;
@@ -52,6 +63,8 @@ class _EditorScreenState extends State<EditorScreen> {
   Timer? _debounce;
   int _request = 0;
   bool _exporting = false;
+  bool _exported = false;
+  bool _draftSaved = false;
 
   // Playback (media_kit). Play follows the edits: it skips cuts and stops at
   // the end trim, so you watch exactly what will be exported.
@@ -78,13 +91,19 @@ class _EditorScreenState extends State<EditorScreen> {
 
   @override
   void dispose() {
+    // Closed some other way (window closed, Esc): still keep the edits.
+    final save = widget.onSaveDraft;
+    if (save != null && !_draftSaved && !_exported) {
+      unawaited(save(RecordingEdit(_edit.duration)
+        ..restore(trimStart: _edit.trimStart, trimEnd: _edit.trimEnd, cuts: _edit.cuts)));
+    }
     _debounce?.cancel();
     for (final sub in _subs) {
       sub.cancel();
     }
     _player?.dispose();
     _edit.removeListener(_onEdit);
-    if (widget.initialEdit == null) _edit.dispose();
+    if (widget.initialEdit == null || widget.ownsInitialEdit) _edit.dispose();
     super.dispose();
   }
 
@@ -135,7 +154,16 @@ class _EditorScreenState extends State<EditorScreen> {
 
   Future<void> _togglePlay() async {
     final player = _player;
-    if (player == null) return;
+    if (player == null) {
+      // No built-in player on this computer: use the system's video player.
+      final opened = await openWithDefaultApp(_rec.finalPath);
+      if (!opened && mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('This recording could not be played here. Export it to watch it in your video player.')),
+        );
+      }
+      return;
+    }
     if (_playing) {
       await player.pause();
       return;
@@ -199,7 +227,12 @@ class _EditorScreenState extends State<EditorScreen> {
     String? destination;
     try {
       destination = await widget.onExport(_edit.exportSegments);
-      if (destination != null && mounted) Navigator.of(context).pop(destination);
+      if (destination != null) {
+        _exported = true;
+        // Remember the edits too, so exporting again starts from them.
+        await widget.onSaveDraft?.call(_edit);
+        if (mounted) Navigator.of(context).pop(destination);
+      }
     } finally {
       if (mounted) {
         if (destination == null && widget.playback) _startPlayer();
@@ -255,7 +288,18 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
+  Future<void> _saveDraft() async {
+    final save = widget.onSaveDraft;
+    if (save != null) {
+      await _releasePlayer();
+      await save(_edit);
+      _draftSaved = true;
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
   Widget _header() {
+    final draft = widget.onSaveDraft != null;
     return SizedBox(
       height: 64,
       child: Padding(
@@ -264,15 +308,17 @@ class _EditorScreenState extends State<EditorScreen> {
           children: [
             const Icon(Icons.content_cut, size: 20, color: Studio.ink),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Edit your recording', style: StudioText.title, overflow: TextOverflow.ellipsis),
-                  SizedBox(height: 2),
+                  const Text('Edit your recording', style: StudioText.title, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
                   Text(
-                    'Trim the ends, cut out mistakes and pick a background. Your recording is only changed when you export.',
+                    draft
+                        ? 'Saved in Recordings. Play it, trim and cut, then export now, or save it as a draft and finish later.'
+                        : 'Trim the ends, cut out mistakes and pick a background. Your recording is only changed when you export.',
                     style: StudioText.caption,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -280,10 +326,19 @@ class _EditorScreenState extends State<EditorScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            StudioSecondaryButton(
-              label: 'Close',
-              onPressed: _exporting ? null : () => Navigator.of(context).pop(),
-            ),
+            if (draft)
+              Tooltip(
+                message: 'Keep this recording and your edits in Recordings, and export later',
+                child: StudioSecondaryButton(
+                  label: 'Save as draft',
+                  onPressed: _exporting ? null : _saveDraft,
+                ),
+              )
+            else
+              StudioSecondaryButton(
+                label: 'Close',
+                onPressed: _exporting ? null : _saveDraft,
+              ),
             const SizedBox(width: 10),
             StudioPrimaryButton(
               label: 'Export…',
@@ -339,10 +394,26 @@ class _EditorScreenState extends State<EditorScreen> {
                   if (inCut && !_playing)
                     const ColoredBox(
                       color: Color(0x99000000),
-                      child: Center(
+                      child: Align(
+                        alignment: Alignment(0, 0.55),
                         child: StudioBadge('Cut: this part won’t be in the export'),
                       ),
                     ),
+                  // Click the video to play or pause, like any video player.
+                  Positioned.fill(
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _exporting ? null : _togglePlay,
+                        child: AnimatedOpacity(
+                          opacity: _playing ? 0 : 1,
+                          duration: const Duration(milliseconds: 160),
+                          child: Center(child: _BigPlayButton(external: _player == null)),
+                        ),
+                      ),
+                    ),
+                  ),
                   Positioned(left: 10, bottom: 10, child: StudioBadge(_clock(_edit.playhead, tenths: true))),
                 ],
               ),
@@ -373,15 +444,15 @@ class _EditorScreenState extends State<EditorScreen> {
     final kept = _edit.keptDuration;
     return Row(
       children: [
-        if (_player != null) ...[
-          StudioPill(
-            icon: _playing ? Icons.pause : Icons.play_arrow,
-            label: _playing ? 'Pause' : 'Play',
-            tooltip: 'Play the edited video, skipping cuts (Space)',
-            onTap: _togglePlay,
-          ),
-          const SizedBox(width: 8),
-        ],
+        StudioPill(
+          icon: _playing ? Icons.pause : Icons.play_arrow,
+          label: _playing ? 'Pause' : 'Play',
+          tooltip: _player == null
+              ? 'Open the recording in your video player'
+              : 'Play the edited video, skipping cuts (Space)',
+          onTap: _exporting ? null : _togglePlay,
+        ),
+        const SizedBox(width: 8),
         StudioPill(
           icon: Icons.content_cut,
           label: 'Add cut',
@@ -413,6 +484,38 @@ class _EditorScreenState extends State<EditorScreen> {
           style: const TextStyle(fontSize: 13.5, fontFeatures: [FontFeature.tabularFigures()]),
         ),
       ],
+    );
+  }
+}
+
+/// The round play button over the preview.
+class _BigPlayButton extends StatelessWidget {
+  const _BigPlayButton({required this.external});
+
+  /// The built-in player isn't available: playing opens the system player.
+  final bool external;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: external ? 'Play in your video player' : 'Play (Space)',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              color: const Color(0xE6FFFFFF),
+              shape: BoxShape.circle,
+              boxShadow: Studio.raised,
+            ),
+            child: const Icon(Icons.play_arrow_rounded, size: 44, color: Studio.ink),
+          ),
+          const SizedBox(height: 8),
+          StudioBadge(external ? 'Play in video player' : 'Play recording'),
+        ],
+      ),
     );
   }
 }

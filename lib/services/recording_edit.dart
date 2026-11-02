@@ -69,6 +69,18 @@ class RecordingEdit extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Puts back trims and cuts saved with a draft (values are clamped).
+  void restore({double? trimStart, double? trimEnd, List<EditRange> cuts = const []}) {
+    _trimStart = (trimStart ?? 0).clamp(0.0, duration).toDouble();
+    _trimEnd = (trimEnd ?? duration).clamp(_trimStart, duration).toDouble();
+    _cuts
+      ..clear()
+      ..addAll(cuts.where((c) => c.end - c.start >= minPiece && c.start >= 0 && c.end <= duration + 0.001))
+      ..sort((a, b) => a.start.compareTo(b.start));
+    _playhead = _playhead.clamp(_trimStart, _trimEnd).toDouble();
+    notifyListeners();
+  }
+
   /// Adds a cut around the playhead (2 s, or a tenth of the video if shorter).
   /// Returns its index, or -1 when there is no room.
   int addCutAtPlayhead() {

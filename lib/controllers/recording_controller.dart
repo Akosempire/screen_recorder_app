@@ -263,6 +263,21 @@ class RecordingController extends ChangeNotifier {
     }
 
     _pendingSavePath = null;
+    if (_fileSaveService is SelfSavingFileService) {
+      // The editor kept the recording as a draft and wrote any export itself.
+      _unsavedPath = null;
+      if (destination == null || destination.isEmpty) {
+        _outputPath = null;
+        _statusDetail = 'Saved as a draft. Open it any time from Recordings to edit and export.';
+        AppLogger.info('Editor closed; recording kept as a draft');
+      } else {
+        await _lastSavePathStore.remember(destination);
+        _outputPath = destination;
+        _statusDetail = 'Saved to $destination';
+      }
+      _setState(RecordingState.completed);
+      return;
+    }
     if (destination == null || destination.isEmpty) {
       _unsavedPath = produced;
       _outputPath = produced;

@@ -10,6 +10,10 @@ abstract class FileSaveService {
   });
 }
 
+/// A save service that writes the chosen file itself and keeps the recording
+/// as a draft, so the controller must not move the recording afterwards.
+abstract class SelfSavingFileService implements FileSaveService {}
+
 class LinuxFileSaveService implements FileSaveService {
   const LinuxFileSaveService();
 

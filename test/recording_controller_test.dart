@@ -67,6 +67,9 @@ class FakeSaveService implements FileSaveService {
   }
 }
 
+/// Like the real editor: keeps the recording as a draft and writes exports itself.
+class FakeDraftSaveService extends FakeSaveService implements SelfSavingFileService {}
+
 class FakeStorage implements RecordingStorage {
   final Set<String> files;
   String? persistedSource;
@@ -96,7 +99,7 @@ class FileSystemFailure implements Exception {
 
 RecordingController buildController({
   FakeScreenRecorder? recorder,
-  FakeSaveService? save,
+  FileSaveService? save,
   FakeStorage? storage,
   LastSavePathStore? lastSavePathStore,
 }) {
@@ -193,6 +196,29 @@ void main() {
     expect(controller.unsavedPath, '/tmp/fake-recording.mp4');
     expect(storage.persistedDestination, isNull);
     expect(controller.statusDetail, contains('kept at'));
+  });
+
+  test('with drafts, closing the editor keeps the recording and moves nothing', () async {
+    for (final exported in [null, '/home/user/Videos/demo.mp4']) {
+      final save = FakeDraftSaveService()..path = exported;
+      final storage = FakeStorage();
+      final store = MemoryLastSavePathStore();
+      final controller = buildController(save: save, storage: storage, lastSavePathStore: store);
+      controller.beginSelection();
+      controller.updateReadyRegion(const ScreenRegion(x: 0, y: 0, width: 400, height: 400));
+      await controller.startRecording();
+      await controller.stopAndSave();
+
+      expect(controller.state, RecordingState.completed);
+      expect(storage.persistedDestination, isNull, reason: 'the editor already wrote the file');
+      expect(controller.unsavedPath, isNull);
+      if (exported == null) {
+        expect(controller.statusDetail, contains('Saved as a draft'));
+      } else {
+        expect(controller.outputPath, exported);
+        expect(await store.lastDirectory(), '/home/user/Videos');
+      }
+    }
   });
 
   test('opens the save dialog in the last saved folder', () async {

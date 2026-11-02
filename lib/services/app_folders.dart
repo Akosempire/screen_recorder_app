@@ -53,3 +53,19 @@ Future<void> revealInFileManager(String file) async {
     }
   } catch (_) {}
 }
+
+/// Opens [file] in its default app (e.g. the system video player).
+Future<bool> openWithDefaultApp(String file) async {
+  try {
+    if (Platform.isWindows) {
+      await Process.start('explorer.exe', [file]);
+    } else if (Platform.isMacOS) {
+      await Process.start('open', [file]);
+    } else {
+      await Process.start('xdg-open', [file]);
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
