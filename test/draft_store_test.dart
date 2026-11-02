@@ -122,6 +122,9 @@ void main() {
       duration: const Duration(seconds: 20),
       hasAudio: true,
     );
+    final previous = RecordingLibrary.instance.runner;
+    RecordingLibrary.instance.runner = const _NoFfmpeg(); // no preview frames in tests
+    addTearDown(() => RecordingLibrary.instance.runner = previous);
     final edit = RecordingEdit(20)..playhead = 10;
     RecordingEdit? saved;
     var closed = false;
