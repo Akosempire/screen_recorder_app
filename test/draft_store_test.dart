@@ -160,6 +160,8 @@ void main() {
     expect(saved, isNotNull);
     expect(saved!.cuts, hasLength(1));
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets('Recordings shelf lists drafts and opens one', (tester) async {
@@ -191,5 +193,7 @@ void main() {
     await tester.tap(find.text('Draft'));
     expect(opened, isNotNull);
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
   });
 }
