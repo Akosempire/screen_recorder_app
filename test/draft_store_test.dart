@@ -151,7 +151,7 @@ void main() {
     await tester.pump(); // the new route's first frame is off-stage
     await tester.pump(const Duration(milliseconds: 400));
     expect(tester.takeException(), isNull);
-    expect(find.text('Play in video player'), findsOneWidget, reason: 'no built-in player in tests');
+    expect(find.text('Play recording'), findsOneWidget);
     expect(find.text('Play'), findsOneWidget);
     expect(find.text('Save as draft'), findsOneWidget);
 

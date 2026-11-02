@@ -140,6 +140,13 @@ class DraftStore extends ChangeNotifier {
   List<Draft> _drafts = [];
   bool _loaded = false;
 
+  /// Points the store at another folder (screenshot demos).
+  void useRoot(Directory dir) {
+    _root = dir;
+    _loaded = false;
+    _drafts = [];
+  }
+
   /// Where drafts live (in the app's settings folder).
   Directory? get root {
     if (_root != null) return _root;

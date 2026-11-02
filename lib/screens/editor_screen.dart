@@ -409,7 +409,7 @@ class _EditorScreenState extends State<EditorScreen> {
                         child: AnimatedOpacity(
                           opacity: _playing ? 0 : 1,
                           duration: const Duration(milliseconds: 160),
-                          child: Center(child: _BigPlayButton(external: _player == null)),
+                          child: Center(child: _BigPlayButton(external: widget.playback && _player == null)),
                         ),
                       ),
                     ),
@@ -447,7 +447,7 @@ class _EditorScreenState extends State<EditorScreen> {
         StudioPill(
           icon: _playing ? Icons.pause : Icons.play_arrow,
           label: _playing ? 'Pause' : 'Play',
-          tooltip: _player == null
+          tooltip: widget.playback && _player == null
               ? 'Open the recording in your video player'
               : 'Play the edited video, skipping cuts (Space)',
           onTap: _exporting ? null : _togglePlay,
