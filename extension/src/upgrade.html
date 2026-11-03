@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Screen Recorder Pro</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+main{max-width:640px;margin:8vh auto 40px;padding:0 16px}
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+.plan{border:2px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;background:var(--bg);text-align:left;color:var(--ink)}
+.plan[aria-pressed="true"]{border-color:var(--ink)}
+.plan b{font-size:15px}
+.plan .price{font-size:28px;font-weight:700;letter-spacing:-.02em;margin:6px 0 2px}
+.plan small{color:var(--mute)}
+.badge{display:inline-block;background:var(--halo);color:#000;font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;margin-left:6px}
+form{display:grid;gap:10px}
+label{font-size:13px;font-weight:600;display:grid;gap:5px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.card{background:var(--panel);border-radius:14px;padding:18px;margin-top:16px}
+.key{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;letter-spacing:.04em}
+[hidden]{display:none!important}
+@media (max-width:520px){.plans{grid-template-columns:1fr}}
+</style>
+<body>
+<main>
+  <div class="brand"><img src="icons/icon48.png" alt="" width="28" height="28">Screen Recorder</div>
+
+  <section id="buy">
+    <h1>Go Pro. Record without limits.</h1>
+    <p class="muted">Every feature works in the trial for recordings up to 3 minutes. Pro removes the limit, in the extension and the desktop app.</p>
+    <div class="plans">
+      <button class="plan" data-plan="monthly" aria-pressed="false"><b>Monthly</b><div class="price">$5</div><small>a month · cancel any time</small></button>
+      <button class="plan" data-plan="lifetime" aria-pressed="true"><b>Lifetime</b><span class="badge">Best value</span><div class="price">$50</div><small>once · yours forever</small></button>
+    </div>
+    <form id="form" novalidate>
+      <label>Your name<input type="text" name="name" autocomplete="name" maxlength="80" required></label>
+      <label>Email (for your receipt and licence key)<input type="email" name="email" autocomplete="email" maxlength="160" required></label>
+      <div class="row"><button class="primary" type="submit" id="pay">Continue to payment</button><span class="muted small">Secure checkout by Bachs. Cards and more.</span></div>
+      <p class="msg" id="buy-msg" role="alert"></p>
+    </form>
+    <div class="card">
+      <b>Already paid?</b>
+      <p class="muted small" style="margin:4px 0 10px">Enter the licence key from your email or the desktop app (SR-XXXX-XXXX-XXXX-XXXX).</p>
+      <div class="row"><input type="text" id="key" placeholder="SR-XXXX-XXXX-XXXX-XXXX" style="max-width:320px" autocomplete="off"><button class="secondary" id="activate">Activate</button></div>
+      <p class="msg" id="key-msg" role="alert"></p>
+    </div>
+  </section>
+
+  <section id="waiting" hidden>
+    <h1>Finish paying in the other tab</h1>
+    <p class="muted">This page unlocks Pro by itself as soon as the payment goes through.</p>
+    <div class="row"><button class="secondary" id="reopen">Open the payment page again</button><button class="ghost" id="cancel">Cancel</button></div>
+  </section>
+
+  <section id="pro" hidden>
+    <h1>You're on Pro 🎉</h1>
+    <p class="muted" id="pro-plan"></p>
+    <div class="card">
+      <div class="muted small">Licence key (also works in the desktop app)</div>
+      <div class="key" id="pro-key"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="secondary" id="manage" hidden>Manage subscription</button>
+        <button class="ghost" id="remove">Remove from this browser</button>
+      </div>
+      <p class="msg" id="pro-msg" role="alert"></p>
+    </div>
+  </section>
+</main>
+<script type="module" src="upgrade.js"></script>
+</body>
+</html>

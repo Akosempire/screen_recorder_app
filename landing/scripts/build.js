@@ -24,7 +24,9 @@ const refs = new Set([...html.matchAll(/(?:src|href)="(\/[^"#?]+)"/g)].map((m) =
 let assets = 0;
 for (const ref of refs) {
   if (ref.startsWith('/api/')) continue;
-  if (!fs.existsSync(path.join(root, ref))) fail(`index.html references missing ${ref}`);
+  // Clean URLs: /privacy is served from privacy.html.
+  const file = path.extname(ref) ? ref : `${ref}.html`;
+  if (!fs.existsSync(path.join(root, file))) fail(`index.html references missing ${ref}`);
   else assets++;
 }
 console.log(`✓ index.html: ${assets} local assets found`);
@@ -63,9 +65,10 @@ fs.mkdirSync(out);
 fs.copyFileSync(path.join(root, 'index.html'), path.join(out, 'index.html'));
 fs.copyFileSync(path.join(root, 'pro.html'), path.join(out, 'pro.html'));
 fs.copyFileSync(path.join(root, 'admin.html'), path.join(out, 'admin.html'));
+fs.copyFileSync(path.join(root, 'privacy.html'), path.join(out, 'privacy.html'));
 fs.cpSync(path.join(root, 'assets'), path.join(out, 'assets'), { recursive: true });
 for (const name of ['robots.txt', 'sitemap.xml', 'llms.txt']) {
   if (fs.existsSync(path.join(root, name))) fs.copyFileSync(path.join(root, name), path.join(out, name));
 }
-console.log('✓ copied index.html, pro.html, admin.html, assets/, robots.txt, sitemap.xml and llms.txt to public/');
+console.log('✓ copied index.html, pro.html, admin.html, privacy.html, assets/, robots.txt, sitemap.xml and llms.txt to public/');
 console.log('build ok');

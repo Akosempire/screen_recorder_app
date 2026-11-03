@@ -35,7 +35,7 @@
    "description": "Desktop screen recorder for Windows, Mac, Linux and Android that highlights the cursor and every click, automatically zooms in where you click, and adds a webcam bubble. Trim, cut, add backgrounds and export to MP4. Everything stays on your computer.",
    "applicationCategory": "MultimediaApplication",
    "applicationSubCategory": "Screen recorder",
-   "operatingSystem": "Windows 10 (1809+), Windows 11, macOS 10.15+, Linux (64-bit), Android 10+",
+   "operatingSystem": "Windows 10 (1809+), Windows 11, macOS 10.15+, Linux (64-bit), Android 10+, Chrome / Edge / Brave (extension)",
    "image": "https://www.screenrecorderapp.cv/assets/real/app-compare.webp",
    "screenshot": "https://www.screenrecorderapp.cv/assets/real/app-compare.webp",
    "downloadUrl": "https://www.screenrecorderapp.cv/#get",
@@ -172,6 +172,14 @@
      "acceptedAnswer": {
       "@type": "Answer",
       "text": "Yes. Pick Mac or Linux in the download window. Everything works on both: the cursor halo and click ripples, auto-zoom, the face camera, backgrounds and the editor. On Linux, the live effects and auto-zoom need an X11 session (Wayland only records)."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Is there a browser extension?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Yes, for Chrome, Edge and Brave. It records a tab, a window or your whole screen with your voice and face, shows click highlights on web pages, keeps every recording as a draft, and lets you trim and download MP4. It uses the same Pro licence as the app. Get the extension."
      }
     }
    ]
@@ -348,6 +356,16 @@ h2 .serif{letter-spacing:-.03em}
 /* ---------- get it (blue band) ---------- */
 .get{padding:110px 0 120px;background:linear-gradient(180deg,#fff 0%,var(--sky) 28%,var(--blue) 52%,var(--navy) 72%,#fff 100%)}
 .get .lead{color:var(--ink-2)}
+.browser{max-width:420px;margin:16px auto 0;display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:16px 18px;text-align:left}
+.browser svg{flex:none}
+.browser b{display:block;font-size:15px;letter-spacing:-.01em}
+.browser p{font-size:13.5px;color:var(--mute);line-height:1.4;margin-top:2px}
+.browser a.ext{margin-left:auto;flex:none;background:#000;color:#fff;text-decoration:none;font-weight:600;font-size:13.5px;padding:10px 14px;border-radius:12px;white-space:nowrap}
+.browser a.ext:hover{transform:scale(1.03)}
+.browser details{font-size:12.5px;color:var(--mute);margin-top:6px}
+.browser summary{cursor:pointer;color:var(--blue)}
+.browser ol{margin:6px 0 0 18px;line-height:1.5}
+@media (max-width:520px){.browser{flex-wrap:wrap}.browser a.ext{margin-left:0}}
 .card{position:relative;max-width:420px;margin:56px auto 0;background:#F6F6F6;border-radius:32px;padding:44px 22px 22px;box-shadow:0 40px 80px -30px rgba(10,0,80,.5)}
 .card .tab{position:absolute;top:0;left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:13px;font-weight:600;padding:7px 14px 8px;border-radius:0 0 14px 14px;display:flex;align-items:center;gap:8px;white-space:nowrap;width:max-content}
 .card .tab img{width:18px;height:18px;border-radius:5px}
@@ -704,6 +722,15 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
       </ul>
       <button type="button" class="btn open-get" style="margin-top:20px"><span class="dot" aria-hidden="true"></span><span>Download for <span class="os-name">Windows</span></span></button>
     </div>
+    <div class="browser reveal" id="extension">
+      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><rect x="1" y="1" width="38" height="38" rx="11" fill="#000"/><rect x="8" y="10" width="24" height="20" rx="4" fill="none" stroke="#fff" stroke-width="2"/><path d="M8 15h24" stroke="#fff" stroke-width="2"/><circle cx="11.5" cy="12.5" r="1" fill="#fff"/><circle cx="14.5" cy="12.5" r="1" fill="#fff"/><circle cx="20" cy="23" r="3.6" fill="#E5483B"/></svg>
+      <div>
+        <b>Or record from your browser</b>
+        <p>Screen Recorder for Chrome, Edge and Brave: record a tab, a window or your screen, with click highlights and your camera.</p>
+        <details><summary>How to install</summary><ol><li>Download the extension and unzip it.</li><li>Open <b>chrome://extensions</b> and turn on <b>Developer mode</b>.</li><li>Click <b>Load unpacked</b> and choose the unzipped folder.</li></ol></details>
+      </div>
+      <a class="ext" id="ext-link" href="https://github.com/Akosempire/screen_recorder_app/releases/latest/download/ScreenRecorder-Chrome-Extension.zip">Get extension</a>
+    </div>
   </div>
 </section>
 
@@ -933,6 +960,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Can I record my microphone?</button><div class="a"><div><p>Yes. Turn on Mic before you start. You can keep or remove the sound when you export.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>What do I need?</button><div class="a"><div><p>A 64-bit computer with Windows 10 (version 1809 or newer) or Windows 11; macOS 10.15 or newer (Apple Silicon or Intel), including macOS 15; or 64-bit Linux such as Ubuntu 22.04+, Debian 12+ or Fedora 38+. On phones and tablets, Android 10 or newer. 32-bit computers are not supported. A webcam and microphone are optional. <a href="#requirements">See all requirements</a>.</p></div></div></div>
       <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Is there a Mac or Linux version?</button><div class="a"><div><p>Yes. Pick Mac or Linux in the download window. Everything works on both: the cursor halo and click ripples, auto-zoom, the face camera, backgrounds and the editor. On Linux, the live effects and auto-zoom need an X11 session (Wayland only records).</p></div></div></div>
+      <div class="qa reveal"><button type="button" aria-expanded="false"><span class="pm" aria-hidden="true"></span>Is there a browser extension?</button><div class="a"><div><p>Yes, for Chrome, Edge and Brave. It records a tab, a window or your whole screen with your voice and face, shows click highlights on web pages, keeps every recording as a draft, and lets you trim and download MP4. It uses the same Pro licence as the app. <a href="#extension">Get the extension</a>.</p></div></div></div>
     </div>
   </div>
 </section>
@@ -949,7 +977,7 @@ footer{color:#fff;padding:70px 0 0;overflow:hidden}
         <a class="dlw" href="#get"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Download for <span class="os-name">Windows</span></span></a>
       </div>
       <div><h4>Menu</h4><a class="l" href="#top">Home</a><a class="l" href="#features">Features</a><a class="l" href="#uses">Use cases</a><a class="l" href="#pricing">Pricing</a><a class="l" href="#requirements">Requirements</a><a class="l" href="#faq">FAQ</a><a class="l" href="#get">Download</a></div>
-      <div><h4>More</h4><a class="l" href="#pricing">Pricing</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app" target="_blank" rel="noopener">Source code</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app/releases" target="_blank" rel="noopener">Release notes</a></div>
+      <div><h4>More</h4><a class="l" href="#pricing">Pricing</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app" target="_blank" rel="noopener">Source code</a><a class="l" href="https://github.com/Akosempire/screen_recorder_app/releases" target="_blank" rel="noopener">Release notes</a><a class="l" href="/privacy">Privacy</a></div>
     </div>
     <div class="legal"><span>Screen Recorder for Windows, Mac and Linux</span><span>Record only what you have the right to share.</span></div>
   </div>
@@ -1160,6 +1188,20 @@ document.querySelectorAll('.req-link').forEach(a => a.addEventListener('click', 
   const dlg = document.getElementById('get-dialog');
   if (dlg && dlg.open) dlg.close();
 }));
+
+// Chrome extension: once it's on the Chrome Web Store, put the listing URL
+// here and the button becomes "Add to Chrome" (no manual install steps).
+(function(){
+  const STORE_URL = '';
+  const link = document.getElementById('ext-link');
+  if (!link || !STORE_URL) return;
+  link.href = STORE_URL;
+  link.textContent = 'Add to Chrome';
+  link.target = '_blank';
+  link.rel = 'noopener';
+  const how = link.parentElement.querySelector('details');
+  if (how) how.remove();
+})();
 
 // Pricing: US dollars, checkout on Bachs.
 (function(){

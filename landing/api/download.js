@@ -12,6 +12,7 @@ export const FILES = {
   'linux-appimage': 'ScreenRecorder-Linux-x64.AppImage',
   android: 'ScreenRecorder-Android.apk',
   'android-32': 'ScreenRecorder-Android-32bit.apk',
+  chrome: 'ScreenRecorder-Chrome-Extension.zip',
 };
 
 export function fileUrl(os) {

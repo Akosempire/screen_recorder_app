@@ -4,6 +4,8 @@
 
 Website: https://www.screenrecorderapp.cv/
 Download: https://www.screenrecorderapp.cv/#get
+Browser extension: https://www.screenrecorderapp.cv/#extension
+Privacy: https://www.screenrecorderapp.cv/privacy
 Pricing: https://www.screenrecorderapp.cv/#pricing
 System requirements: https://www.screenrecorderapp.cv/#requirements
 FAQ: https://www.screenrecorderapp.cv/#faq
@@ -43,6 +45,7 @@ FAQ: https://www.screenrecorderapp.cv/#faq
 - macOS 10.15 Catalina or newer, including macOS 15 Sequoia and later; Apple Silicon and Intel. Download: ScreenRecorder-macOS.dmg.
 - Linux, 64-bit (x86_64): a .deb for Ubuntu 24.04+ and Debian 13+, and an AppImage for Ubuntu 22.04, Debian 12, Linux Mint 21+, Fedora 38+ and most others. Live effects and auto-zoom need an X11 session; on Wayland it records only.
 - Android 10 or newer phones and tablets: an APK from the website (ScreenRecorder-Android.apk, plus a 32-bit version for older phones). Records the screen and sound and saves to the Gallery; same Pro licence.
+- Browser extension for Chrome, Edge and Brave: records a tab, a window or the whole screen with microphone and webcam bubble, cursor halo and click ripples on web pages, keeps every recording as a draft, trims and downloads MP4 (H.264). Same Pro licence as the app.
 - Not supported: 32-bit computers, Windows 7/8/8.1, macOS 10.14 and older, Linux on ARM, iPhone and iPad, Android 9 and older.
 - A webcam and microphone are optional.
 

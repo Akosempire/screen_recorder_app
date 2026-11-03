@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Camera</title>
+<style>
+html,body{margin:0;height:100%;background:#222;overflow:hidden;font:600 12px system-ui,sans-serif;color:#ddd}
+video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+p[hidden],video[hidden]{display:none!important}
+p{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;margin:0}
+</style>
+<video autoplay muted playsinline></video>
+<p hidden>Camera is off. Allow it from the Screen Recorder button.</p>
+<script src="camera.js"></script>

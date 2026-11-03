@@ -1,0 +1,4 @@
+node_modules/
+dist/
+screen-recorder-extension.zip
+test-output/

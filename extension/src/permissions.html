@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Allow microphone and camera · Screen Recorder</title>
+<link rel="stylesheet" href="ui.css">
+<body class="page">
+<main class="narrow">
+  <div class="brand"><img src="icons/icon48.png" alt="" width="28" height="28">Screen Recorder</div>
+  <h1>Allow your <span id="what">microphone</span></h1>
+  <p class="muted">Chrome asks once. Click <b>Allow</b> in the box at the top of this page. You can change it later in Chrome's site settings for this extension.</p>
+  <p><button class="primary" id="ask">Ask again</button></p>
+  <p class="msg" id="msg" role="status"></p>
+</main>
+<script type="module" src="permissions.js"></script>
+</body>
+</html>

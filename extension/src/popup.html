@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Screen Recorder</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+body{width:340px;padding:14px 14px 10px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.pro{border:0;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;background:var(--halo);color:#000}
+.pro.on{background:var(--panel-2);color:var(--ink)}
+.opts{margin:10px 0 4px}
+.start{width:100%;padding:13px;font-size:15px;margin-top:8px}
+.start .dot{width:10px;height:10px;border-radius:50%;background:var(--rec)}
+.limit{font-size:12px;color:var(--mute);text-align:center;margin:8px 0 0}
+.live{text-align:center;padding:6px 0 4px}
+.live .time{font-size:34px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:center;gap:10px}
+.live .time i{width:12px;height:12px;border-radius:50%;background:var(--rec);animation:p 1.2s infinite}
+.live.paused .time i{animation:none;background:var(--faint)}
+@keyframes p{50%{opacity:.35}}
+.live .row{display:grid;grid-template-columns:1fr 1.4fr auto;gap:6px;margin-top:12px}
+.recent{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.recent h2{font-size:12.5px;margin:0 0 6px;display:flex;justify-content:space-between;align-items:center}
+.recent h2 a{font-weight:600;color:var(--blue);text-decoration:none;cursor:pointer}
+.item{display:flex;gap:10px;align-items:center;padding:6px;border-radius:10px;cursor:pointer}
+.item:hover{background:var(--panel)}
+.item img,.item .ph{width:72px;height:41px;border-radius:6px;object-fit:cover;background:var(--panel-2);flex:none}
+.item b{display:block;font-size:12.5px}
+.item small{color:var(--mute);font-size:11.5px}
+.empty{font-size:12.5px;color:var(--mute);padding:4px 2px}
+.notice{margin-top:8px;font-size:12.5px;color:var(--err)}
+footer{margin-top:10px;font-size:11.5px;color:var(--faint);text-align:center}
+kbd{font:inherit;background:var(--panel-2);border-radius:4px;padding:1px 5px;color:var(--mute)}
+[hidden]{display:none!important}
+</style>
+<body>
+<header>
+  <div class="brand"><img src="icons/icon32.png" alt="" width="24" height="24">Screen Recorder</div>
+  <button class="pro" id="pro" hidden>Upgrade</button>
+</header>
+
+<section id="idle">
+  <div class="seg" role="group" aria-label="What to record">
+    <button id="src-tab" aria-pressed="true">This tab<small>with its sound</small></button>
+    <button id="src-desktop" aria-pressed="false">Window or screen<small>you choose</small></button>
+  </div>
+  <div class="opts">
+    <label class="switch"><span>Microphone<small>Record your voice</small></span><input type="checkbox" id="mic" checked></label>
+    <label class="switch"><span>Face camera<small>A bubble you can drag</small></span><input type="checkbox" id="camera"></label>
+    <label class="switch"><span>Cursor halo &amp; clicks<small>On web pages you visit</small></span><input type="checkbox" id="effects" checked></label>
+  </div>
+  <button class="primary start" id="start"><span class="dot"></span>Start recording</button>
+  <p class="limit" id="limit" hidden></p>
+</section>
+
+<section id="live" class="live" hidden>
+  <div class="time"><i></i><span id="clock">0:00</span></div>
+  <div class="muted small" id="live-what">Recording this tab</div>
+  <div class="row">
+    <button class="secondary" id="pause">Pause</button>
+    <button class="primary" id="stop">■ Finish</button>
+    <button class="danger" id="discard" title="Throw this recording away">✕</button>
+  </div>
+</section>
+
+<section id="saving" class="live" hidden>
+  <div class="time" style="font-size:18px">Saving your recording…</div>
+  <div class="muted small">The editor opens in a moment.</div>
+</section>
+
+<p class="notice" id="notice" hidden></p>
+
+<section class="recent">
+  <h2>Recordings <a id="all">All recordings →</a></h2>
+  <div id="list"></div>
+</section>
+<footer>Start or stop: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></footer>
+<script type="module" src="popup.js"></script>
+</body>
+</html>

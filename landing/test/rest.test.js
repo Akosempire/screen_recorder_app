@@ -181,5 +181,6 @@ test('download links point at the right file for each computer', async () => {
   assert.match(fileUrl('nonsense'), /ScreenRecorder-Setup\.exe$/);
   assert.match(fileUrl('linux-appimage'), /ScreenRecorder-Linux-x64\.AppImage$/);
   assert.match(fileUrl('android'), /ScreenRecorder-Android\.apk$/);
-  assert.equal(Object.keys(FILES).length, 7);
+  assert.match(fileUrl('chrome'), /ScreenRecorder-Chrome-Extension\.zip$/);
+  assert.equal(Object.keys(FILES).length, 8);
 });

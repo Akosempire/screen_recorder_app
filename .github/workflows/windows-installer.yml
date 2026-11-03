@@ -472,9 +472,47 @@ jobs:
           path: screenshots/
           if-no-files-found: ignore
 
+  extension:
+    name: Build Chrome extension
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg xvfb zip
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Build
+        run: npm run build
+      - name: Unit tests
+        run: node --test test/unit.test.js
+      - name: Record, edit and download in real Chromium
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! xvfb-run -a -s "-screen 0 1280x900x24" node test/e2e.js 2>&1 | tee e2e.txt; then
+            msg=$(grep -E "✗|crashed|Error" e2e.txt | head -20 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=Extension test failures::${msg}"
+            exit 1
+          fi
+          echo "::notice title=Chrome extension::$(grep -c '✓' e2e.txt) checks passed; $(du -h screen-recorder-extension.zip | cut -f1) zip"
+      - name: Name the files for the release
+        run: |
+          mkdir -p ../ext-dist
+          cp screen-recorder-extension.zip ../ext-dist/ScreenRecorder-Chrome-Extension.zip
+          for f in popup recording-page editor-downloaded upgrade; do cp "test-output/$f.png" "../ext-dist/extension-$f.png"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension
+          path: ext-dist/
+
   publish:
     name: Publish downloads
-    needs: [checks, windows, linux, appimage, appimage-test, android, macos]
+    needs: [checks, windows, linux, appimage, appimage-test, android, macos, extension]
     # Windows must succeed; Mac/Linux are added when their builds succeed.
     if: always() && needs.windows.result == 'success' && needs.checks.result == 'success'
     runs-on: ubuntu-latest
@@ -486,10 +524,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.deb' -o -name '*.tar.gz' -o -name '*.AppImage' -o -name '*.apk' -o -name '*.png' \) -exec cp {} dist/ \;
+          find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.deb' -o -name '*.tar.gz' -o -name '*.AppImage' -o -name '*.apk' -o -name '*.png' -o -name 'ScreenRecorder-Chrome-Extension.zip' \) -exec cp {} dist/ \;
           base="https://github.com/${{ github.repository }}/releases/download/windows-latest"
           dl() { [ -f "dist/$2" ] && printf '"%s": "%s/%s"' "$1" "$base" "$2"; }
-          downloads=$(for pair in "macos ScreenRecorder-macOS.dmg" "linux_deb ScreenRecorder-Linux-x64.deb" "linux_tar ScreenRecorder-Linux-x64.tar.gz" "linux_appimage ScreenRecorder-Linux-x64.AppImage" "android ScreenRecorder-Android.apk" "android_32 ScreenRecorder-Android-32bit.apk"; do set -- $pair; dl "$1" "$2" || true; echo; done | sed '/^$/d' | paste -sd, -)
+          downloads=$(for pair in "macos ScreenRecorder-macOS.dmg" "linux_deb ScreenRecorder-Linux-x64.deb" "linux_tar ScreenRecorder-Linux-x64.tar.gz" "linux_appimage ScreenRecorder-Linux-x64.AppImage" "android ScreenRecorder-Android.apk" "android_32 ScreenRecorder-Android-32bit.apk" "chrome ScreenRecorder-Chrome-Extension.zip"; do set -- $pair; dl "$1" "$2" || true; echo; done | sed '/^$/d' | paste -sd, -)
           cat > dist/version.json <<JSON
           {
             "build": ${{ github.run_number }},
@@ -510,6 +548,7 @@ jobs:
             **Windows:** ScreenRecorder-Setup.exe. Run it; a Screen Recorder shortcut appears on your desktop.
             **macOS (Apple Silicon and Intel):** ScreenRecorder-macOS.dmg. Drag the app to Applications. First open: System Settings → Privacy & Security → Open Anyway.
             **Linux (Ubuntu 24.04+ / Debian 13+):** ScreenRecorder-Linux-x64.deb, or the .tar.gz for other distros (needs ffmpeg and libmpv).
+            **Chrome, Edge, Brave (extension):** ScreenRecorder-Chrome-Extension.zip. This is the Chrome Web Store upload; until it's listed there, unzip it and use chrome://extensions → Developer mode → Load unpacked.
 
             Build ${{ github.run_number }} from ${{ github.sha }}.
           files: |
