@@ -13,6 +13,7 @@ import '../services/recording_background.dart';
 import '../services/recording_edit.dart';
 import '../services/recording_library.dart';
 import '../services/recording_options.dart';
+import '../services/time_estimate.dart';
 import '../ui/background_widgets.dart';
 import '../ui/studio_theme.dart';
 import '../ui/studio_widgets.dart';
@@ -91,6 +92,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
   late bool _zoomAvailable = widget.autoZoomAvailable && widget.onApplyAutoZoom != null;
   double? _zoomProgress; // non-null while auto-zoom is being applied
+  ProgressClock? _zoomClock;
   String? _zoomNote;
 
   @override
@@ -309,6 +311,7 @@ class _EditorScreenState extends State<EditorScreen> {
     if (apply == null || _zoomProgress != null) return;
     setState(() {
       _zoomProgress = 0;
+      _zoomClock = ProgressClock();
       _zoomNote = null;
     });
     // The player holds the file open; it's swapped for the zoomed one.
@@ -317,7 +320,12 @@ class _EditorScreenState extends State<EditorScreen> {
     String? note;
     try {
       updated = await apply((f) {
-        if (mounted) setState(() => _zoomProgress = f);
+        if (mounted) {
+          setState(() {
+            _zoomProgress = f;
+            _zoomClock?.update(f);
+          });
+        }
       });
       note = updated == null ? 'There were no clicks to zoom in on, so the recording is unchanged.' : null;
     } catch (error) {
@@ -326,6 +334,7 @@ class _EditorScreenState extends State<EditorScreen> {
     if (!mounted) return;
     setState(() {
       _zoomProgress = null;
+      _zoomClock = null;
       _zoomAvailable = false;
       _zoomNote = note;
       if (updated != null) {
@@ -335,6 +344,13 @@ class _EditorScreenState extends State<EditorScreen> {
     });
     if (widget.playback) _startPlayer();
     _loadFrame();
+  }
+
+  /// Before Apply: why it wasn't done yet and how long it would take.
+  String _zoomEstimateNote() {
+    final range = estimateRedraw(_rec.duration, RedrawKind.autoZoom, height: _rec.height);
+    return 'Saved without auto-zoom, so it was ready right away. Adding it redraws every frame: '
+        '${approxRange(range)} on most computers for this recording. Keep the app open while it runs.';
   }
 
   Widget _autoZoomBar() {
@@ -357,8 +373,11 @@ class _EditorScreenState extends State<EditorScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Applying auto-zoom… ${(progress * 100).round()}%. Your recording is already saved; you can close this and come back.',
+                        'Applying auto-zoom… ${_zoomClock?.label ?? '${(progress * 100).round()}%'}. '
+                        'Your recording is already saved. Keep the app open until this finishes; '
+                        'if it closes, the recording stays as it is and you can apply auto-zoom again.',
                         style: const TextStyle(fontSize: 12.5, color: Colors.white),
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 6),
@@ -369,8 +388,7 @@ class _EditorScreenState extends State<EditorScreen> {
                     ],
                   )
                 : Text(
-                    _zoomNote ??
-                        'Saved without auto-zoom, so it was ready right away. Add it now if you like; for long recordings it can take about as long as the video.',
+                    _zoomNote ?? _zoomEstimateNote(),
                     style: const TextStyle(fontSize: 12.5, color: Colors.white),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

@@ -4,6 +4,7 @@ import test from 'node:test';
 import { clock, dateLabel } from '../dist/lib/db.js';
 import { keyframeAtOrAfter, needsReencode, parseProbe } from '../dist/lib/ffmpeg.js';
 import { safeName } from '../dist/lib/names.js';
+import { isRestrictedUrl } from '../dist/lib/pages.js';
 import { isPro } from '../dist/lib/pro.js';
 
 test('ffprobe output: codec and keyframes', () => {
@@ -53,4 +54,13 @@ test('Pro: lifetime always, monthly for 14 days after the last check', () => {
   assert.equal(isPro({ active: true, plan: 'monthly', checkedAt: now - 3 * 86400_000 }, now), true);
   assert.equal(isPro({ active: true, plan: 'monthly', checkedAt: now - 20 * 86400_000 }, now), false);
   assert.equal(isPro({ active: false, plan: 'lifetime' }, now), false);
+});
+
+test('pages Chrome will not let the extension record', () => {
+  for (const u of ['chrome://settings', 'edge://extensions', 'about:blank', 'https://chromewebstore.google.com/detail/x', 'chrome-extension://abc/editor.html']) {
+    assert.equal(isRestrictedUrl(u), true, u);
+  }
+  for (const u of ['https://example.com', 'http://localhost:8080/demo', 'https://docs.google.com/document/d/1']) {
+    assert.equal(isRestrictedUrl(u), false, u);
+  }
 });

@@ -12,6 +12,8 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
 .start{width:100%;padding:13px;font-size:15px;margin-top:8px}
 .start .dot{width:10px;height:10px;border-radius:50%;background:var(--rec)}
 .limit{font-size:12px;color:var(--mute);text-align:center;margin:8px 0 0}
+.hint{font-size:12px;line-height:1.4;color:var(--mute);margin:8px 2px 0}
+.hint.warn{color:var(--err)}
 .live{text-align:center;padding:6px 0 4px}
 .live .time{font-size:34px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:center;gap:10px}
 .live .time i{width:12px;height:12px;border-radius:50%;background:var(--rec);animation:p 1.2s infinite}
@@ -43,6 +45,7 @@ kbd{font:inherit;background:var(--panel-2);border-radius:4px;padding:1px 5px;col
     <button id="src-tab" aria-pressed="true">This tab<small>with its sound</small></button>
     <button id="src-desktop" aria-pressed="false">Window or screen<small>you choose</small></button>
   </div>
+  <p class="hint" id="src-hint"></p>
   <div class="opts">
     <label class="switch"><span>Microphone<small>Record your voice</small></span><input type="checkbox" id="mic" checked></label>
     <label class="switch"><span>Face camera<small>A bubble you can drag</small></span><input type="checkbox" id="camera"></label>

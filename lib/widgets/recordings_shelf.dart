@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../services/app_folders.dart';
+import '../services/disk_space.dart';
 import '../services/draft_store.dart';
 import '../ui/studio_theme.dart';
 
@@ -47,9 +48,27 @@ class RecordingsShelf extends StatelessWidget {
                     const SizedBox(width: 8),
                     if (drafts.isNotEmpty)
                       Text(
-                        waiting == 0 ? '${drafts.length} · all exported' : '${drafts.length} · $waiting not exported yet',
+                        [
+                          waiting == 0 ? '${drafts.length} · all exported' : '${drafts.length} · $waiting not exported yet',
+                          if (store.bytes != null) formatBytes(store.bytes!),
+                        ].join(' · '),
                         style: StudioText.tiny,
                       ),
+                    if (store.freeBytes != null) ...[
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: 'Room for ${recordingTimeFor(store.freeBytes!)} more recording '
+                            '(about ${formatBytes(bytesPerRecordingHour)} an hour). '
+                            'Delete exported recordings you no longer need to free space.',
+                        child: Text(
+                          '${formatBytes(store.freeBytes!)} free',
+                          style: StudioText.tiny.copyWith(
+                            color: store.freeBytes! < lowDiskBytes ? Studio.danger : null,
+                            fontWeight: store.freeBytes! < lowDiskBytes ? FontWeight.w600 : null,
+                          ),
+                        ),
+                      ),
+                    ],
                     const Spacer(),
                     if (drafts.isNotEmpty)
                       const Flexible(

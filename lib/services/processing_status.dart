@@ -104,3 +104,51 @@ void Function(String line) ffmpegProgressReader(
     onFraction(us / totalUs);
   };
 }
+
+/// Slow work running in the background (auto-zoom, exports), so closing the
+/// app can say what would stop.
+class BackgroundWork extends ChangeNotifier {
+  BackgroundWork._();
+
+  static final BackgroundWork instance = BackgroundWork._();
+
+  final Map<int, ({String label, DateTime started, double fraction})> _jobs = {};
+  int _next = 0;
+
+  bool get active => _jobs.isNotEmpty;
+
+  /// "Auto-zoom (42%)", "Export"…
+  List<String> get labels => [
+        for (final j in _jobs.values) j.fraction > 0 ? '${j.label} (${(j.fraction * 100).round()}% done)' : j.label,
+      ];
+
+  /// What's running: "auto-zoom" / "an export" — for sentences.
+  Set<String> get kinds => {for (final j in _jobs.values) j.label};
+
+  int start(String label) {
+    final id = _next++;
+    _jobs[id] = (label: label, started: DateTime.now(), fraction: 0);
+    notifyListeners();
+    return id;
+  }
+
+  void report(int id, double fraction) {
+    final j = _jobs[id];
+    if (j == null) return;
+    _jobs[id] = (label: j.label, started: j.started, fraction: fraction.clamp(0.0, 1.0).toDouble());
+  }
+
+  void finish(int id) {
+    if (_jobs.remove(id) != null) notifyListeners();
+  }
+
+  /// Runs [work] as a job named [label]; [work] gets a progress callback.
+  Future<T> track<T>(String label, Future<T> Function(void Function(double) report) work) async {
+    final id = start(label);
+    try {
+      return await work((f) => report(id, f));
+    } finally {
+      finish(id);
+    }
+  }
+}

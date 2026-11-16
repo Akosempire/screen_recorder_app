@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'controllers/recording_controller.dart';
 import 'controllers/region_selection_controller.dart';
@@ -207,7 +208,7 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WindowListener {
   File? _snapshot;
   bool _busyWindow = false;
   bool _startingCapture = false;
@@ -227,6 +228,10 @@ class _AppShellState extends State<AppShell> {
     _probeFuture = _nativeWindow.probe();
     _controller.addListener(_rebuild);
     ProcessingStatus.instance.addListener(_rebuild);
+    if (widget.manageWindows && !Platform.isAndroid) {
+      windowManager.addListener(this);
+      BackgroundWork.instance.addListener(_guardClose);
+    }
     if (DemoMode.active) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => DemoMode.afterFirstFrame(appNavigatorKey),
@@ -255,8 +260,72 @@ class _AppShellState extends State<AppShell> {
   void dispose() {
     _controller.removeListener(_rebuild);
     ProcessingStatus.instance.removeListener(_rebuild);
+    if (widget.manageWindows && !Platform.isAndroid) {
+      windowManager.removeListener(this);
+      BackgroundWork.instance.removeListener(_guardClose);
+    }
     _selection.dispose();
     super.dispose();
+  }
+
+  bool _closeGuarded = false;
+  bool _askingToClose = false;
+
+  /// While auto-zoom or an export runs, closing the window asks first.
+  void _guardClose() {
+    final busy = BackgroundWork.instance.active;
+    if (busy == _closeGuarded) return;
+    _closeGuarded = busy;
+    unawaited(windowManager.setPreventClose(busy).catchError((Object e) {
+      AppLogger.debug('setPreventClose failed: $e');
+    }));
+  }
+
+  @override
+  void onWindowClose() => unawaited(_confirmClose());
+
+  Future<void> _confirmClose() async {
+    final work = BackgroundWork.instance;
+    if (!work.active) {
+      await windowManager.setPreventClose(false);
+      await windowManager.close();
+      return;
+    }
+    if (_askingToClose) return;
+    _askingToClose = true;
+    try {
+      // The dialog needs the full window, not the small recording bar.
+      if (ProcessingStatus.instance.active) await widget.windowCoordinator.showHome();
+      final context = appNavigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+      final zoom = work.kinds.contains('Auto-zoom');
+      final export = work.kinds.contains('Export');
+      final close = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('${zoom && !export ? 'Auto-zoom' : export && !zoom ? 'An export' : 'Some work'} is still running'),
+          content: Text([
+            'Still going: ${work.labels.join(', ')}.',
+            'If you close now, it stops. Your recording is safe in Recordings either way.',
+            if (zoom) 'You can apply auto-zoom again from the editor next time.',
+            if (export) 'The exported file won’t be finished; export it again from Recordings.',
+            'Shutting down or restarting the computer stops it too.',
+          ].join('\n\n')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Close anyway')),
+            FilledButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep it running')),
+          ],
+        ),
+      );
+      if (close == true) {
+        await windowManager.setPreventClose(false);
+        await windowManager.close();
+      }
+    } catch (error, stack) {
+      AppLogger.error('Close prompt failed', error, stack);
+    } finally {
+      _askingToClose = false;
+    }
   }
 
   void _rebuild() {

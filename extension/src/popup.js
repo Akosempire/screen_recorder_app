@@ -1,4 +1,5 @@
 import { clock, dateLabel, listRecordings } from './lib/db.js';
+import { isRestrictedUrl } from './lib/pages.js';
 import { isPro, license, plans, refreshLicense } from './lib/pro.js';
 
 const $ = (id) => document.getElementById(id);
@@ -14,10 +15,22 @@ function notice(text) {
   n.hidden = !text;
 }
 
+let activeUrl = '';
+
 function setSource(s) {
   source = s;
   $('src-tab').setAttribute('aria-pressed', String(s === 'tab'));
   $('src-desktop').setAttribute('aria-pressed', String(s === 'desktop'));
+  const hint = $('src-hint');
+  // (The popup opened as a tab of its own, as in tests, is not a page to record.)
+  const blocked = s === 'tab' && isRestrictedUrl(activeUrl) && !activeUrl.startsWith(chrome.runtime.getURL(''));
+  hint.classList.toggle('warn', blocked);
+  hint.textContent = s === 'desktop'
+    ? 'Chrome will ask what to share: pick a window or your entire screen, then click Share. To include computer sound, tick "Share system audio" if Chrome offers it.'
+    : blocked
+      ? 'Chrome doesn\'t let extensions record this page (browser settings, the new tab page and extension stores). Open a website first, or choose "Window or screen".'
+      : 'Records this tab and its sound, even if you switch to another tab.';
+  $('start').disabled = blocked;
   savePrefs();
 }
 
@@ -142,13 +155,17 @@ async function renderPro() {
 }
 
 async function init() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    activeUrl = tab?.url || '';
+  } catch {}
   const { lastOptions } = await chrome.storage.local.get('lastOptions');
   if (lastOptions) {
     $('mic').checked = lastOptions.mic !== false;
     $('camera').checked = Boolean(lastOptions.camera);
     $('effects').checked = lastOptions.effects !== false;
-    setSource(lastOptions.source === 'desktop' ? 'desktop' : 'tab');
   }
+  setSource(lastOptions?.source === 'desktop' ? 'desktop' : 'tab');
   const r = await send('state');
   rec = r?.value || { status: 'idle' };
   render();

@@ -152,7 +152,7 @@ class DemoMode {
           folder: r'C:\Users\you\Videos',
           keepSound: true,
         ),
-        onExport: (_) async => '',
+        onExport: (_, _) async => '',
       ),
     );
   }

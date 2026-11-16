@@ -8,6 +8,7 @@ import 'auto_zoom.dart';
 import 'cursor_tracker.dart';
 import 'draft_store.dart';
 import 'ffmpeg_process_manager.dart';
+import 'processing_status.dart';
 
 /// Recordings longer than this are saved right away without auto-zoom (it
 /// re-encodes the whole video, which takes hours for a long class). The
@@ -136,7 +137,7 @@ Future<bool> applyAutoZoomToDraft(
 }) async {
   final plan = await readZoomPlan(d);
   if (plan == null || d.hasOriginal) return false;
-  final out = await applyAutoZoom(
+  final out = await BackgroundWork.instance.track('Auto-zoom', (report) => applyAutoZoom(
     inputPath: d.videoPath,
     log: plan.log,
     width: plan.width,
@@ -146,8 +147,11 @@ Future<bool> applyAutoZoomToDraft(
     settings: plan.settings,
     runner: runner,
     duration: plan.duration,
-    onProgress: onProgress,
-  );
+    onProgress: (f) {
+      report(f);
+      onProgress?.call(f);
+    },
+  ));
   if (out == d.videoPath || !await File(out).exists()) return false;
   await File(d.videoPath).rename(d.originalPath);
   try {

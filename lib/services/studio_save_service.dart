@@ -81,6 +81,29 @@ class ExportSettings {
   List<EditRange>? segments;
 }
 
+/// Whether exporting with [settings] redraws every frame (slow: trims, cuts,
+/// a background, smaller size or a quality change) rather than copying the
+/// file as it is (instant).
+bool exportRedraws(ExportSettings settings, {required int height, required bool hasAudio}) {
+  if (settings.background.isActive) return true;
+  final args = buildExportArgs(
+    source: 'in.mp4',
+    output: 'out.mp4',
+    settings: settings,
+    height: height,
+    hasAudio: hasAudio,
+  );
+  return args != null && args.contains('libx264');
+}
+
+/// How long the exported video will be.
+Duration exportLength(ExportSettings settings, Duration whole) {
+  final segments = settings.segments;
+  if (segments == null || segments.isEmpty) return whole;
+  final kept = segments.fold<double>(0, (sum, r) => sum + r.length);
+  return Duration(milliseconds: (kept * 1000).round());
+}
+
 /// Size of the output for [resolution] given a [width]×[height] source.
 /// Never upscales.
 (int, int) exportOutputSize(int width, int height, ExportResolution resolution) {
@@ -400,7 +423,7 @@ class StudioSaveService implements SelfSavingFileService {
         builder: (_) => ExportDialog(
           recording: recording,
           settings: settings,
-          onExport: (chosen) => _export(recording.finalPath, recording, chosen),
+          onExport: (chosen, onProgress) => _export(recording.finalPath, recording, chosen, onProgress: onProgress),
         ),
       );
     }
@@ -461,8 +484,9 @@ class StudioSaveService implements SelfSavingFileService {
   Future<String> _export(
     String source,
     LastRecording recording,
-    ExportSettings settings,
-  ) async {
+    ExportSettings settings, {
+    void Function(double fraction)? onProgress,
+  }) async {
     await Directory(settings.folder).create(recursive: true);
     final destination = uniqueDestination(settings.folder, settings.fileName);
     final stamp = DateTime.now().millisecondsSinceEpoch;
@@ -480,6 +504,7 @@ class StudioSaveService implements SelfSavingFileService {
       );
     }
 
+    final job = BackgroundWork.instance.start('Export');
     try {
       final args = buildExportArgs(
         source: source,
@@ -492,7 +517,17 @@ class StudioSaveService implements SelfSavingFileService {
       );
       if (args != null) {
         AppLogger.info('Export: ffmpeg ${args.join(' ')}');
-        final result = await runner.run(ffmpegExecutable, args);
+        final length = exportLength(settings, recording.duration);
+        final result = onProgress != null && length > Duration.zero
+            ? await runner.runStreaming(
+                ffmpegExecutable,
+                [args.first, '-progress', 'pipe:1', '-nostats', ...args.skip(1)],
+                onLine: ffmpegProgressReader(length, (f) {
+                  BackgroundWork.instance.report(job, f);
+                  onProgress(f);
+                }),
+              )
+            : await runner.run(ffmpegExecutable, args);
         if (result.exitCode != 0 || !await File(temp).exists()) {
           try {
             await File(temp).delete();
@@ -504,6 +539,7 @@ class StudioSaveService implements SelfSavingFileService {
         await File(source).copy(destination);
       }
     } finally {
+      BackgroundWork.instance.finish(job);
       if (framePath != null) {
         try {
           await File(framePath).delete();

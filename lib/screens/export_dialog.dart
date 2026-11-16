@@ -5,6 +5,7 @@ import '../services/recording_background.dart';
 import '../services/recording_edit.dart';
 import '../services/recording_library.dart';
 import '../services/studio_save_service.dart';
+import '../services/time_estimate.dart';
 import '../ui/studio_theme.dart';
 import '../ui/studio_widgets.dart';
 
@@ -22,8 +23,9 @@ class ExportDialog extends StatefulWidget {
   final LastRecording recording;
   final ExportSettings settings;
 
-  /// Applies the settings and returns the destination path.
-  final Future<String> Function(ExportSettings settings) onExport;
+  /// Applies the settings and returns the destination path, reporting
+  /// progress (0–1) while the video is redrawn.
+  final Future<String> Function(ExportSettings settings, void Function(double fraction) onProgress) onExport;
 
   @override
   State<ExportDialog> createState() => _ExportDialogState();
@@ -33,6 +35,7 @@ class _ExportDialogState extends State<ExportDialog> {
   _ExportTab _tab = _ExportTab.settings;
   bool _busy = false;
   String? _error;
+  ProgressClock? _clock;
   late final TextEditingController _name =
       TextEditingController(text: widget.settings.fileName);
 
@@ -62,14 +65,18 @@ class _ExportDialogState extends State<ExportDialog> {
     setState(() {
       _busy = true;
       _error = null;
+      _clock = ProgressClock();
     });
     try {
-      final destination = await widget.onExport(s);
+      final destination = await widget.onExport(s, (f) {
+        if (mounted) setState(() => _clock?.update(f));
+      });
       if (mounted) Navigator.of(context).pop(destination);
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _busy = false;
+        _clock = null;
         _error = 'Could not save with these settings. Try Original and Balanced.';
       });
     }
@@ -122,6 +129,8 @@ class _ExportDialogState extends State<ExportDialog> {
                     _ExportTab.privacy => _privacyTab(),
                   },
                 ),
+                const SizedBox(height: 14),
+                _timeNote(),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -158,6 +167,59 @@ class _ExportDialogState extends State<ExportDialog> {
           ),
         ),
       ),
+    );
+  }
+
+  /// How long the export will take, said before it starts; progress and
+  /// time left while it runs.
+  Widget _timeNote() {
+    final rec = widget.recording;
+    final redraws = exportRedraws(s, height: rec.height, hasAudio: rec.hasAudio);
+    final clock = _clock;
+    if (_busy && clock != null && redraws) {
+      return Column(
+        key: const ValueKey('export-progress'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: clock.fraction > 0 ? clock.fraction : null,
+              minHeight: 6,
+              backgroundColor: Studio.track,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Exporting… ${clock.label}. Your recording stays safe in Recordings whatever happens.',
+            style: StudioText.caption,
+          ),
+        ],
+      );
+    }
+    final String text;
+    if (!redraws) {
+      text = 'No changes to redraw, so the file is copied as it is: ready in seconds.';
+    } else {
+      final range = estimateRedraw(exportLength(s, rec.duration), RedrawKind.export, height: rec.height);
+      final why = [
+        if (s.segments != null) 'trims and cuts',
+        if (s.background.isActive) 'the background',
+        if (s.quality != ExportQuality.balanced || s.resolution != ExportResolution.original || s.frameRate != ExportFrameRate.original)
+          'the size or quality settings',
+      ];
+      text = 'Takes ${approxRange(range)} on most computers, because '
+          '${why.isEmpty ? 'the video' : why.join(' and ')} means every frame is redrawn. '
+          'You can keep working meanwhile.';
+    }
+    return Row(
+      key: const ValueKey('export-estimate'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(redraws ? Icons.schedule : Icons.bolt, size: 16, color: Studio.muted),
+        const SizedBox(width: 6),
+        Expanded(child: Text(text, style: StudioText.caption)),
+      ],
     );
   }
 

@@ -10,8 +10,10 @@ import '../services/app_folders.dart';
 import '../services/app_update.dart';
 import '../services/camera_bubble.dart';
 import '../services/demo_mode.dart';
+import '../services/disk_space.dart';
 import '../services/draft_store.dart';
 import '../services/draft_zoom.dart';
+import '../services/mic_check.dart';
 import '../services/recording_recovery.dart';
 import '../services/recording_background.dart';
 import '../services/recording_library.dart';
@@ -96,6 +98,35 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  /// Starts recording, but first says so if the disk is nearly full (about
+  /// 1 GB an hour), instead of letting a long recording fail halfway.
+  Future<void> _startRecording() async {
+    final free = DraftStore.instance.freeBytes;
+    if (free != null && free < lowDiskBytes && !DemoMode.active) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Your disk is nearly full'),
+          content: Text(
+            'Only ${formatBytes(free)} free: room for ${recordingTimeFor(free)} of recording '
+            '(it takes about ${formatBytes(bytesPerRecordingHour)} an hour). If the disk fills up, the recording stops '
+            'and you keep what was recorded until then.\n\n'
+            'To free space, delete recordings you’ve already exported (Recordings → ⋮ → Delete), '
+            'or empty your Recycle Bin / Trash.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not now')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Record anyway')),
+          ],
+        ),
+      );
+      if (go != true || !mounted) return;
+    }
+    widget.onStartRecording();
+    // Refresh the numbers for next time.
+    DraftStore.instance.measure();
+  }
+
   /// Opens a kept recording in the editor (play, trim, export).
   Future<void> _openDraft(Draft draft) async {
     if (widget.controller.state.isBusy) return;
@@ -139,7 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (constraints.maxWidth < 640 || constraints.maxHeight < 420) {
           return _CompactHome(
             controller: widget.controller,
-            onStartRecording: widget.onStartRecording,
+            onStartRecording: _startRecording,
           );
         }
         return Theme(
@@ -180,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 canCompare: canCompare,
                 onMode: (m) => setState(() => _mode = m),
                 onHelp: () => _options.tourDone = false,
-                onRecord: enabled ? widget.onStartRecording : null,
+                onRecord: enabled ? _startRecording : null,
                 recording: widget.controller.state.isBusy,
               ),
               const Divider(height: 1, color: Studio.divider),
@@ -192,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       section: _section,
                       canCompare: canCompare,
                       hasSaved: last?.savedPath != null,
-                      onRecord: enabled ? widget.onStartRecording : null,
+                      onRecord: enabled ? _startRecording : null,
                       onSection: _focusSection,
                       onCompare: () => setState(() => _mode = _ViewMode.compare),
                       onShowFolder: _showInFolder,
@@ -204,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         recording: last,
                         mode: mode,
                         enabled: enabled,
-                        onStartRecording: widget.onStartRecording,
+                        onStartRecording: _startRecording,
                         onOpenDraft: _openDraft,
                         onOpenCurrent: _openCurrent,
                         notice: _recoveredNotice,
@@ -867,6 +898,7 @@ class _Transport extends StatelessWidget {
     final zoomFx = RecordingOptions.autoZoomSupported;
     final cameraFx = CameraBubbleService.instance.isSupported;
     final length = recording?.duration;
+    final trialLimit = controller.state.isBusy ? null : ProService.instance.recordingLimit;
     return SizedBox(
       height: 48,
       child: LayoutBuilder(builder: (context, box) {
@@ -915,6 +947,24 @@ class _Transport extends StatelessWidget {
               fontFeatures: [FontFeature.tabularFigures()],
             ),
           ),
+          if (trialLimit != null && box.maxWidth >= 640) ...[
+            const SizedBox(width: 12),
+            Tooltip(
+              message: 'On the free trial each recording stops at ${_clock(trialLimit)} and is kept. '
+                  'The last 30 seconds count down on the recording bar. Go Pro to record as long as you like.',
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF4D6),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'Trial recordings stop at ${_clock(trialLimit)}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF8A5A00)),
+                ),
+              ),
+            ),
+          ],
           const Spacer(),
           if (showCursorPill) ...[
             StudioPill(
@@ -1082,7 +1132,7 @@ class _Inspector extends StatelessWidget {
                 Text(
                   zoomFx
                       ? 'After you stop, the video zooms in where you click and follows your mouse, then eases back out.'
-                      : 'Auto-zoom needs an X11 session on Linux (Wayland hides the mouse position from apps).',
+                      : 'Auto-zoom isn’t available here: this Linux session uses Wayland, which hides the mouse position from apps. $waylandHowTo',
                   style: StudioText.caption.copyWith(height: 1.45),
                 ),
                 const _InspectorDivider(),
@@ -1122,6 +1172,10 @@ class _Inspector extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (controller.recordMicrophone) ...[
+                  const SizedBox(height: 10),
+                  _MicTest(enabled: editable),
+                ],
               ],
             ),
           ),
@@ -1130,6 +1184,69 @@ class _Inspector extends StatelessWidget {
           const Divider(height: 1, color: Studio.divider),
           _FileCard(recording: recording!, onShowFolder: onShowFolder),
         ],
+      ],
+    );
+  }
+}
+
+/// "Test microphone": listens for 3 seconds and says whether the mic is
+/// good, quiet or silent, so nobody finds out after a long recording.
+class _MicTest extends StatefulWidget {
+  const _MicTest({required this.enabled});
+  final bool enabled;
+
+  @override
+  State<_MicTest> createState() => _MicTestState();
+}
+
+class _MicTestState extends State<_MicTest> {
+  bool _listening = false;
+  MicCheck? _result;
+
+  Future<void> _test() async {
+    setState(() {
+      _listening = true;
+      _result = null;
+    });
+    final result = await checkMicrophone();
+    if (!mounted) return;
+    setState(() {
+      _listening = false;
+      _result = result;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = _result;
+    final (IconData icon, Color color) = switch (r?.level) {
+      MicLevel.good => (Icons.check_circle, const Color(0xFF1E7A3C)),
+      MicLevel.quiet => (Icons.volume_down_rounded, const Color(0xFF8A5A00)),
+      MicLevel.silent || MicLevel.unavailable => (Icons.mic_off_rounded, Studio.danger),
+      null => (Icons.mic_none, Studio.muted),
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StudioSecondaryButton(
+          label: _listening ? 'Listening… say a few words' : 'Test microphone',
+          icon: _listening ? Icons.hearing : Icons.graphic_eq,
+          onPressed: widget.enabled && !_listening ? _test : null,
+        ),
+        const SizedBox(height: 6),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                r?.message ?? 'Takes 3 seconds: talk normally and we’ll tell you if it sounds good, quiet or silent. Nothing is saved.',
+                style: StudioText.caption.copyWith(height: 1.4, color: r == null ? null : color),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -1444,7 +1561,7 @@ class _CameraSection extends StatelessWidget {
               (enabled
                   ? 'Your face floats in a bubble on top of everything. '
                       'Keep it inside the area you record.'
-                  : 'The face camera needs an X11 session on Linux (Wayland doesn\'t let apps float over other apps).'),
+                  : 'The face camera isn’t available here: this Linux session uses Wayland, which doesn’t let apps float over other apps. $waylandHowTo'),
           style: StudioText.caption.copyWith(
             height: 1.45,
             color: error != null ? Studio.danger : null,
@@ -1823,11 +1940,16 @@ class _UpdateDialog extends StatelessWidget {
   }
 }
 
+/// How to get the Linux features Wayland blocks. Recording itself works
+/// either way.
+const waylandHowTo = 'Recording still works. To use it, sign out, click the gear at the login screen and '
+    'choose a session with "Xorg" in its name (for example "Ubuntu on Xorg"), then sign in again.';
+
 /// Caption under the cursor styles, per platform.
 String cursorEffectsCaption(CursorStyle style) {
   if (!RecordingOptions.cursorEffectsSupported) {
-    return 'The cursor halo and click ripples need an X11 session on Linux '
-        '(Wayland doesn\'t let apps draw over other apps).';
+    return 'The cursor halo and click ripples aren’t available here: this Linux session uses Wayland, '
+        'which doesn’t let apps draw over other apps. $waylandHowTo';
   }
   return style.description;
 }

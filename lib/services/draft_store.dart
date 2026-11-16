@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import 'app_folders.dart';
 import 'app_logger.dart';
+import 'disk_space.dart';
 import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
 import 'recording_edit.dart';
@@ -165,6 +167,26 @@ class DraftStore extends ChangeNotifier {
   bool get loaded => _loaded;
   int get unexportedCount => _drafts.where((d) => !d.isExported).length;
 
+  int? _bytes;
+  int? _free;
+
+  /// Space all recordings take, once measured.
+  int? get bytes => _bytes;
+
+  /// Free space left on the drive that holds Recordings, once measured.
+  int? get freeBytes => _free;
+
+  /// Measures [bytes] and [freeBytes] (in the background after changes).
+  Future<void> measure() async {
+    final dir = root;
+    if (dir == null) return;
+    _bytes = await folderBytes(dir);
+    if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+      _free = await freeDiskBytes(await dir.exists() ? dir.path : dir.parent.path, runner: runner);
+    }
+    notifyListeners();
+  }
+
   Draft? byId(String? id) {
     if (id == null) return null;
     for (final d in _drafts) {
@@ -193,6 +215,7 @@ class DraftStore extends ChangeNotifier {
     _drafts = out;
     _loaded = true;
     notifyListeners();
+    unawaited(measure());
   }
 
   /// Moves a just-finished recording (and its pre-zoom original) into the
@@ -240,6 +263,7 @@ class DraftStore extends ChangeNotifier {
       notifyListeners();
       AppLogger.info('Saved recording as draft ${draft.folder}');
       await _thumbnail(draft);
+      unawaited(measure());
       return draft;
     } catch (error, stack) {
       AppLogger.error('Could not save the recording as a draft', error, stack);
@@ -279,6 +303,7 @@ class DraftStore extends ChangeNotifier {
     } catch (_) {}
     notifyListeners();
     await _thumbnail(d);
+    unawaited(measure());
   }
 
   /// Deletes the draft's folder (exported copies are left alone).
@@ -292,6 +317,7 @@ class DraftStore extends ChangeNotifier {
     }
     _drafts = _drafts.where((x) => x.id != id).toList();
     notifyListeners();
+    unawaited(measure());
   }
 
   Future<void> _write(Draft d) async {
