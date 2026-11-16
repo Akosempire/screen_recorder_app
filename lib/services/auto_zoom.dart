@@ -355,7 +355,12 @@ Future<String> applyAutoZoom({
         script.path,
         '-c:v',
         encoder,
-        if (encoder != 'mpeg4') ...['-preset', 'veryfast', '-crf', '20'],
+        // Long recordings: a faster setting (bigger file, same look) so
+        // zooming a class doesn't take all night.
+        if (encoder == 'libx264')
+          ...['-preset', (duration ?? Duration.zero) > const Duration(minutes: 10) ? 'superfast' : 'veryfast', '-crf', '20']
+        else if (encoder != 'mpeg4')
+          ...['-preset', 'veryfast', '-crf', '20'],
         '-pix_fmt',
         'yuv420p',
         if (hasAudio) ...['-c:a', 'copy'] else '-an',

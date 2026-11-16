@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import 'app_logger.dart';
 import 'draft_store.dart';
+import 'draft_zoom.dart';
 import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
 
@@ -19,7 +20,12 @@ class LastRecording {
     this.originalPath,
     this.focusSeconds,
     this.draftId,
+    this.pendingZoom,
   });
+
+  /// Auto-zoom to apply (cursor log and settings); it runs after the
+  /// recording is safely saved, and only right away for short recordings.
+  final PendingZoom? pendingZoom;
 
   /// The draft this recording is kept as (see DraftStore), if any.
   final String? draftId;
@@ -102,9 +108,10 @@ class RecordingLibrary extends ChangeNotifier {
   }
 
   /// Makes [draft] the current recording (for the editor and the home preview).
-  LastRecording openDraft(Draft draft) {
+  LastRecording openDraft(Draft draft, {bool refresh = false}) {
     final current = _last;
-    if (current != null && current.draftId == draft.id) return current;
+    if (!refresh && current != null && current.draftId == draft.id) return current;
+    if (refresh) forgetFrames(draft.videoPath);
     final rec = LastRecording(
       finalPath: draft.videoPath,
       originalPath: draft.hasOriginal ? draft.originalPath : null,
@@ -158,6 +165,17 @@ class RecordingLibrary extends ChangeNotifier {
   }
 
   final Map<String, File> _frames = {};
+
+  /// Drops cached stills of [videoPath] (its content changed).
+  void forgetFrames(String videoPath) {
+    _frames.removeWhere((key, file) {
+      if (!key.startsWith('$videoPath@')) return false;
+      try {
+        file.deleteSync();
+      } catch (_) {}
+      return true;
+    });
+  }
 
   /// A still of [recording] at [seconds] (for scrubbing in the editor).
   /// Cached per tenth of a second; null if FFmpeg can't read that moment.

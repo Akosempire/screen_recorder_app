@@ -29,7 +29,11 @@ class Draft {
     this.trimEnd,
     this.cuts = const [],
     this.exportedTo = const [],
+    this.recovered = false,
   });
+
+  /// Brought back from an unsaved recording left behind earlier.
+  final bool recovered;
 
   final String id;
   final String folder;
@@ -78,6 +82,7 @@ class Draft {
         if (trimEnd != null) 'trimEnd': trimEnd,
         'cuts': [for (final c in cuts) [c.start, c.end]],
         'exportedTo': exportedTo,
+        if (recovered) 'recovered': true,
       };
 
   static Draft? fromJson(String folder, Object? json) {
@@ -110,6 +115,7 @@ class Draft {
       trimEnd: num_(json['trimEnd']),
       cuts: cuts,
       exportedTo: exported is List ? exported.whereType<String>().toList() : <String>[],
+      recovered: json['recovered'] == true,
     );
   }
 }
@@ -201,6 +207,7 @@ class DraftStore extends ChangeNotifier {
     required bool hasAudio,
     double? focusSeconds,
     DateTime? now,
+    bool recovered = false,
   }) async {
     final dir = root;
     if (dir == null) return null;
@@ -218,6 +225,7 @@ class DraftStore extends ChangeNotifier {
         duration: duration,
         hasAudio: hasAudio,
         focusSeconds: focusSeconds,
+        recovered: recovered,
       );
       await _move(video, draft.videoPath);
       if (original != null && original != video && await File(original).exists()) {
@@ -260,6 +268,17 @@ class DraftStore extends ChangeNotifier {
     d.exportedTo = [...d.exportedTo.where((e) => e != path), path];
     await _write(d);
     notifyListeners();
+  }
+
+  /// The video changed (auto-zoom applied): new thumbnail, tell listeners.
+  Future<void> zoomApplied(String id) async {
+    final d = byId(id);
+    if (d == null) return;
+    try {
+      await File(d.thumbPath).delete();
+    } catch (_) {}
+    notifyListeners();
+    await _thumbnail(d);
   }
 
   /// Deletes the draft's folder (exported copies are left alone).

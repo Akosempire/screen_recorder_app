@@ -4,6 +4,7 @@ import 'auto_zoom.dart';
 import 'camera_bubble.dart';
 import 'cursor_overlay.dart';
 import 'cursor_tracker.dart';
+import 'draft_zoom.dart';
 import 'ffmpeg_process_manager.dart';
 import 'ffmpeg_recorder.dart';
 import 'processing_status.dart';
@@ -115,49 +116,45 @@ class EnhancedScreenRecorder extends SegmentingScreenRecorder {
     );
     final focus = log.clicks.isEmpty ? null : log.clicks.first.t + 1.2;
 
-    var result = produced;
-    if (zoom) {
+    // Auto-zoom no longer runs here: the recording is saved first (as a
+    // draft), and zoom is applied afterwards: right away for short
+    // recordings, or later from the editor for long ones.
+    PendingZoom? pendingZoom;
+    // Kept even with auto-zoom off, so it can be added later in the editor.
+    if (canAutoZoom && !log.isEmpty) {
       AppLogger.info(
         'Cursor log: ${log.samples.length} samples, ${log.clicks.length} clicks',
       );
-      ProcessingStatus.instance.begin('Auto-zoom');
-      try {
-        final pan = options.panTau;
-        result = await applyAutoZoom(
-          inputPath: produced,
-          log: log,
-          width: region.width,
-          height: region.height,
-          encoder: encoder,
-          hasAudio: hasAudio,
-          settings: AutoZoomSettings(
-            maxZoom: options.zoomLevel,
-            hold: options.holdSeconds,
-            panTau: pan,
-            zoomTau: pan + 0.04,
-          ),
-          runner: zoomRunner,
-          duration: duration,
-          onProgress: ProcessingStatus.instance.report,
-        );
-      } catch (error, stack) {
-        AppLogger.error('Auto-zoom crashed; keeping original', error, stack);
-        result = produced;
-      }
+      final pan = options.panTau;
+      pendingZoom = PendingZoom(
+        log: log,
+        width: region.width,
+        height: region.height,
+        encoder: encoder,
+        hasAudio: hasAudio,
+        duration: duration,
+        enabled: zoom,
+        settings: AutoZoomSettings(
+          maxZoom: options.zoomLevel,
+          hold: options.holdSeconds,
+          panTau: pan,
+          zoomTau: pan + 0.04,
+        ),
+      );
     }
 
-    ProcessingStatus.instance.begin('Preparing');
+    ProcessingStatus.instance.begin('Saving');
     RecordingLibrary.instance.register(
       LastRecording(
-        finalPath: result,
-        originalPath: result == produced ? null : produced,
+        finalPath: produced,
         focusSeconds: focus,
         width: region.width,
         height: region.height,
         duration: duration,
         hasAudio: hasAudio,
+        pendingZoom: pendingZoom,
       ),
     );
-    return result;
+    return produced;
   }
 }

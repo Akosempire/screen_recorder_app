@@ -10,10 +10,12 @@ import '../screens/export_dialog.dart';
 import 'app_folders.dart';
 import 'app_logger.dart';
 import 'draft_store.dart';
+import 'draft_zoom.dart';
 import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
 import 'file_save_service.dart';
 import 'last_save_path_store.dart';
+import 'processing_status.dart';
 import 'recording_background.dart';
 import 'recording_edit.dart';
 import 'recording_library.dart';
@@ -312,9 +314,6 @@ class StudioSaveService implements SelfSavingFileService {
       );
     }
 
-    await beforePrompt?.call();
-    await WidgetsBinding.instance.endOfFrame;
-
     final region = controller?.region;
     final produced = RecordingLibrary.instance.ensure(
       path: source,
@@ -324,7 +323,9 @@ class StudioSaveService implements SelfSavingFileService {
       hasAudio: controller?.recordMicrophone ?? false,
     );
 
-    // Move it out of the temporary folder first, so nothing can lose it.
+    // First, before anything else (and before the user even opens it):
+    // move the recording out of the temporary folder into Recordings, so
+    // closing the app or turning the computer off can't lose it.
     final draft = await drafts.createFrom(
       video: source,
       original: produced.originalPath,
@@ -334,7 +335,30 @@ class StudioSaveService implements SelfSavingFileService {
       hasAudio: produced.hasAudio,
       focusSeconds: produced.focusSeconds,
     );
-    final recording = draft == null ? produced : RecordingLibrary.instance.openDraft(draft);
+    var recording = draft == null ? produced : RecordingLibrary.instance.openDraft(draft);
+
+    // Auto-zoom re-encodes the whole video. Short recordings get it now;
+    // long ones (a class, a meeting) are ready right away and can get it
+    // later from the editor.
+    final zoom = produced.pendingZoom;
+    if (draft != null && zoom != null) {
+      await writeZoomPlan(draft, zoom);
+      if (zoom.rightAway) {
+        ProcessingStatus.instance.begin('Auto-zoom');
+        try {
+          if (await applyAutoZoomToDraft(draft, store: drafts, runner: runner, onProgress: ProcessingStatus.instance.report)) {
+            recording = RecordingLibrary.instance.openDraft(draft, refresh: true);
+          }
+        } catch (error, stack) {
+          AppLogger.error('Auto-zoom failed; the recording is saved without it', error, stack);
+        }
+      } else {
+        AppLogger.info('Long recording (${zoom.duration}): saved without auto-zoom; it can be applied in the editor');
+      }
+    }
+
+    await beforePrompt?.call();
+    await WidgetsBinding.instance.endOfFrame;
     return openEditor(
       recording,
       fileName: p.basenameWithoutExtension(suggestedName),
@@ -403,6 +427,13 @@ class StudioSaveService implements SelfSavingFileService {
             onSaveDraft: draft == null
                 ? null
                 : (edit) => drafts.saveEdits(draft.id, trimStart: edit.trimStart, trimEnd: edit.trimEnd, cuts: edit.cuts),
+            autoZoomAvailable: draft != null && canApplyAutoZoom(draft),
+            onApplyAutoZoom: draft == null
+                ? null
+                : (onProgress) async {
+                    final done = await applyAutoZoomToDraft(draft, store: drafts, runner: runner, onProgress: onProgress);
+                    return done ? RecordingLibrary.instance.openDraft(draft, refresh: true) : null;
+                  },
           ),
         ),
       );

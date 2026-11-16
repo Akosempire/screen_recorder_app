@@ -11,6 +11,8 @@ import '../services/app_update.dart';
 import '../services/camera_bubble.dart';
 import '../services/demo_mode.dart';
 import '../services/draft_store.dart';
+import '../services/draft_zoom.dart';
+import '../services/recording_recovery.dart';
 import '../services/recording_background.dart';
 import '../services/recording_library.dart';
 import '../services/pro_service.dart';
@@ -69,7 +71,29 @@ class _HomeScreenState extends State<HomeScreen> {
         (_) => _focusSection(demoSection),
       );
     }
-    if (!DraftStore.instance.loaded) DraftStore.instance.load();
+    _loadRecordings();
+  }
+
+  /// Recordings that were never saved (computer turned off while one was
+  /// being processed, app closed…) are brought back into Recordings.
+  String? _recoveredNotice;
+
+  Future<void> _loadRecordings() async {
+    if (!DraftStore.instance.loaded) await DraftStore.instance.load();
+    if (DemoMode.active) return;
+    final recovered = await recoverUnsavedRecordings();
+    if (!mounted || recovered.isEmpty) return;
+    String len(Draft d) {
+      final s = d.duration.inSeconds;
+      final h = s ~/ 3600;
+      final m = (s % 3600) ~/ 60;
+      return h > 0 ? '${h}h ${m}min' : '${m}min ${s % 60}s';
+    }
+    setState(() {
+      _recoveredNotice = recovered.length == 1
+          ? 'We found a recording that wasn’t saved (${len(recovered.first)}) and put it back in Recordings.'
+          : 'We found ${recovered.length} recordings that weren’t saved and put them back in Recordings.';
+    });
   }
 
   /// Opens a kept recording in the editor (play, trim, export).
@@ -183,6 +207,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         onStartRecording: widget.onStartRecording,
                         onOpenDraft: _openDraft,
                         onOpenCurrent: _openCurrent,
+                        notice: _recoveredNotice,
+                        onDismissNotice: () => setState(() => _recoveredNotice = null),
                       ),
                     ),
                     if (wide) ...[
@@ -483,7 +509,13 @@ class _Stage extends StatelessWidget {
     required this.onStartRecording,
     required this.onOpenDraft,
     required this.onOpenCurrent,
+    this.notice,
+    this.onDismissNotice,
   });
+
+  /// Good news to show above the stage (e.g. recovered recordings).
+  final String? notice;
+  final VoidCallback? onDismissNotice;
 
   final RecordingController controller;
   final LastRecording? recording;
@@ -505,6 +537,10 @@ class _Stage extends StatelessWidget {
         children: [
           if (error != null) ...[
             _Banner(text: error),
+            const SizedBox(height: 10),
+          ],
+          if (notice != null) ...[
+            _Notice(text: notice!, onDismiss: onDismissNotice),
             const SizedBox(height: 10),
           ],
           Expanded(
@@ -583,6 +619,40 @@ class _Banner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(text, style: const TextStyle(fontSize: 13, color: Color(0xFF8A1F17))),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Notice extends StatelessWidget {
+  const _Notice({required this.text, this.onDismiss});
+
+  final String text;
+  final VoidCallback? onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE4F4EA),
+        borderRadius: BorderRadius.circular(Studio.radius),
+        border: Border.all(color: const Color(0xFFB9E2C6)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.restore_rounded, size: 18, color: Color(0xFF1E7A3C)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text, style: const TextStyle(fontSize: 13, color: Color(0xFF14532D))),
+          ),
+          IconButton(
+            tooltip: 'Dismiss',
+            iconSize: 16,
+            onPressed: onDismiss,
+            icon: const Icon(Icons.close, color: Color(0xFF14532D)),
           ),
         ],
       ),
@@ -964,6 +1034,15 @@ class _Inspector extends StatelessWidget {
                       onChanged: zoomFx && editable ? (v) => options.autoZoom = v : null,
                     ),
                   ],
+                ),
+                Text(
+                  options.autoZoom
+                      ? 'Zooms in where you click. Recordings are always saved first; recordings over '
+                          '${autoZoomRightAwayLimit.inMinutes} minutes (a class, a meeting) skip it so they’re ready '
+                          'right away, and you can add it later in the editor.'
+                      : 'Off: recordings are saved as recorded, ready straight away. You can still add auto-zoom '
+                          'to a recording later in the editor.',
+                  style: StudioText.caption.copyWith(height: 1.45),
                 ),
                 const SizedBox(height: 4),
                 StudioSliderRow(

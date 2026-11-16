@@ -205,15 +205,23 @@ class _DraftCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: exported ? const Color(0xFFE4F4EA) : const Color(0xFFFFF4D6),
+                          color: exported
+                              ? const Color(0xFFE4F4EA)
+                              : draft.recovered
+                                  ? const Color(0xFFE3EEFF)
+                                  : const Color(0xFFFFF4D6),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          exported ? 'Exported' : 'Draft',
+                          exported ? 'Exported' : draft.recovered ? 'Recovered' : 'Draft',
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
-                            color: exported ? const Color(0xFF1E7A3C) : const Color(0xFF8A5A00),
+                            color: exported
+                                ? const Color(0xFF1E7A3C)
+                                : draft.recovered
+                                    ? const Color(0xFF0B57D0)
+                                    : const Color(0xFF8A5A00),
                           ),
                         ),
                       ),

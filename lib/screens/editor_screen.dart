@@ -30,6 +30,8 @@ class EditorScreen extends StatefulWidget {
     this.ownsInitialEdit = false,
     this.playback = true,
     this.onSaveDraft,
+    this.autoZoomAvailable = false,
+    this.onApplyAutoZoom,
   });
 
   final LastRecording recording;
@@ -50,6 +52,14 @@ class EditorScreen extends StatefulWidget {
 
   /// Play the video (with sound). Off in tests, which have no media engine.
   final bool playback;
+
+  /// The recording was saved without auto-zoom (it was long) and it can
+  /// still be applied.
+  final bool autoZoomAvailable;
+
+  /// Applies auto-zoom now; returns the updated recording, or null if there
+  /// was nothing to zoom.
+  final Future<LastRecording?> Function(void Function(double fraction) onProgress)? onApplyAutoZoom;
 
   @override
   State<EditorScreen> createState() => _EditorScreenState();
@@ -76,7 +86,12 @@ class _EditorScreenState extends State<EditorScreen> {
   bool _fromPlayer = false;
   DateTime _lastSeek = DateTime.fromMillisecondsSinceEpoch(0);
 
-  LastRecording get _rec => widget.recording;
+  late LastRecording _recording = widget.recording;
+  LastRecording get _rec => _recording;
+
+  late bool _zoomAvailable = widget.autoZoomAvailable && widget.onApplyAutoZoom != null;
+  double? _zoomProgress; // non-null while auto-zoom is being applied
+  String? _zoomNote;
 
   @override
   void initState() {
@@ -260,6 +275,7 @@ class _EditorScreenState extends State<EditorScreen> {
                 _header(),
                 const Divider(height: 1, color: Studio.divider),
                 const _LimitBanner(),
+                if (_zoomAvailable || _zoomProgress != null || _zoomNote != null) _autoZoomBar(),
                 Expanded(child: _preview()),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
@@ -284,6 +300,90 @@ class _EditorScreenState extends State<EditorScreen> {
         ),
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _applyAutoZoom() async {
+    final apply = widget.onApplyAutoZoom;
+    if (apply == null || _zoomProgress != null) return;
+    setState(() {
+      _zoomProgress = 0;
+      _zoomNote = null;
+    });
+    // The player holds the file open; it's swapped for the zoomed one.
+    await _releasePlayer();
+    LastRecording? updated;
+    String? note;
+    try {
+      updated = await apply((f) {
+        if (mounted) setState(() => _zoomProgress = f);
+      });
+      note = updated == null ? 'There were no clicks to zoom in on, so the recording is unchanged.' : null;
+    } catch (error) {
+      note = 'Auto-zoom didn’t work this time. Your recording is unchanged.';
+    }
+    if (!mounted) return;
+    setState(() {
+      _zoomProgress = null;
+      _zoomAvailable = false;
+      _zoomNote = note;
+      if (updated != null) {
+        _recording = updated;
+        _framedAt = -1;
+      }
+    });
+    if (widget.playback) _startPlayer();
+    _loadFrame();
+  }
+
+  Widget _autoZoomBar() {
+    final progress = _zoomProgress;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2D),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.zoom_in_rounded, size: 18, color: Color(0xFFFFD21F)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: progress != null
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Applying auto-zoom… ${(progress * 100).round()}%. Your recording is already saved; you can close this and come back.',
+                        style: const TextStyle(fontSize: 12.5, color: Colors.white),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(value: progress, minHeight: 4),
+                      ),
+                    ],
+                  )
+                : Text(
+                    _zoomNote ??
+                        'Saved without auto-zoom, so it was ready right away. Add it now if you like; for long recordings it can take about as long as the video.',
+                    style: const TextStyle(fontSize: 12.5, color: Colors.white),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+          ),
+          if (progress == null && _zoomAvailable) ...[
+            const SizedBox(width: 10),
+            StudioSecondaryButton(
+              label: 'Apply auto-zoom',
+              onPressed: _exporting ? null : _applyAutoZoom,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -343,7 +443,7 @@ class _EditorScreenState extends State<EditorScreen> {
             StudioPrimaryButton(
               label: 'Export…',
               busy: _exporting,
-              onPressed: _exporting || _edit.keptDuration <= 0 ? null : _export,
+              onPressed: _exporting || _zoomProgress != null || _edit.keptDuration <= 0 ? null : _export,
             ),
           ],
         ),
