@@ -67,6 +67,12 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
 .note{border-radius:12px;padding:12px 14px;font-size:13.5px}
 .note.warn{background:var(--warn-bg);color:var(--warn)}
 .note.ok{background:var(--ok-bg);color:var(--ok)}
+.count{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:999px;background:var(--err);color:#fff;font-size:11px;line-height:18px;text-align:center}
+.ticket{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px;display:grid;gap:8px}
+.ticket .row{gap:8px;flex-wrap:wrap;align-items:center}
+.ticket .body{margin:0;white-space:pre-wrap;line-height:1.5;overflow-wrap:anywhere}
+.ticket pre{white-space:pre-wrap;font-size:12px;max-height:240px;overflow:auto;background:var(--panel);padding:10px;border-radius:8px;margin:6px 0 0}
+#support-open[aria-pressed=true],#support-done[aria-pressed=true]{background:var(--ink);color:var(--card)}
 .note.err{background:var(--err-bg);color:var(--err)}
 .msg{font-size:13.5px;min-height:1.2em;margin-top:8px}
 .msg.err{color:var(--err)}.msg.ok{color:var(--ok)}
@@ -143,6 +149,7 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
   <div class="wrap">
     <nav class="tabs" role="tablist" aria-label="Sections">
       <button class="tab" role="tab" data-view="overview" aria-selected="true">Overview</button>
+      <button class="tab" role="tab" data-view="support" aria-selected="false">Help requests <span class="count" id="support-count" hidden></span></button>
       <button class="tab" role="tab" data-view="licenses" aria-selected="false">Sales &amp; licences</button>
       <button class="tab" role="tab" data-view="people" aria-selected="false">Downloads &amp; sign-ups</button>
       <button class="tab" role="tab" data-view="settings" aria-selected="false">Payments settings</button>
@@ -156,6 +163,22 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
         <div class="two" style="margin-top:14px">
           <div class="card"><h2>Recent sales</h2><div class="scroll"><table id="recent"></table></div></div>
           <div class="card"><h2>Downloads by system</h2><div id="byos"></div></div>
+        </div>
+      </section>
+
+      <!-- Help requests -->
+      <section data-panel="support" hidden>
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <h2 style="margin:0">Help requests</h2>
+            <div class="row">
+              <button class="btn ghost small" id="support-open" aria-pressed="true">Open</button>
+              <button class="btn ghost small" id="support-done" aria-pressed="false">Done</button>
+            </div>
+          </div>
+          <p class="muted small" style="margin:6px 0 12px">From “Get help” in the app. Reply by email, then mark it done.</p>
+          <div id="support-note"></div>
+          <div id="support-list"></div>
         </div>
       </section>
 
@@ -325,7 +348,7 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
   $('#logout').addEventListener('click', async () => { await api('logout', { method: 'POST', body: {} }).catch(() => {}); location.reload(); });
 
   // ---- tabs ----
-  const loaders = { overview: loadOverview, licenses: loadLicenses, people: loadPeople, settings: loadSettings, log: loadLog };
+  const loaders = { support: loadSupport, overview: loadOverview, licenses: loadLicenses, people: loadPeople, settings: loadSettings, log: loadLog };
   document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => show(t.dataset.view)));
   function show(view){
     document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === view)));
@@ -341,6 +364,7 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
       $('#login').hidden = true; $('#app').hidden = false;
       const view = location.hash.slice(1);
       show(loaders[view] ? view : 'overview');
+      countSupport();
     } catch (_) { showLogin(); }
   }
 
@@ -381,6 +405,59 @@ code,.mono{font-family:var(--mono);font-size:12.5px}
         el('div', { class: 'bar' }, el('i', { style: `width:${Math.round(n / total * 100)}%` })), el('span', { text: String(n) })))
       : [el('p', { class: 'empty', text: 'No downloads yet.' })]));
   }
+
+  // ---- help requests ----
+  let supportStatus = 'open';
+  async function countSupport(){
+    try {
+      const { ready, items } = await api('support', { query: '&status=open' });
+      const c = $('#support-count');
+      c.textContent = String(items.length); c.hidden = !ready || !items.length;
+    } catch (_) {}
+  }
+  async function loadSupport(){
+    $('#support-open').setAttribute('aria-pressed', String(supportStatus === 'open'));
+    $('#support-done').setAttribute('aria-pressed', String(supportStatus === 'done'));
+    const { ready, items } = await api('support', { query: '&status=' + supportStatus });
+    const note = $('#support-note'); note.replaceChildren();
+    if (!ready) {
+      note.append(el('div', { class: 'note warn' },
+        'Run landing/db/migrations/005_support.sql in Supabase → SQL Editor to keep full messages here. ',
+        'Until then, shortened messages show below (from Activity).'));
+    }
+    const list = $('#support-list');
+    if (!items.length) {
+      list.replaceChildren(el('p', { class: 'empty', text: supportStatus === 'open' ? 'No open requests. 🎉' : 'Nothing marked done yet.' }));
+      return;
+    }
+    const kinds = { problem: ['Problem', 'bad'], question: ['Question', 'warn'], idea: ['Idea', 'ok'] };
+    list.replaceChildren(...items.map((r) => {
+      if (!ready) {
+        return el('div', { class: 'ticket' },
+          el('div', { class: 'row' }, el('b', { text: r.email }), el('span', { class: 'muted small', text: date(r.created_at) })),
+          el('p', { class: 'body', text: r.detail || '' }));
+      }
+      const [label, tone] = kinds[r.kind] || ['Request', 'warn'];
+      const reply = r.email
+        ? el('a', { class: 'btn small', href: `mailto:${r.email}?subject=${encodeURIComponent('Re: your Screen Recorder ' + label.toLowerCase())}` }, 'Reply by email')
+        : el('span', { class: 'muted small', text: 'No email given' });
+      const toggle = el('button', { class: 'btn ghost small', text: r.status === 'done' ? 'Reopen' : 'Mark done', onclick: async () => {
+        try { await api('support-status', { method: 'POST', body: { id: r.id, status: r.status === 'done' ? 'open' : 'done' } }); await loadSupport(); countSupport(); }
+        catch (err) { alert(err.message); }
+      } });
+      const details = r.details ? el('details', {}, el('summary', { text: 'App details and recent log' }), el('pre', { text: r.details })) : null;
+      return el('div', { class: 'ticket' },
+        el('div', { class: 'row' },
+          el('span', { class: 'pill ' + tone, text: label }),
+          el('b', { text: r.email || 'Anonymous' }),
+          el('span', { class: 'muted small', text: [date(r.created_at), r.app_version && 'v' + r.app_version, r.os, r.country].filter(Boolean).join(' · ') })),
+        el('p', { class: 'body', text: r.message }),
+        details,
+        el('div', { class: 'row' }, reply, toggle));
+    }));
+  }
+  $('#support-open').addEventListener('click', () => { supportStatus = 'open'; loadSupport(); });
+  $('#support-done').addEventListener('click', () => { supportStatus = 'done'; loadSupport(); });
 
   // ---- licences ----
   async function loadLicenses(){

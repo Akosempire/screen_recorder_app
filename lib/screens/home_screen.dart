@@ -25,6 +25,7 @@ import '../ui/background_widgets.dart';
 import '../ui/studio_painters.dart';
 import '../ui/studio_theme.dart';
 import '../ui/studio_widgets.dart';
+import '../widgets/help_dialog.dart';
 import '../widgets/recordings_shelf.dart';
 import 'studio_tour.dart';
 import 'upgrade_dialog.dart';
@@ -367,6 +368,14 @@ class _TopBar extends StatelessWidget {
               _UpdatePill(recording: recording),
               const SizedBox(width: 6),
             ],
+            StudioPill(
+              key: const ValueKey('get-help'),
+              icon: Icons.support_agent,
+              label: 'Get help',
+              tooltip: 'Report a problem, ask a question or share an idea',
+              onTap: () => showHelpDialog(context),
+            ),
+            const SizedBox(width: 6),
             const _ProPill(),
             const SizedBox(width: 6),
             IconButton(

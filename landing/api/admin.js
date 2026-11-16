@@ -100,6 +100,17 @@ export default async function handler(req, res) {
           return res.status(200).json(publicSettings(config));
         case 'log':
           return res.status(200).json({ items: await db.select('admin_log', 'order=created_at.desc&limit=100').catch(() => []) });
+        case 'support': {
+          const status = url.searchParams.get('status') === 'done' ? 'done' : 'open';
+          try {
+            const items = await db.select('support_requests', `status=eq.${status}&order=created_at.desc&limit=200`);
+            return res.status(200).json({ ready: true, items });
+          } catch {
+            // Table not created yet: show what reached the activity log.
+            const items = await db.select('admin_log', 'action=like.help_*&order=created_at.desc&limit=200').catch(() => []);
+            return res.status(200).json({ ready: false, items });
+          }
+        }
         default:
           return res.status(404).json({ error: 'Unknown action.' });
       }
@@ -148,6 +159,13 @@ export default async function handler(req, res) {
             await logAction(db, me, 'test_email', error.message);
             return res.status(200).json({ ok: false, message: error.message });
           }
+        }
+        case 'support-status': {
+          const status = body.status === 'done' ? 'done' : 'open';
+          const rows = await db.update('support_requests', db.eq('id', String(body.id || '')), { status });
+          if (!rows.length) return res.status(404).json({ error: 'That request wasn’t found.' });
+          await logAction(db, me, `help_${status}`, `#${body.id}`);
+          return res.status(200).json({ ok: true });
         }
         case 'grant': {
           const row = await grantLicense(db, body, config);
