@@ -113,6 +113,7 @@ class AppUpdateService extends ChangeNotifier {
     bool? installsInPlace,
     String? os,
     Future<void> Function(String url)? openUrl,
+    this.retryDelays = const [Duration(seconds: 4), Duration(seconds: 12)],
   })  : _http = httpClient ?? HttpClient.new,
         _launch = launchInstaller ?? _launchAndQuit,
         installsInPlace = installsInPlace ?? Platform.isWindows,
@@ -127,6 +128,10 @@ class AppUpdateService extends ChangeNotifier {
   final Future<void> Function(String installer) _launch;
   final String _os;
   final Future<void> Function(String url) _openUrl;
+
+  /// Waits between download attempts (a release being published, a
+  /// dropped connection…). One attempt more than there are delays.
+  final List<Duration> retryDelays;
 
   UpdateStatus _status = UpdateStatus.idle;
   UpdateInfo? _latest;
@@ -211,20 +216,74 @@ class AppUpdateService extends ChangeNotifier {
     _progress = 0;
     _error = null;
     notifyListeners();
-    final client = _http();
+    final target = File(p.join(
+      Directory.systemTemp.path,
+      'ScreenRecorder-Setup-${info.build}-${DateTime.now().millisecondsSinceEpoch}.exe',
+    ));
+    UpdateFailure? failure;
+    for (var attempt = 0; attempt <= retryDelays.length; attempt++) {
+      if (attempt > 0) {
+        AppLogger.info('Update download: trying again (${failure?.log})');
+        await Future<void>.delayed(retryDelays[attempt - 1]);
+        _progress = 0;
+        notifyListeners();
+      }
+      failure = await _download(info.installerUrl, target);
+      if (failure == null || !failure.retry) break;
+    }
+    if (failure == null && !_looksLikeInstaller(target)) {
+      failure = const UpdateFailure(
+        'The download wasn’t a working installer. Antivirus or a network filter may have changed it. '
+        'Use “Download in browser” instead.',
+        log: 'not an installer',
+      );
+    }
+    if (failure != null) {
+      AppLogger.warn('Update failed: ${failure.log}');
+      _fail(failure.message);
+      try {
+        if (target.existsSync()) target.deleteSync();
+      } catch (_) {}
+      return;
+    }
+    _status = UpdateStatus.installing;
+    _progress = 1;
+    notifyListeners();
     try {
-      final target = File(p.join(Directory.systemTemp.path, 'ScreenRecorder-Setup-${info.build}.exe'));
-      final request = await client.getUrl(Uri.parse(info.installerUrl));
+      await _launch(target.path);
+    } catch (error) {
+      AppLogger.warn('Update failed: could not start the installer: $error');
+      _fail('The new version downloaded, but its installer couldn’t start. Your antivirus may have blocked it. '
+          'Use “Download in browser” and run it from there.');
+    }
+  }
+
+  void _fail(String message) {
+    _status = UpdateStatus.failed;
+    _error = message;
+    notifyListeners();
+  }
+
+  /// Downloads [url] to [target]; null when it worked.
+  Future<UpdateFailure?> _download(String url, File target) async {
+    final client = _http()
+      ..connectionTimeout = const Duration(seconds: 20)
+      ..idleTimeout = const Duration(seconds: 20);
+    try {
+      final request = await client.getUrl(Uri.parse(url));
       request.headers.set(HttpHeaders.userAgentHeader, 'ScreenRecorder/$currentBuild');
-      final response = await request.close();
-      if (response.statusCode != 200) {
-        throw HttpException('Download failed (${response.statusCode})');
+      final response = await request.close().timeout(const Duration(seconds: 30));
+      final code = response.statusCode;
+      if (code != 200) {
+        await response.drain<void>().catchError((_) {});
+        return UpdateFailure.forStatus(code);
       }
       final total = response.contentLength;
       var received = 0;
       final sink = target.openWrite();
       try {
-        await for (final chunk in response) {
+        // A stalled download (no data for a minute) counts as dropped.
+        await for (final chunk in response.timeout(const Duration(seconds: 60))) {
           sink.add(chunk);
           received += chunk.length;
           if (total > 0) {
@@ -235,21 +294,51 @@ class AppUpdateService extends ChangeNotifier {
       } finally {
         await sink.close();
       }
-      if (!_looksLikeInstaller(target)) {
-        throw const FileSystemException('The download was not a valid installer.');
+      if (total > 0 && received < total) {
+        return UpdateFailure(
+          'The download was cut off before it finished. Check your connection and try again.',
+          log: 'incomplete: $received of $total bytes',
+          retry: true,
+        );
       }
-      _status = UpdateStatus.installing;
-      _progress = 1;
-      notifyListeners();
-      await _launch(target.path);
+      return null;
+    } on FileSystemException catch (error) {
+      return UpdateFailure(
+        'The new version couldn’t be saved on this computer (${error.osError?.message ?? error.message}). '
+        'Free some disk space, or use “Download in browser”.',
+        log: '$error',
+      );
+    } on HandshakeException catch (error) {
+      return UpdateFailure(
+        'A secure connection to the download server couldn’t be made. Your network, antivirus or the '
+        'computer’s date and time may be blocking it. Use “Download in browser” instead.',
+        log: '$error',
+      );
     } catch (error) {
-      AppLogger.warn('Update failed: $error');
-      _status = UpdateStatus.failed;
-      _error = 'The update could not be downloaded. Check your internet connection and try again.';
-      notifyListeners();
+      // SocketException, TimeoutException, HttpException (connection closed)…
+      return UpdateFailure(
+        'Couldn’t reach the download server. Check your internet connection and try again.',
+        log: '$error',
+        retry: true,
+      );
     } finally {
       client.close(force: true);
     }
+  }
+
+  /// Opens the new installer in the browser: the way out when the in-app
+  /// update can't finish (e.g. a filter blocks the app but not the browser).
+  Future<void> downloadInBrowser() async {
+    final info = _latest;
+    if (info == null) return;
+    try {
+      await _openUrl(info.downloadFor(_os) ?? downloadPageUrl);
+      _openedDownload = true;
+    } catch (error) {
+      AppLogger.warn('Could not open the download: $error');
+      _error = 'Could not open your browser. Download the new version from $downloadPageUrl';
+    }
+    notifyListeners();
   }
 
   Future<void> _openDownload(UpdateInfo info) async {
@@ -274,6 +363,10 @@ class AppUpdateService extends ChangeNotifier {
   }
 
   static Future<void> _openInBrowser(String url) async {
+    if (Platform.isWindows) {
+      await Process.start('rundll32', ['url.dll,FileProtocolHandler', url]);
+      return;
+    }
     await Process.start(Platform.isMacOS ? 'open' : 'xdg-open', [url]);
   }
 
@@ -298,5 +391,37 @@ class AppUpdateService extends ChangeNotifier {
     );
     await Future<void>.delayed(const Duration(milliseconds: 300));
     exit(0);
+  }
+}
+
+/// Why an update download failed, in words for the user.
+class UpdateFailure {
+  const UpdateFailure(this.message, {required this.log, this.retry = false});
+
+  final String message;
+  final String log;
+
+  /// Worth trying again by itself (the problem may pass).
+  final bool retry;
+
+  factory UpdateFailure.forStatus(int code) {
+    if (code == 404) {
+      return UpdateFailure(
+        'The new version is still being published. Try again in a few minutes.',
+        log: 'HTTP 404',
+        retry: true,
+      );
+    }
+    if (code == 401 || code == 403 || code == 407) {
+      return UpdateFailure(
+        'Your network blocked the download (error $code). Use “Download in browser”, or try on another network.',
+        log: 'HTTP $code',
+      );
+    }
+    return UpdateFailure(
+      'The download server had a problem (error $code). Try again in a few minutes.',
+      log: 'HTTP $code',
+      retry: code >= 500 || code == 429,
+    );
   }
 }

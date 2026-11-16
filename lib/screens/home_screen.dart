@@ -1893,7 +1893,10 @@ class _UpdateDialog extends StatelessWidget {
                   ),
                   if (update.openedDownload) ...[
                     const SizedBox(height: 12),
-                    Text('The download started in your browser.',
+                    Text(
+                        update.installsInPlace
+                            ? 'The download started in your browser. Close Screen Recorder, then run ScreenRecorder-Setup.exe from your Downloads.'
+                            : 'The download started in your browser.',
                         style: StudioText.caption.copyWith(color: Studio.ok)),
                   ],
                   if (update.status == UpdateStatus.downloading) ...[
@@ -1924,6 +1927,11 @@ class _UpdateDialog extends StatelessWidget {
                 onPressed: busy ? null : () => Navigator.of(context).pop(),
                 child: const Text('Later'),
               ),
+              if (update.status == UpdateStatus.failed && update.installsInPlace)
+                TextButton(
+                  onPressed: update.downloadInBrowser,
+                  child: const Text('Download in browser'),
+                ),
               FilledButton(
                 onPressed: busy || recording ? null : update.install,
                 child: Text(update.status == UpdateStatus.failed

@@ -538,7 +538,10 @@ jobs:
           }
           JSON
           python3 -m json.tool dist/version.json
-          ls -la dist
+          # The manifest goes up last, so the app never offers an update
+          # before its installer is in place.
+          mkdir -p manifest && mv dist/version.json manifest/
+          ls -la dist manifest
       - name: Publish to the "windows-latest" release
         uses: softprops/action-gh-release@v2
         with:
@@ -553,4 +556,10 @@ jobs:
             Build ${{ github.run_number }} from ${{ github.sha }}.
           files: |
             dist/*
+          make_latest: true
+      - name: Publish the update manifest (after the files)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: windows-latest
+          files: manifest/version.json
           make_latest: true

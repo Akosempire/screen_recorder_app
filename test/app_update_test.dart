@@ -29,6 +29,8 @@ void main() {
     late HttpServer server;
     late String base;
     const manifestBuild = 60;
+    var missingInstaller = false;
+    var installerRequests = 0;
     var installerBytes = <int>[0x4D, 0x5A, ...List.filled(2 * 1024 * 1024, 7)];
 
     setUp(() async {
@@ -48,6 +50,9 @@ void main() {
               'evil': 'http://evil.example/x',
             },
           }));
+        } else if (req.uri.path == '/setup.exe' && missingInstaller) {
+          installerRequests++;
+          req.response.statusCode = 404;
         } else if (req.uri.path == '/setup.exe') {
           req.response.contentLength = installerBytes.length;
           req.response.add(installerBytes);
@@ -76,7 +81,7 @@ void main() {
       await service.install();
       expect(service.status, UpdateStatus.installing);
       expect(service.progress, 1);
-      expect(launched, endsWith('ScreenRecorder-Setup-60.exe'));
+      expect(launched, matches(RegExp(r'ScreenRecorder-Setup-60-\d+\.exe$')));
       expect(File(launched!).lengthSync(), installerBytes.length);
       File(launched!).deleteSync();
     });
@@ -102,6 +107,45 @@ void main() {
       expect(service.status, UpdateStatus.failed);
       expect(service.error, isNotNull);
       installerBytes = [0x4D, 0x5A, ...List.filled(2 * 1024 * 1024, 7)];
+    });
+
+    test('installer not there yet (release being published): tries again, then says so', () async {
+      final service = AppUpdateService(
+        currentBuild: 1,
+        manifestUrl: '$base/version.json',
+        launchInstaller: (_) async => fail('nothing to launch'),
+        installsInPlace: true,
+        retryDelays: const [Duration.zero, Duration.zero],
+      );
+      expect(await service.check(), isNotNull);
+      missingInstaller = true;
+      installerRequests = 0;
+      await service.install();
+      missingInstaller = false;
+      expect(service.status, UpdateStatus.failed);
+      expect(service.error, contains('still being published'));
+      expect(installerRequests, 3, reason: 'first try plus two retries');
+    });
+
+    test('a blocked download says so instead of blaming the internet', () {
+      expect(UpdateFailure.forStatus(403).message, contains('blocked'));
+      expect(UpdateFailure.forStatus(403).retry, isFalse);
+      expect(UpdateFailure.forStatus(503).retry, isTrue);
+    });
+
+    test('when the app can’t download it, the browser can', () async {
+      String? opened;
+      final service = AppUpdateService(
+        currentBuild: 1,
+        manifestUrl: '$base/version.json',
+        installsInPlace: true,
+        os: 'windows',
+        openUrl: (url) async => opened = url,
+      );
+      await service.check();
+      await service.downloadInBrowser();
+      expect(opened, '$base/setup.exe');
+      expect(service.openedDownload, isTrue);
     });
 
     test('offline: no update, no error', () async {
