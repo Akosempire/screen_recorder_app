@@ -84,8 +84,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadRecordings() async {
     if (!DraftStore.instance.loaded) await DraftStore.instance.load();
     if (DemoMode.active) return;
+    if ((await findRecoverableRecordings()).isNotEmpty && mounted) {
+      setState(() => _recoveredNotice =
+          'Bringing back a recording that wasn’t saved. If it was cut off, it’s being repaired; this can take a few minutes.');
+    }
     final recovered = await recoverUnsavedRecordings();
-    if (!mounted || recovered.isEmpty) return;
+    if (!mounted) return;
+    if (recovered.isEmpty) {
+      if (_recoveredNotice != null) {
+        setState(() => _recoveredNotice =
+            'A recording that wasn’t saved couldn’t be brought back automatically. Use Get help and we’ll help you recover it.');
+      }
+      return;
+    }
     String len(Draft d) {
       final s = d.duration.inSeconds;
       final h = s ~/ 3600;
@@ -93,9 +104,11 @@ class _HomeScreenState extends State<HomeScreen> {
       return h > 0 ? '${h}h ${m}min' : '${m}min ${s % 60}s';
     }
     setState(() {
-      _recoveredNotice = recovered.length == 1
-          ? 'We found a recording that wasn’t saved (${len(recovered.first)}) and put it back in Recordings.'
-          : 'We found ${recovered.length} recordings that weren’t saved and put them back in Recordings.';
+      final fixed = recovered.any((d) => d.repaired);
+      _recoveredNotice = (recovered.length == 1
+              ? 'We found a recording that wasn’t saved (${len(recovered.first)}) and put it back in Recordings.'
+              : 'We found ${recovered.length} recordings that weren’t saved and put them back in Recordings.') +
+          (fixed ? ' It had been cut off, so we repaired it: check the end, the last moments may be missing.' : '');
     });
   }
 

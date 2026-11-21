@@ -28,6 +28,9 @@ class ProcessRunner {
       arguments,
       workingDirectory: workingDirectory,
     );
+    // Nothing is sent to the program: close its input so a tool that asks a
+    // question gets "no answer" instead of waiting forever.
+    process.stdin.close().ignore();
     final stdoutFuture =
         process.stdout.transform(systemEncoding.decoder).join();
     final stderrFuture =

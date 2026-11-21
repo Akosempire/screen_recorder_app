@@ -6,6 +6,7 @@ import 'app_logger.dart';
 import 'draft_store.dart';
 import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
+import 'recording_repair.dart';
 
 /// A recording FFmpeg finished writing in the temporary folder, but which the
 /// app never moved to Recordings (e.g. the computer was turned off while it
@@ -128,17 +129,35 @@ Future<Draft?> recoverRecording(
   RecoverableRecording r, {
   required DraftStore store,
   ProcessRunner runner = const ProcessRunner(),
+  Future<String?> Function(String broken, List<String> models)? repairer,
 }) async {
-  var files = r.files;
-  if (files.length > 1) {
-    // Leave out pieces FFmpeg can't read (cut off mid-write); they would
-    // make joining fail and lose the good ones too.
-    final readable = <String>[];
-    for (final f in files) {
-      final info = await runner.run(ffmpegExecutable, ['-hide_banner', '-i', f]);
-      if (parseFfmpegInfo('${info.stderr}') != null) readable.add(f);
+  // Check each piece. One FFmpeg can't read was cut off while being written
+  // (recordings made before crash-safe recording): repair it if possible,
+  // otherwise leave it out so the good pieces are still recovered.
+  final readable = <String>[];
+  final broken = <String>[];
+  for (final f in r.files) {
+    final info = await runner.run(ffmpegExecutable, ['-hide_banner', '-i', f]);
+    (parseFfmpegInfo('${info.stderr}') != null ? readable : broken).add(f);
+  }
+  final repaired = <String, String>{};
+  if (broken.isNotEmpty && (repairer != null || untruncExecutable != null)) {
+    final models = [
+      ...readable,
+      for (final d in store.drafts) d.hasOriginal ? d.originalPath : d.videoPath,
+    ];
+    for (final b in broken) {
+      final fixed = await (repairer ?? (String v, List<String> m) => repairCutOffVideo(v, models: m, runner: runner))(b, models);
+      if (fixed != null) repaired[b] = fixed;
     }
-    if (readable.isNotEmpty) files = readable;
+  }
+  final files = [
+    for (final f in r.files)
+      if (readable.contains(f)) f else if (repaired[f] != null) repaired[f]!,
+  ];
+  if (files.isEmpty) {
+    AppLogger.warn('Unreadable leftover recording in ${r.dir.path}; leaving it in place');
+    return null;
   }
   var video = files.first;
   if (files.length > 1) {
@@ -190,6 +209,7 @@ Future<Draft?> recoverRecording(
     hasAudio: probe.hasAudio,
     now: r.modified,
     recovered: true,
+    repaired: repaired.isNotEmpty,
   );
   if (draft != null) {
     try {
@@ -205,12 +225,13 @@ Future<List<Draft>> recoverUnsavedRecordings({
   DraftStore? store,
   Directory? temp,
   ProcessRunner runner = const ProcessRunner(),
+  Future<String?> Function(String broken, List<String> models)? repairer,
 }) async {
   final drafts = store ?? DraftStore.instance;
   final out = <Draft>[];
   try {
     for (final r in await findRecoverableRecordings(temp: temp)) {
-      final d = await recoverRecording(r, store: drafts, runner: runner);
+      final d = await recoverRecording(r, store: drafts, runner: runner, repairer: repairer);
       if (d != null) out.add(d);
     }
   } catch (error, stack) {

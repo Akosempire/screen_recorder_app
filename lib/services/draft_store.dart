@@ -32,7 +32,11 @@ class Draft {
     this.cuts = const [],
     this.exportedTo = const [],
     this.recovered = false,
+    this.repaired = false,
   });
+
+  /// It had been cut off before it was finished and was rebuilt.
+  final bool repaired;
 
   /// Brought back from an unsaved recording left behind earlier.
   final bool recovered;
@@ -85,6 +89,7 @@ class Draft {
         'cuts': [for (final c in cuts) [c.start, c.end]],
         'exportedTo': exportedTo,
         if (recovered) 'recovered': true,
+        if (repaired) 'repaired': true,
       };
 
   static Draft? fromJson(String folder, Object? json) {
@@ -118,6 +123,7 @@ class Draft {
       cuts: cuts,
       exportedTo: exported is List ? exported.whereType<String>().toList() : <String>[],
       recovered: json['recovered'] == true,
+      repaired: json['repaired'] == true,
     );
   }
 }
@@ -234,6 +240,7 @@ class DraftStore extends ChangeNotifier {
     double? focusSeconds,
     DateTime? now,
     bool recovered = false,
+    bool repaired = false,
   }) async {
     final dir = root;
     if (dir == null) return null;
@@ -252,6 +259,7 @@ class DraftStore extends ChangeNotifier {
         hasAudio: hasAudio,
         focusSeconds: focusSeconds,
         recovered: recovered,
+        repaired: repaired,
       );
       await _move(video, draft.videoPath);
       if (original != null && original != video && await File(original).exists()) {

@@ -94,6 +94,58 @@ jobs:
           }
           Get-ChildItem $rel -Recurse | Select-Object FullName, Length
 
+      # untrunc (GPL-2.0) rebuilds recordings that were cut off before they
+      # were finished (made before crash-safe recording); the app runs it
+      # during recovery. Shipped unmodified in untrunc\ with its licence.
+      - name: Bundle untrunc (repairs cut-off recordings)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $rel = "build\windows\x64\runner\Release"
+          gh release view latest -R anthwlock/untrunc --json assets --jq '.assets[].name'
+          New-Item -ItemType Directory -Force untrunc_dl | Out-Null
+          gh release download latest -R anthwlock/untrunc -D untrunc_dl --pattern "*.zip" --clobber
+          Get-ChildItem untrunc_dl
+          $zip = Get-ChildItem untrunc_dl -Filter *.zip | Sort-Object { if ($_.Name -match '64') { 0 } else { 1 } } | Select-Object -First 1
+          Expand-Archive $zip.FullName -DestinationPath untrunc_x -Force
+          $exe = Get-ChildItem untrunc_x -Recurse -Filter untrunc.exe | Select-Object -First 1
+          if (-not $exe) { Get-ChildItem untrunc_x -Recurse | Select-Object FullName; throw "untrunc.exe not found in $($zip.Name)" }
+          New-Item -ItemType Directory -Force "$rel\untrunc" | Out-Null
+          Copy-Item "$($exe.DirectoryName)\*" "$rel\untrunc\" -Recurse
+          gh api repos/anthwlock/untrunc/license --jq '.content' | Out-File -Encoding ascii lic.b64
+          [IO.File]::WriteAllBytes("$PWD\$rel\untrunc\LICENSE.txt", [Convert]::FromBase64String((Get-Content lic.b64 -Raw)))
+          "untrunc by anthwlock, unmodified. Source: https://github.com/anthwlock/untrunc (release 'latest')." | Out-File "$rel\untrunc\SOURCE.txt"
+          Get-ChildItem "$rel\untrunc"
+          & "$rel\untrunc\untrunc.exe" -h 2>&1 | Select-Object -First 40
+
+      - name: Repair smoke test (cut-off recording → playable)
+        shell: pwsh
+        run: |
+          $rel = "build\windows\x64\runner\Release"
+          $ff = "ffmpeg_bin\ffmpeg.exe"
+          $enc = @('-c:v','libx264','-preset','ultrafast','-crf','23','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-ac','2')
+          & $ff -hide_banner -loglevel error -y -f lavfi -i testsrc2=size=1280x720:rate=30 -f lavfi -i sine=f=440:sample_rate=48000 -t 4 @enc model.mp4
+          & $ff -hide_banner -loglevel error -y -f lavfi -i testsrc2=size=1280x720:rate=30 -f lavfi -i sine=f=660:sample_rate=48000 -t 20 @enc whole.mp4
+          # Cut off the end (where the index lives), as when the app was stopped by force.
+          $bytes = [IO.File]::ReadAllBytes("$PWD\whole.mp4")
+          [IO.File]::WriteAllBytes("$PWD\segment_0.mp4", $bytes[0..([int]($bytes.Length * 0.9))])
+          & $ff -hide_banner -i segment_0.mp4 2>&1 | Select-Object -Last 3
+          New-Item -ItemType File -Force empty.txt | Out-Null
+          $env:SR_UNTRUNC = (Resolve-Path "$rel\untrunc\untrunc.exe").Path
+          $sw = [Diagnostics.Stopwatch]::StartNew()
+          $p = Start-Process -FilePath $env:SR_UNTRUNC -ArgumentList @("model.mp4","segment_0.mp4") -NoNewWindow -PassThru -RedirectStandardInput empty.txt -RedirectStandardOutput untrunc.out -RedirectStandardError untrunc.err
+          if (-not $p.WaitForExit(300000)) { $p.Kill(); throw "untrunc hung" }
+          "untrunc took $($sw.Elapsed.TotalSeconds) s, exit $($p.ExitCode)"
+          Get-Content untrunc.out, untrunc.err | Select-Object -Last 15
+          Get-ChildItem . -Filter "segment_0*"
+          $fixed = Get-ChildItem . -Filter "segment_0*fixed*.mp4" | Select-Object -First 1
+          if (-not $fixed) { throw "no repaired file" }
+          $info = & $ff -hide_banner -i $fixed.FullName 2>&1 | Out-String
+          $info
+          if ($info -notmatch 'Duration: 00:00:1[5-9]') { throw "repaired file is too short or unreadable" }
+          if ($info -notmatch 'Audio: aac') { throw "repaired file has no sound" }
+
       - name: Set the runner screen to 1920x1080
         shell: pwsh
         continue-on-error: true
@@ -329,7 +381,10 @@ jobs:
             echo \"alive=\$alive\" > result.txt
           "
           echo "::notice title=AppImage on ${{ matrix.distro }}::$(cat result.txt) | $(grep -iE 'error|cannot|undefined|failed' app.log | head -3 | tr '\n' ' ' | cut -c1-400)"
-          grep -q alive=yes result.txt
+          if ! grep -q alive=yes result.txt; then
+            echo "---- app.log (last 80 lines) ----"; tail -80 app.log
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: appimage-shot-${{ strategy.job-index }}

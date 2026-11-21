@@ -151,6 +151,27 @@ void main() {
     expect(runner.joined, isNot(contains('segment_2.mp4')), reason: 'the damaged piece is left out');
   });
 
+  test('a piece cut off before it was finished is repaired and recovered', () async {
+    final working = video('screen_recorder_old', 'segment_1.mp4', at: old.add(const Duration(minutes: 5)));
+    video('screen_recorder_old', 'segment_0.mp4');
+    final store = DraftStore(root: Directory(p.join(tmp.path, 'recordings')), runner: _FakeFfmpeg());
+    final asked = <String>[];
+    final recovered = await recoverUnsavedRecordings(
+      store: store,
+      temp: tmp,
+      runner: _FakeFfmpeg(damaged: {'segment_0.mp4'}),
+      repairer: (broken, models) async {
+        asked.add(p.basename(broken));
+        expect(models.first, working.path, reason: 'a piece from the same recording is the best model');
+        final fixed = File('$broken.fixed.mp4')..writeAsBytesSync(List.filled(300 * 1024, 3));
+        return fixed.path;
+      },
+    );
+    expect(asked, ['segment_0.mp4']);
+    expect(recovered, hasLength(1));
+    expect(recovered.single.repaired, isTrue);
+  });
+
   test('an unreadable leftover is left where it is', () async {
     video('screen_recorder_zzz', 'segment_0.mp4');
     final store = DraftStore(root: Directory(p.join(tmp.path, 'recordings')), runner: _FakeFfmpeg());
