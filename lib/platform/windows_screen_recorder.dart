@@ -83,7 +83,7 @@ List<String> buildGdigrabArgs({
     '-f',
     'gdigrab',
     '-thread_queue_size',
-    '512',
+    '1024',
     '-framerate',
     '$fps',
     '-draw_mouse',
@@ -99,13 +99,23 @@ List<String> buildGdigrabArgs({
     if (microphoneDevice != null) ...[
       '-f',
       'dshow',
+      // DirectShow holds 500 ms of sound by default before handing it over,
+      // which puts the voice behind the picture; 50 ms keeps them together.
+      '-audio_buffer_size',
+      '50',
       '-thread_queue_size',
-      '512',
+      '4096',
+      // Room for the sound while the computer is busy, instead of dropping it.
       '-rtbufsize',
-      '64M',
+      '256M',
       '-i',
       'audio=$microphoneDevice',
     ],
+    // Keep a steady 30 frames a second, timed by the clock: frames the
+    // computer couldn't grab are repeated rather than squeezed out, so the
+    // picture can't drift from the sound.
+    '-fps_mode',
+    'cfr',
     ...ffmpegEncodeArgs(
       encoder: encoder,
       outputPath: outputPath,

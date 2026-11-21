@@ -432,7 +432,12 @@ List<String> ffmpegConcatEncodeArgs({
 /// then lifts quiet speech to a steady level (up to +26 dB) without clipping
 /// loud parts. Laptop and USB mics often come in far too quiet otherwise.
 /// Only used on the raw microphone, never on audio that was already levelled.
-const String microphoneLevelFilter = 'highpass=f=80,dynaudnorm=f=200:g=11:p=0.9:m=20';
+///
+/// `aresample=async` comes first: when the computer is busy, the sound card
+/// driver can drop bits of audio; without it the sound then runs ahead of
+/// the picture more and more. It fills such gaps (and trims overlaps) by
+/// the audio's own timestamps so voice and picture stay in step.
+const String microphoneLevelFilter = 'aresample=async=1000,highpass=f=80,dynaudnorm=f=200:g=11:p=0.9:m=20';
 
 List<String> ffmpegEncodeArgs({
   required String encoder,

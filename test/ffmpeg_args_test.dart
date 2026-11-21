@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:screen_recorder_app/models/screen_region.dart';
 import 'package:screen_recorder_app/services/ffmpeg_recorder.dart';
 import 'package:screen_recorder_app/services/linux_screen_service.dart';
+import 'package:screen_recorder_app/platform/windows_screen_recorder.dart';
 
 void main() {
   test('X11 grab arguments capture the selected region without audio', () {
@@ -145,5 +146,18 @@ DP-1 disconnected (normal left inverted right x axis y axis)
     expect(capture.last, '/tmp/segment_0.mp4');
     expect(ffmpegEncodeArgs(encoder: 'libx264', outputPath: '/tmp/merged.mp4'), isNot(contains('-movflags')),
         reason: 'only while capturing');
+  });
+
+  test('Windows: voice and picture are kept in step', () {
+    final args = buildGdigrabArgs(
+      region: const ScreenRegion(x: 0, y: 0, width: 1920, height: 1080),
+      outputPath: 'C:/t/segment_0.mp4',
+      encoder: 'libx264',
+      microphoneDevice: 'Microphone (Realtek Audio)',
+    );
+    expect(args, containsAllInOrder(['-f', 'dshow', '-audio_buffer_size', '50']));
+    expect(args, containsAllInOrder(['-fps_mode', 'cfr']));
+    expect(args, containsAllInOrder(['-af', 'aresample=async=1000,highpass=f=80']));
+    expect(args.last, 'C:/t/segment_0.mp4');
   });
 }
