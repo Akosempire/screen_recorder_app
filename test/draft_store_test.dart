@@ -74,6 +74,26 @@ void main() {
     expect(again.unexportedCount, 0);
   });
 
+  test('old preview images are cleared out of a recording\'s folder; the recording stays', () async {
+    final store = DraftStore(root: Directory('${tmp.path}/recordings'), runner: const _NoFfmpeg());
+    final draft = (await store.createFrom(
+      video: await fakeVideo('v.mp4'),
+      width: 640,
+      height: 360,
+      duration: const Duration(seconds: 5),
+      hasAudio: false,
+    ))!;
+    for (final name in ['preview_after_1795112545480.png', 'preview_strip_1795112545480.png', 'frame_499835794_853.jpg']) {
+      File('${draft.folder}/$name').writeAsStringSync('x');
+    }
+    File('${draft.folder}/zoom.json').writeAsStringSync('{}');
+
+    await DraftStore(root: Directory('${tmp.path}/recordings'), runner: const _NoFfmpeg()).load();
+    final left = Directory(draft.folder).listSync().map((f) => f.uri.pathSegments.last).toSet();
+    expect(left, containsAll(['video.mp4', 'draft.json', 'zoom.json']));
+    expect(left.where((n) => n.startsWith('preview_') || n.startsWith('frame_')), isEmpty);
+  });
+
   test('recording again keeps every earlier recording, newest first', () async {
     final store = DraftStore(root: Directory('${tmp.path}/recordings'), runner: const _NoFfmpeg());
     for (var i = 0; i < 3; i++) {

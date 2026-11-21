@@ -136,7 +136,7 @@ class RecordingLibrary extends ChangeNotifier {
 
   /// Builds before/after stills and a filmstrip. Failures are non-fatal.
   Future<void> buildPreviews(LastRecording recording) async {
-    final dir = p.dirname(recording.finalPath);
+    final dir = previewFolder(recording.finalPath, fresh: true);
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final seconds = recording.duration.inMilliseconds / 1000.0;
     final at = (recording.focusSeconds ??
@@ -166,6 +166,22 @@ class RecordingLibrary extends ChangeNotifier {
 
   final Map<String, File> _frames = {};
 
+  /// Where preview images of [video] go: the temp folder, never next to the
+  /// recording (they used to pile up in each draft's folder). [fresh] clears
+  /// the last set first.
+  static String previewFolder(String video, {bool fresh = false}) {
+    final dir = Directory(p.join(Directory.systemTemp.path, 'screen_recorder_app', 'previews', '${video.hashCode.abs()}'));
+    try {
+      if (fresh && dir.existsSync()) {
+        for (final f in dir.listSync()) {
+          if (f is File && p.basename(f.path).startsWith('preview_')) f.deleteSync();
+        }
+      }
+      dir.createSync(recursive: true);
+    } catch (_) {}
+    return dir.path;
+  }
+
   /// Drops cached stills of [videoPath] (its content changed).
   void forgetFrames(String videoPath) {
     _frames.removeWhere((key, file) {
@@ -184,7 +200,7 @@ class RecordingLibrary extends ChangeNotifier {
     final cached = _frames[key];
     if (cached != null && cached.existsSync()) return cached;
     final out = p.join(
-      p.dirname(recording.finalPath),
+      previewFolder(recording.finalPath),
       'frame_${recording.finalPath.hashCode.abs()}_${(seconds * 10).round()}.jpg',
     );
     final file = await _still(recording.finalPath, seconds, out, width: 960);

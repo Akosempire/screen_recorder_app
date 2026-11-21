@@ -205,7 +205,10 @@ class DraftStore extends ChangeNotifier {
           final meta = File(p.join(entry.path, 'draft.json'));
           if (!await meta.exists()) continue;
           final draft = Draft.fromJson(entry.path, jsonDecode(await meta.readAsString()));
-          if (draft != null && await File(draft.videoPath).exists()) out.add(draft);
+          if (draft != null && await File(draft.videoPath).exists()) {
+            out.add(draft);
+            await _tidy(entry);
+          }
         } catch (error) {
           AppLogger.debug('Skipping unreadable draft ${entry.path}: $error');
         }
@@ -318,6 +321,20 @@ class DraftStore extends ChangeNotifier {
     _drafts = _drafts.where((x) => x.id != id).toList();
     notifyListeners();
     unawaited(measure());
+  }
+
+  /// Removes preview images older versions left in a draft's folder.
+  static Future<void> _tidy(Directory folder) async {
+    try {
+      await for (final f in folder.list()) {
+        final name = p.basename(f.path);
+        if (f is File && RegExp(r'^(preview_(after|before|strip)_\d+\.png|frame_\d+_\d+\.jpg)$').hasMatch(name)) {
+          await f.delete();
+        }
+      }
+    } catch (error) {
+      AppLogger.debug('Could not tidy ${folder.path}: $error');
+    }
   }
 
   Future<void> _write(Draft d) async {
