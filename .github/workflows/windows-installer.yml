@@ -145,6 +145,8 @@ jobs:
           $info
           if ($info -notmatch 'Duration: 00:00:1[5-9]') { throw "repaired file is too short or unreadable" }
           if ($info -notmatch 'Audio: aac') { throw "repaired file has no sound" }
+          "Repaired: plays, with sound"
+          exit 0  # ffmpeg -i (info only) leaves exit code 1 behind
 
       - name: Set the runner screen to 1920x1080
         shell: pwsh
