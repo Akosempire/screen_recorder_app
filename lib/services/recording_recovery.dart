@@ -118,10 +118,21 @@ Future<Draft?> recoverRecording(
   required DraftStore store,
   ProcessRunner runner = const ProcessRunner(),
 }) async {
-  var video = r.files.first;
-  if (r.files.length > 1) {
+  var files = r.files;
+  if (files.length > 1) {
+    // Leave out pieces FFmpeg can't read (cut off mid-write); they would
+    // make joining fail and lose the good ones too.
+    final readable = <String>[];
+    for (final f in files) {
+      final info = await runner.run(ffmpegExecutable, ['-hide_banner', '-i', f]);
+      if (parseFfmpegInfo('${info.stderr}') != null) readable.add(f);
+    }
+    if (readable.isNotEmpty) files = readable;
+  }
+  var video = files.first;
+  if (files.length > 1) {
     final list = File(p.join(r.dir.path, 'recover_list.txt'));
-    await list.writeAsString(r.files.map((f) => "file '${f.replaceAll("'", r"'\''")}'").join('\n'));
+    await list.writeAsString(files.map((f) => "file '${f.replaceAll("'", r"'\''")}'").join('\n'));
     final joined = p.join(r.dir.path, 'recovered.mp4');
     final result = await runner.run(
       ffmpegExecutable,
@@ -131,7 +142,7 @@ Future<Draft?> recoverRecording(
       video = joined;
     } else {
       AppLogger.warn('Could not join the pieces of ${r.dir.path}; recovering the longest one');
-      video = (r.files.toList()..sort((a, b) => File(b).lengthSync().compareTo(File(a).lengthSync()))).first;
+      video = (files.toList()..sort((a, b) => File(b).lengthSync().compareTo(File(a).lengthSync()))).first;
     }
   }
   final info = await runner.run(ffmpegExecutable, ['-hide_banner', '-i', video]);

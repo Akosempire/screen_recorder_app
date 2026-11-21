@@ -7,6 +7,7 @@ import '../models/screen_region.dart';
 import 'app_logger.dart';
 import 'ffmpeg_binary.dart';
 import 'ffmpeg_process_manager.dart';
+import 'recording_recovery.dart';
 import 'screen_recorder.dart';
 
 class CaptureCommand {
@@ -117,30 +118,53 @@ class SegmentingScreenRecorder implements ScreenRecorder {
       throw const RecorderException(userMessage: 'Cannot resume without a region.');
     }
     _paused = false;
-    await _startSegment();
+    try {
+      await _startSegment();
+    } on RecorderException catch (error) {
+      // The microphone or screen may still be held by the piece that just
+      // stopped (seen on Windows). Wait a moment and try once more.
+      AppLogger.warn('Resume failed (${error.userMessage}); trying again');
+      _unexpectedExit = false;
+      _unexpectedDetails = null;
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      await _startSegment();
+    }
     AppLogger.info('Recording resumed');
   }
 
   @override
   Future<String?> stop() async {
+    RecorderException? stopError;
     if (_process.isRunning) {
-      await _stopCurrentSegment();
+      try {
+        await _stopCurrentSegment();
+      } on RecorderException catch (error) {
+        // Keep going: the pieces recorded so far must still be saved.
+        stopError = error;
+        AppLogger.warn('Stopping the last piece failed: ${error.userMessage} ${error.technicalDetails ?? ''}');
+      }
     }
     _paused = false;
     final dir = _sessionDir;
-    final segments = List<String>.from(_segments);
     final recordMicrophone = _recordMicrophone;
+    // Only pieces FFmpeg actually wrote (a piece that failed to start can be
+    // missing or empty and would make joining fail).
+    final segments = _segments.where(_hasContent).toList();
+    if (segments.length != _segments.length) {
+      AppLogger.warn('Skipping ${_segments.length - segments.length} empty piece(s) of the recording');
+    }
     _segments.clear();
     _sessionDir = null;
     _region = null;
     _recordMicrophone = false;
 
     if (segments.isEmpty) {
-      if (_unexpectedExit) {
-        throw RecorderException(
-          userMessage: 'Recording stopped unexpectedly. Nothing was saved.',
-          technicalDetails: _unexpectedDetails,
-        );
+      if (_unexpectedExit || stopError != null) {
+        throw stopError ??
+            RecorderException(
+              userMessage: 'Recording stopped unexpectedly. Nothing was saved.',
+              technicalDetails: _unexpectedDetails,
+            );
       }
       return null;
     }
@@ -153,12 +177,37 @@ class SegmentingScreenRecorder implements ScreenRecorder {
       return segments.last;
     }
     final merged = p.join(dir.path, 'merged.mp4');
-    return _mergeSegments(
-      segments,
-      merged,
-      dir.path,
-      recordMicrophone: recordMicrophone,
-    );
+    try {
+      return await _mergeSegments(segments, merged, dir.path, recordMicrophone: recordMicrophone);
+    } on RecorderException catch (error) {
+      // One piece is probably damaged: join the ones FFmpeg can read, or
+      // keep the longest, rather than losing the whole recording.
+      AppLogger.warn('Joining the pieces failed (${error.technicalDetails}); checking each piece');
+      final readable = <String>[];
+      for (final s in segments) {
+        final info = await _runner.run(ffmpegExecutable, ['-hide_banner', '-i', s]);
+        if (parseFfmpegInfo('${info.stderr}') != null) readable.add(s);
+      }
+      if (readable.isEmpty) rethrow;
+      if (readable.length > 1 && readable.length < segments.length) {
+        try {
+          return await _mergeSegments(readable, merged, dir.path, recordMicrophone: recordMicrophone);
+        } on RecorderException {
+          // fall through to the longest piece
+        }
+      }
+      readable.sort((a, b) => File(b).lengthSync().compareTo(File(a).lengthSync()));
+      AppLogger.warn('Saving the longest readable piece: ${readable.first}');
+      return readable.first;
+    }
+  }
+
+  static bool _hasContent(String path) {
+    try {
+      return File(path).lengthSync() > 16 * 1024;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _startSegment() async {
@@ -215,7 +264,7 @@ class SegmentingScreenRecorder implements ScreenRecorder {
     if (code != 0 && code != 255 && !_looksLikeCleanStop(stderr)) {
       AppLogger.warn('Capture stop exit code $code: $stderr');
     }
-    await Future<void>.delayed(const Duration(milliseconds: 150));
+    await Future<void>.delayed(Duration(milliseconds: Platform.isWindows ? 500 : 150));
   }
 
   Future<String> _mergeSegments(

@@ -19,18 +19,28 @@ At least one output file must be specified
 
 /// FFmpeg stand-in: `-i` prints [_info]; concat / auto-zoom create their output.
 class _FakeFfmpeg extends ProcessRunner {
-  _FakeFfmpeg({this.info = _info});
+  _FakeFfmpeg({this.info = _info, this.damaged = const {}});
   final String info;
+
+  /// File names FFmpeg can't read (cut off while being written).
+  final Set<String> damaged;
+
+  /// What was asked to be joined, as the concat list said.
+  String joined = '';
   final calls = <List<String>>[];
 
   @override
   Future<ProcessResult> run(String executable, List<String> arguments, {String? workingDirectory, Duration? timeout}) async {
     calls.add(arguments);
     if (arguments.contains('concat')) {
+      joined = File(arguments[arguments.indexOf('-i') + 1]).readAsStringSync();
       File(arguments.last).writeAsBytesSync(List.filled(200 * 1024, 1));
       return ProcessResult(0, 0, '', '');
     }
-    if (arguments.length == 3 && arguments[1] == '-i') return ProcessResult(0, 1, '', info);
+    if (arguments.length == 3 && arguments[1] == '-i') {
+      if (damaged.contains(p.basename(arguments[2]))) return ProcessResult(0, 1, '', 'moov atom not found');
+      return ProcessResult(0, 1, '', info);
+    }
     return ProcessResult(0, 1, '', 'no');
   }
 
@@ -119,6 +129,19 @@ void main() {
     final reloaded = DraftStore(root: Directory(p.join(tmp.path, 'recordings')));
     await reloaded.load();
     expect(reloaded.drafts.every((d) => d.recovered), isTrue);
+  });
+
+  test('paused, resumed, then an error: the readable pieces are still recovered', () async {
+    for (var i = 0; i < 3; i++) {
+      video('screen_recorder_err', 'segment_$i.mp4', at: old.add(Duration(minutes: i)));
+    }
+    final store = DraftStore(root: Directory(p.join(tmp.path, 'recordings')), runner: _FakeFfmpeg());
+    final runner = _FakeFfmpeg(damaged: {'segment_2.mp4'});
+    final recovered = await recoverUnsavedRecordings(store: store, temp: tmp, runner: runner);
+    expect(recovered, hasLength(1));
+    expect(runner.joined, contains('segment_0.mp4'));
+    expect(runner.joined, contains('segment_1.mp4'));
+    expect(runner.joined, isNot(contains('segment_2.mp4')), reason: 'the damaged piece is left out');
   });
 
   test('an unreadable leftover is left where it is', () async {
