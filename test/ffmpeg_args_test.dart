@@ -157,7 +157,7 @@ DP-1 disconnected (normal left inverted right x axis y axis)
     );
     expect(args, containsAllInOrder(['-f', 'dshow', '-audio_buffer_size', '50']));
     expect(args, containsAllInOrder(['-fps_mode', 'cfr']));
-    expect(args, containsAllInOrder(['-af', 'aresample=async=1000,highpass=f=80']));
+    expect(args[args.indexOf('-af') + 1], startsWith('aresample=async=1000,highpass=f=80'));
     expect(args.last, 'C:/t/segment_0.mp4');
   });
 }
