@@ -138,4 +138,12 @@ DP-1 disconnected (normal left inverted right x axis y axis)
     expect(monitors[1].x, -1920);
     expect(monitors[1].width, 1920);
   });
+
+  test('recordings are written so a sudden stop still leaves a playable file', () {
+    final capture = ffmpegEncodeArgs(encoder: 'libx264', outputPath: '/tmp/segment_0.mp4', crashSafe: true);
+    expect(capture, containsAllInOrder(['-movflags', '+frag_keyframe+empty_moov+default_base_moof']));
+    expect(capture.last, '/tmp/segment_0.mp4');
+    expect(ffmpegEncodeArgs(encoder: 'libx264', outputPath: '/tmp/merged.mp4'), isNot(contains('-movflags')),
+        reason: 'only while capturing');
+  });
 }

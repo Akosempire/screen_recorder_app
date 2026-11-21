@@ -35,7 +35,18 @@ class VideoProbe {
 VideoProbe? parseFfmpegInfo(String stderr) {
   final d = RegExp(r'Duration: (\d+):(\d\d):(\d\d)(?:\.(\d+))?').firstMatch(stderr);
   final v = RegExp(r'Stream #\S+.*Video: .*?(\d{2,5})x(\d{2,5})').firstMatch(stderr);
-  if (d == null || v == null) return null;
+  if (v == null) return null;
+  if (d == null) {
+    // A file cut off while being written in pieces can still be read, but
+    // FFmpeg may not know its length up front ("Duration: N/A").
+    if (!stderr.contains('Duration: N/A')) return null;
+    return VideoProbe(
+      duration: Duration.zero,
+      width: int.parse(v.group(1)!),
+      height: int.parse(v.group(2)!),
+      hasAudio: RegExp(r'Stream #\S+.*Audio: ').hasMatch(stderr),
+    );
+  }
   final frac = d.group(4) ?? '0';
   final ms = (int.parse(frac.padRight(3, '0').substring(0, 3)));
   final duration = Duration(
@@ -146,7 +157,27 @@ Future<Draft?> recoverRecording(
     }
   }
   final info = await runner.run(ffmpegExecutable, ['-hide_banner', '-i', video]);
-  final probe = parseFfmpegInfo('${info.stderr}');
+  var probe = parseFfmpegInfo('${info.stderr}');
+  if (probe != null && probe.duration == Duration.zero) {
+    // Length unknown: read the file through once to find it.
+    final pass = await runner.run(ffmpegExecutable, ['-hide_banner', '-i', video, '-map', '0:v:0', '-c', 'copy', '-f', 'null', '-']);
+    final times = RegExp(r'time=(\d+):(\d\d):(\d\d)(?:\.(\d+))?').allMatches('${pass.stderr}').toList();
+    if (times.isNotEmpty) {
+      final t = times.last;
+      final frac = (t.group(4) ?? '0').padRight(3, '0').substring(0, 3);
+      probe = VideoProbe(
+        duration: Duration(
+          hours: int.parse(t.group(1)!),
+          minutes: int.parse(t.group(2)!),
+          seconds: int.parse(t.group(3)!),
+          milliseconds: int.parse(frac),
+        ),
+        width: probe.width,
+        height: probe.height,
+        hasAudio: probe.hasAudio,
+      );
+    }
+  }
   if (probe == null || probe.duration < const Duration(seconds: 1)) {
     AppLogger.warn('Unreadable leftover recording in ${r.dir.path}; leaving it in place');
     return null;

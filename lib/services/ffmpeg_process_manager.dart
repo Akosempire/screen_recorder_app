@@ -191,7 +191,9 @@ class CaptureProcessManager {
 
   Future<int> stop({
     StopStyle style = StopStyle.ffmpegQuit,
-    Duration timeout = const Duration(seconds: 8),
+    // Finishing a long recording can take a while on a slow disk; killing
+    // FFmpeg early leaves a file nothing can open.
+    Duration timeout = const Duration(seconds: 30),
   }) async {
     final process = _process;
     if (process == null) {

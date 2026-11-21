@@ -78,6 +78,13 @@ void main() {
     expect(parseFfmpegInfo('moov atom not found\nInvalid data found when processing input'), isNull);
   });
 
+  test('a file cut off mid-recording (written in pieces) is still readable', () {
+    final probe = parseFfmpegInfo(_info.replaceFirst(RegExp(r'Duration: [^,]+'), 'Duration: N/A'))!;
+    expect(probe.duration, Duration.zero, reason: 'length is found by reading the file through');
+    expect(probe.width, 1920);
+    expect(probe.hasAudio, isTrue);
+  });
+
   test('finds recordings left in the temp folder, and skips what is not one', () async {
     // The class: stopped normally, then auto-zoom was cut off by shutdown.
     video('screen_recorder_aaa', 'segment_0.mp4', kb: 900);

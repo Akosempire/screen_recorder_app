@@ -111,6 +111,7 @@ List<String> buildGdigrabArgs({
       outputPath: outputPath,
       recordMicrophone: microphoneDevice != null,
       levelMicrophone: true,
+      crashSafe: true,
     ),
   ];
 }

@@ -208,6 +208,7 @@ List<String> buildAvfoundationArgs({
       outputPath: outputPath,
       recordMicrophone: microphoneIndex != null,
       levelMicrophone: true,
+      crashSafe: true,
     ),
   ];
 }

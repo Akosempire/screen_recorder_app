@@ -439,6 +439,7 @@ List<String> ffmpegEncodeArgs({
   required String outputPath,
   bool recordMicrophone = false,
   bool levelMicrophone = false,
+  bool crashSafe = false,
 }) {
   return [
     if (recordMicrophone) ...[
@@ -458,6 +459,15 @@ List<String> ffmpegEncodeArgs({
     if (encoder != 'mpeg4') ...['-crf', '23', '-threads', '0'],
     '-pix_fmt',
     'yuv420p',
+    // While capturing: write the file in short self-contained pieces, so if
+    // the app or computer stops suddenly, everything up to the last few
+    // seconds still plays (a normal MP4 is unreadable until it's finished).
+    if (crashSafe && outputPath.toLowerCase().endsWith('.mp4')) ...[
+      '-movflags',
+      '+frag_keyframe+empty_moov+default_base_moof',
+      '-g',
+      '60',
+    ],
     outputPath,
   ];
 }
@@ -497,6 +507,7 @@ List<String> buildX11GrabArgs({
       outputPath: outputPath,
       recordMicrophone: recordMicrophone,
       levelMicrophone: true,
+      crashSafe: true,
     ),
   ];
 }
