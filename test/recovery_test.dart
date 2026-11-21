@@ -149,6 +149,10 @@ void main() {
     expect(runner.joined, contains('segment_0.mp4'));
     expect(runner.joined, contains('segment_1.mp4'));
     expect(runner.joined, isNot(contains('segment_2.mp4')), reason: 'the damaged piece is left out');
+    expect(File(p.join(tmp.path, 'screen_recorder_err', 'segment_2.mp4')).existsSync(), isTrue,
+        reason: 'a piece that could not be repaired is kept for later');
+    expect(File(p.join(tmp.path, 'screen_recorder_err', 'segment_0.mp4')).existsSync(), isFalse,
+        reason: 'what is in Recordings now is not recovered twice');
   });
 
   test('a piece cut off before it was finished is repaired and recovered', () async {

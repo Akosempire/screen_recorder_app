@@ -212,9 +212,22 @@ Future<Draft?> recoverRecording(
     repaired: repaired.isNotEmpty,
   );
   if (draft != null) {
-    try {
-      await r.dir.delete(recursive: true);
-    } catch (_) {}
+    final unrepaired = broken.where((b) => !repaired.containsKey(b)).toList();
+    if (unrepaired.isEmpty) {
+      try {
+        await r.dir.delete(recursive: true);
+      } catch (_) {}
+    } else {
+      // Never throw away a piece that couldn't be repaired yet (it may be
+      // most of the recording): remove only what is now in Recordings, so
+      // the next start tries the rest again without making duplicates.
+      for (final f in [...readable, ...repaired.keys, ...repaired.values]) {
+        try {
+          await File(f).delete();
+        } catch (_) {}
+      }
+      AppLogger.warn('Kept ${unrepaired.length} piece(s) that couldn\'t be repaired yet in ${r.dir.path}');
+    }
     AppLogger.info('Recovered ${probe.duration} recording from ${r.dir.path}');
   }
   return draft;
