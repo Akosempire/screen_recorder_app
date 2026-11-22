@@ -36,8 +36,10 @@ Future<bool> looksPlayable(String path, ProcessRunner runner) async {
     ['-hide_banner', '-v', 'error', '-i', path, '-t', '30', '-f', 'null', '-'],
     timeout: const Duration(minutes: 3),
   );
-  final errors = '${check.stderr}'.split('\n').where((l) => l.trim().isNotEmpty).length;
-  AppLogger.info('Repaired video check: $errors decode error line(s)');
+  final lines = '${check.stderr}'.split('\n').where((l) => l.trim().isNotEmpty).toList();
+  final errors = lines.length;
+  AppLogger.info('Repaired video check: ${probe.duration}, $errors decode error line(s)'
+      '${lines.isEmpty ? '' : ', e.g. ${lines.first}'}');
   return errors < 25;
 }
 
@@ -52,7 +54,7 @@ Future<String?> repairCutOffVideo(
 }) async {
   final tool = untrunc ?? untruncExecutable;
   if (tool == null) {
-    AppLogger.info('No repair tool on this system; leaving $broken as it is');
+    AppLogger.warn('No repair tool found next to the app; leaving $broken as it is');
     return null;
   }
   final dir = p.dirname(broken);
@@ -70,7 +72,13 @@ Future<String?> repairCutOffVideo(
         workingDirectory: dir,
         timeout: const Duration(minutes: 30),
       );
-      AppLogger.debug('untrunc: ${result.stdout}\n${result.stderr}');
+      // Kept in the log Get help sends, so a failed repair can be looked into.
+      final said = '${result.stdout}\n${result.stderr}'
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty)
+          .toList();
+      AppLogger.info('Repair tool (exit ${result.exitCode}): ${said.length > 12 ? said.sublist(said.length - 12).join(' | ') : said.join(' | ')}');
     } catch (error) {
       AppLogger.warn('Repair tool failed to run: $error');
       return null;
@@ -85,7 +93,10 @@ Future<String?> repairCutOffVideo(
         })
         .toList()
       ..sort((a, b) => b.lengthSync().compareTo(a.lengthSync()));
-    if (outs.isEmpty) continue;
+    if (outs.isEmpty) {
+      AppLogger.warn('Repair with $model produced no file');
+      continue;
+    }
     final out = outs.first.path;
     if (await looksPlayable(out, runner)) {
       AppLogger.info('Repaired $broken → $out');
